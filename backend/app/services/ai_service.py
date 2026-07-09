@@ -44,7 +44,7 @@ class AIService:
             await self._cache_response(metrics_hash, response, user_id)
             return response
         except Exception:
-            logger.error(f"{settings.AI_PROVIDER} API call failed, falling back to demo", exc_info=True)
+            logger.error("%s API call failed, falling back to demo", settings.AI_PROVIDER)
             response = self._generate_demo_recommendations(metrics)
             await self._cache_response(metrics_hash, response, user_id)
             return response
@@ -76,7 +76,7 @@ class AIService:
                 data = json.loads(cached.response)
                 return RecommendationResponse(**data)
         except Exception:
-            logger.debug("Cache miss or read error", exc_info=True)
+            logger.debug("Cache miss or read error")
         return None
     
     async def _cache_response(self, metrics_hash: str, response: RecommendationResponse, user_id: str) -> None:
@@ -154,7 +154,7 @@ class AIService:
             response = await client.post(
                 f"{settings.DEEPSEEK_BASE_URL}/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {settings.DEEPSEEK_API_KEY}",
+                    "Authorization": f"Bearer {settings.DEEPSEEK_API_KEY.get_secret_value()}",
                     "Content-Type": "application/json"
                 },
                 json={

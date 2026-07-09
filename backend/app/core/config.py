@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     AI_PROVIDER: Literal["deepseek", "gigachat", "demo"] = "demo"
     
     # DeepSeek (OpenAI-совместимый API)
-    DEEPSEEK_API_KEY: Optional[str] = None
+    DEEPSEEK_API_KEY: Optional[SecretStr] = None
     DEEPSEEK_MODEL: str = "deepseek-chat"
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
     
