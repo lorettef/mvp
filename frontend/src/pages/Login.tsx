@@ -35,8 +35,7 @@ export const Login = () => {
     setLoading(true)
     setError('')
     try {
-      const demo = await authApi.seed()
-       await authApi.login({ email: demo.email, password: demo.password })
+      await authApi.seed()
       const userData = await authApi.me()
       mapAndSetUser(userData, setUser)
       navigate('/dashboard')
