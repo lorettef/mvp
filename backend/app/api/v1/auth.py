@@ -61,7 +61,7 @@ async def login(
         path="/",
     )
 
-    return TokenResponse(**result)
+    return TokenResponse(token_type=result["token_type"], expires_in=result["expires_in"])
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
@@ -102,10 +102,23 @@ async def logout(response: Response):
 
 @router.post("/seed", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def seed_demo(
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ):
-    """Create demo account (DEMO_MODE only)."""
+    """Create demo account and auto-login (DEMO_MODE only)."""
     if not settings.DEMO_MODE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo mode disabled")
     result = await seed_demo_account(db)
-    return result
+    # Auto-login: set JWT cookie so frontend doesn't need the password
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": result["user_id"]})
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=60 * 24 * 7,
+        path="/",
+    )
+    return {"email": result["email"]}

@@ -78,5 +78,5 @@ async def seed_demo_account(db: AsyncSession) -> dict:
 
     return {
         "email": settings.DEMO_ACCOUNT_EMAIL,
-        "password": settings.DEMO_ACCOUNT_PASSWORD,
+        "user_id": str(user.id),
     }
