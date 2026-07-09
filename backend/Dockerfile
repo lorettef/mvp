@@ -2,6 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Python path for module imports
+ENV PYTHONPATH=/app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt || \
     pip install --no-cache-dir -r requirements.txt
