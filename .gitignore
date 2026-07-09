@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Credentials (never commit API keys)
+GIGACHAT*
+*:Zone.Identifier
+*.pem
+*.key
+
+# Docker
+.dockerignore
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.local
+
+# Coverage
+coverage.xml
+*.coverage
+htmlcov/
+.pytest_cache/
+
+# Internal tooling
+.codegraph/
+.omo/
+
+# Local packages (not project code)
+*.deb
+
+# Security PoC (not production code)
+poc_*.py
+
+# OS
+.DS_Store
+Thumbs.db
+frontend/.env.production

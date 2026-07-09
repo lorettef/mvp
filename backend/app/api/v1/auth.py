@@ -1,0 +1,111 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.core.config import settings
+from app.core.limiter import limiter
+from app.core.database import get_db
+from app.models.user import User
+from app.schemas.auth import UserCreate, UserLogin, TokenResponse, UserResponse
+from app.services.auth_service import AuthService
+from app.services.subscription_service import SubscriptionService
+from app.services.seed_service import seed_demo_account
+from app.api.dependencies import get_current_user
+
+router = APIRouter()
+
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
+async def register(
+    data: UserCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """Регистрация нового пользователя."""
+    auth_service = AuthService(db)
+    user_data = await auth_service.register(data)
+    
+    # Получение информации о подписке
+    sub_service = SubscriptionService(db)
+    sub_info = await sub_service.get_user_subscription(user_data["id"])
+    
+    return UserResponse(
+        id=user_data["id"],
+        email=user_data["email"],
+        full_name=user_data["full_name"],
+        company_name=user_data["company_name"],
+        created_at=user_data["created_at"],
+        subscription_plan=sub_info["plan"],
+        daily_limit=sub_info["daily_limit"],
+        used_today=sub_info["used_today"]
+    )
+
+@router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")
+async def login(
+    data: UserLogin,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """Авторизация пользователя."""
+    auth_service = AuthService(db)
+    result = await auth_service.login(data.email, data.password)
+
+    response.set_cookie(
+        key="access_token",
+        value=result["access_token"],
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="strict",
+        max_age=result["expires_in"],
+        path="/",
+    )
+
+    return TokenResponse(**result)
+
+@router.get("/me", response_model=UserResponse)
+async def get_me(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить информацию о текущем пользователе."""
+    result = await db.execute(
+        select(User).where(User.id == current_user["user_id"])
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь не найден"
+        )
+    
+    sub_service = SubscriptionService(db)
+    sub_info = await sub_service.get_user_subscription(user.id)
+    
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        company_name=user.company_name,
+        created_at=user.created_at,
+        subscription_plan=sub_info["plan"],
+        daily_limit=sub_info["daily_limit"],
+        used_today=sub_info["used_today"]
+    )
+
+@router.post("/logout")
+async def logout(response: Response):
+    """Выход из системы — удаление httpOnly cookie."""
+    response.delete_cookie(key="access_token", path="/")
+    return {"detail": "ok"}
+
+@router.post("/seed", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def seed_demo(
+    db: AsyncSession = Depends(get_db),
+):
+    """Create demo account (DEMO_MODE only)."""
+    if not settings.DEMO_MODE:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo mode disabled")
+    result = await seed_demo_account(db)
+    return result
