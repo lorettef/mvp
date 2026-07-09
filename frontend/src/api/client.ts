@@ -1,9 +1,7 @@
 import axios from 'axios'
 
 export const api = axios.create({
-  baseURL: import.meta.env.PROD
-    ? import.meta.env.VITE_API_URL
-    : '/api/v1',  // dev: через Vite proxy (same-origin → нет проблем с CORS и куками)
+  baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 })
