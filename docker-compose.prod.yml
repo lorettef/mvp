@@ -21,15 +21,15 @@ services:
           memory: 512M
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/lorettef/mvp-backend:latest
     container_name: startup_backend
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?err}@db:5432/${POSTGRES_DB:-startup_engine}
       - SECRET_KEY=${SECRET_KEY:?err}
-      - GIGACHAT_AUTH_KEY=${GIGACHAT_AUTH_KEY:-dummy}
-      - GIGACHAT_CLIENT_ID=${GIGACHAT_CLIENT_ID:-dummy}
+      - AI_PROVIDER=${AI_PROVIDER:-demo}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - GIGACHAT_AUTH_KEY=${GIGACHAT_AUTH_KEY:-}
+      - GIGACHAT_CLIENT_ID=${GIGACHAT_CLIENT_ID:-}
       - DEMO_MODE=${DEMO_MODE:-false}
       - DEBUG=false
       - CORS_ORIGINS=${CORS_ORIGINS:-["https://mvp.poicho.ru"]}
@@ -49,9 +49,7 @@ services:
       retries: 3
 
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile.prod
+    image: ghcr.io/lorettef/mvp-frontend:latest
     container_name: startup_frontend
     ports:
       - "80:8080"
