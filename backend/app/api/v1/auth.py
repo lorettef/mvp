@@ -55,8 +55,8 @@ async def login(
         key="access_token",
         value=result["access_token"],
         httponly=True,
-        secure=not settings.DEBUG,
-        samesite="strict",
+        secure=False,  # Set True when HTTPS is configured
+        samesite="lax",
         max_age=result["expires_in"],
         path="/",
     )
