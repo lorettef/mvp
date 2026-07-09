@@ -32,7 +32,7 @@ services:
       - GIGACHAT_CLIENT_ID=${GIGACHAT_CLIENT_ID:-dummy}
       - DEMO_MODE=${DEMO_MODE:-false}
       - DEBUG=false
-      - CORS_ORIGINS=${CORS_ORIGINS:-["https://startupengine.ru"]}
+      - CORS_ORIGINS=${CORS_ORIGINS:-["https://mvp.poicho.ru"]}
     depends_on:
       db:
         condition: service_healthy

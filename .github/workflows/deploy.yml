@@ -25,6 +25,8 @@ jobs:
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
             POSTGRES_DB=${{ secrets.POSTGRES_DB }}
             SECRET_KEY=${{ secrets.SECRET_KEY }}
+            AI_PROVIDER=${{ secrets.AI_PROVIDER }}
+            DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}
             DEMO_MODE=${{ secrets.DEMO_MODE }}
             CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
             ENVEOF
