@@ -24,6 +24,8 @@ slowapi==0.1.9
 
 # AI/ML
 numpy==2.2.2
+prophet==1.1.6
+pandas==2.2.3
 
 # Development
 pytest==8.3.4

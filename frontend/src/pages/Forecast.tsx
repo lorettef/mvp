@@ -3,6 +3,7 @@ import { forecastApi } from '../api/forecast'
 import {
   LineChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -53,22 +54,39 @@ export const Forecast = () => {
 
   const prepareChartData = () => {
     if (!result) return []
-    
+
     const history = historyInput.split(',').map((s) => parseFloat(s.trim()))
-    const data: { month: string; historical: number | null; forecast: number | null }[] = history.map((value, i) => ({
+    const ci = result.confidence_interval
+
+    const data: {
+      month: string
+      historical: number | null
+      forecast: number | null
+      confidenceUpper: number | null
+      confidenceLower: number | null
+      confidenceBand: number | null
+    }[] = history.map((value, i) => ({
       month: `Месяц ${i + 1}`,
       historical: value,
       forecast: null,
+      confidenceUpper: null,
+      confidenceLower: null,
+      confidenceBand: null,
     }))
-    
+
     result.predictions.forEach((value: number, i: number) => {
+      const upper = ci ? ci.upper[i] : null
+      const lower = ci ? ci.lower[i] : null
       data.push({
         month: `Месяц ${history.length + i + 1}`,
         historical: null,
         forecast: value,
+        confidenceUpper: upper,
+        confidenceLower: lower,
+        confidenceBand: upper != null && lower != null ? +(upper - lower).toFixed(2) : null,
       })
     })
-    
+
     return data
   }
 
@@ -191,6 +209,24 @@ export const Forecast = () => {
                     strokeDasharray="5 5"
                     name="Прогноз"
                     connectNulls
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="confidenceLower"
+                    stackId="confidence"
+                    stroke="none"
+                    fill="transparent"
+                    isAnimationActive={false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="confidenceBand"
+                    stackId="confidence"
+                    stroke="none"
+                    fill="#10b981"
+                    fillOpacity={0.12}
+                    name="Дов. интервал"
+                    isAnimationActive={false}
                   />
                 </LineChart>
               </ResponsiveContainer>
