@@ -97,9 +97,10 @@ git clone https://github.com/NickNewill/startup_engine.git
 cd startup_engine
 
 # Настройка переменных окружения
+cp .env.example .env            # переменные для Docker Compose (POSTGRES_*)
 cp backend/.env.example backend/.env
-# Отредактируйте backend/.env — добавьте ключи GigaChat API (опционально)
-# DEMO_MODE=true работает из коробки для локальной разработки
+# Отредактируйте backend/.env — добавьте ключи AI-провайдера (опционально)
+# AI_PROVIDER=demo работает из коробки для локальной разработки
 ```
 
 ### 2. Запуск через Docker (рекомендуется)
@@ -187,6 +188,7 @@ startup_engine/
 ├── nginx/                       # Конфигурация Nginx для production
 ├── scripts/                     # Деплой и утилиты
 ├── .github/workflows/           # CI/CD (test.yml, deploy.yml)
+├── .env.example                 # Пример переменных окружения для Docker Compose
 ├── docker-compose.yml           # Docker для разработки
 └── docker-compose.prod.yml      # Docker для production
 ```
