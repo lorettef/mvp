@@ -287,3 +287,40 @@ export interface ReadinessResponse {
   risks: string[]
   summary: string
 }
+
+// Market analysis
+export type MarketIndustry = 'saas' | 'fintech' | 'ecommerce' | 'edtech' | 'healthtech' | 'ai' | 'other'
+export type MarketGeography = 'RU' | 'KZ' | 'global'
+
+export interface MarketAnalysisRequest {
+  industry: MarketIndustry
+  geography: MarketGeography
+  horizon: number
+}
+
+export interface MacroIndicators {
+  gdpGrowth: number
+  inflation: number
+  keyRate: number
+}
+
+export interface MarketImpact {
+  mrrFactor: number
+  cacFactor: number
+  churnFactor: number
+}
+
+export interface MarketAnalysisResponse {
+  industry: MarketIndustry
+  industryLabel: string
+  geography: MarketGeography
+  geographyLabel: string
+  horizon: number
+  macro: MacroIndicators
+  marketSize: number
+  marketSizeProjected: number
+  marketGrowth: number
+  trends: string[]
+  impact: MarketImpact
+  summary: string
+}

@@ -25,6 +25,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/api/companies', () => ({ companiesApi: mocks.companiesApi }))
 
+const marketApiMock = vi.hoisted(() => ({
+  analyze: vi.fn(),
+}))
+
+vi.mock('@/api/market', () => ({ marketApi: marketApiMock }))
+
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({
     user: {
@@ -135,6 +141,21 @@ const readinessData = {
   summary: 'Готовность 0%. Основные риски: не завершены этапы Подготовка метрик.',
 }
 
+const marketData = {
+  industry: 'saas',
+  industryLabel: 'SaaS',
+  geography: 'RU',
+  geographyLabel: 'Россия',
+  horizon: 3,
+  macro: { gdpGrowth: 3.5, inflation: 8.5, keyRate: 21.0 },
+  marketSize: 300,
+  marketSizeProjected: 456.3,
+  marketGrowth: 15,
+  trends: ['Сдвиг к AI-функциям'],
+  impact: { mrrFactor: 1.01, cacFactor: 1.09, churnFactor: 1.04 },
+  summary: 'SaaS в географии «Россия».',
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -160,15 +181,17 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.unitEconomics.mockResolvedValue(unitEconomicsData)
     mocks.companiesApi.tasks.mockResolvedValue([taskData])
     mocks.companiesApi.readiness.mockResolvedValue(readinessData)
+    marketApiMock.analyze.mockResolvedValue(marketData)
   })
 
-  it('renders 5 tab triggers', async () => {
+  it('renders 6 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Бюджет' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Юнит-экономика' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Задачи' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Рынок' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -202,6 +225,13 @@ describe('CompanyDetail', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Задачи' }))
     expect(await screen.findByText('Готовность к продаже')).toBeInTheDocument()
     expect(screen.getByText('Подготовить метрики')).toBeInTheDocument()
+  })
+
+  it('switches to market tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Рынок' }))
+    expect(await screen.findByText('Внешний анализ рынка')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Анализировать' })).toBeInTheDocument()
   })
 
   it('hides add buttons for observer role', async () => {

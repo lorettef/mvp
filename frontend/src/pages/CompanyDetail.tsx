@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { companiesApi } from '../api/companies'
+import { marketApi } from '../api/market'
 import { useAuthStore } from '../store/authStore'
-import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate } from '@/types/api'
+import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +15,7 @@ import { CohortsTab } from '@/components/company/CohortsTab'
 import { BudgetTab } from '@/components/company/BudgetTab'
 import { UnitEconomicsTab } from '@/components/company/UnitEconomicsTab'
 import { TasksTab } from '@/components/company/TasksTab'
+import { MarketTab } from '@/components/company/MarketTab'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
@@ -135,6 +137,10 @@ export const CompanyDetail = () => {
     onSuccess: invalidateTasks,
   })
 
+  const marketMutation = useMutation({
+    mutationFn: (req: MarketAnalysisRequest) => marketApi.analyze(req),
+  })
+
   if (companyQuery.isLoading) {
     return (
       <div className="space-y-6 p-4 sm:p-6">
@@ -199,6 +205,7 @@ export const CompanyDetail = () => {
           <TabsTrigger value="budget">Бюджет</TabsTrigger>
           <TabsTrigger value="unit">Юнит-экономика</TabsTrigger>
           <TabsTrigger value="tasks">Задачи</TabsTrigger>
+          <TabsTrigger value="market">Рынок</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -331,6 +338,14 @@ export const CompanyDetail = () => {
             onUpdate={(taskId, d) => updateTaskMutation.mutate({ taskId, data: d })}
             onDelete={(taskId) => deleteTaskMutation.mutate(taskId)}
             isPending={createTaskMutation.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="market">
+          <MarketTab
+            data={marketMutation.data ?? null}
+            isLoading={marketMutation.isPending}
+            onAnalyze={(req) => marketMutation.mutate(req)}
           />
         </TabsContent>
       </Tabs>
