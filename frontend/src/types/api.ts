@@ -210,3 +210,28 @@ export interface BudgetUpsert {
   fot: number
   gna: number
 }
+
+// Unit economics (server-side summary)
+export interface RetentionBreakdown {
+  m1: number | null
+  m3: number | null
+  m6: number | null
+  m12: number | null
+}
+
+export interface UnitEconomicsResponse {
+  companyId: string
+  mrr: number | null
+  cac: number | null
+  ltv: number | null
+  churn: number | null
+  ltvCac: number | null
+  runwayMonths: number | null
+  cash: number | null
+  monthlyBurn: number | null
+  magicNumber: number | null
+  revenueGrowth: number | null
+  marketingSpend: number | null
+  retention: RetentionBreakdown
+  alerts: string[]
+}

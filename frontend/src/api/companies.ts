@@ -9,6 +9,7 @@ import type {
   CohortUpsert,
   Budget,
   BudgetUpsert,
+  UnitEconomicsResponse,
 } from '@/types/api'
 import { api } from './client'
 
@@ -33,6 +34,8 @@ export const companiesApi = {
     api.get(`/companies/${id}/budgets`, { params: period ? { period } : {} }).then((res) => res.data),
   upsertBudget: (id: string, data: BudgetUpsert): Promise<Budget> =>
     api.put(`/companies/${id}/budgets`, data).then((res) => res.data),
+  unitEconomics: (id: string): Promise<UnitEconomicsResponse> =>
+    api.get(`/companies/${id}/unit-economics`).then((res) => res.data),
 }
 
 export const dashboardApi = {

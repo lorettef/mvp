@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { CohortsTab } from '@/components/company/CohortsTab'
 import { BudgetTab } from '@/components/company/BudgetTab'
+import { UnitEconomicsTab } from '@/components/company/UnitEconomicsTab'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
@@ -58,6 +59,12 @@ export const CompanyDetail = () => {
   const budgetsQuery = useQuery({
     queryKey: ['company-budgets', id],
     queryFn: () => companiesApi.budgets(id),
+    enabled: Boolean(id),
+  })
+
+  const unitEconomicsQuery = useQuery({
+    queryKey: ['company-unit-economics', id],
+    queryFn: () => companiesApi.unitEconomics(id),
     enabled: Boolean(id),
   })
 
@@ -119,6 +126,7 @@ export const CompanyDetail = () => {
   const metrics = metricsQuery.data ?? []
   const cohorts = cohortsQuery.data ?? []
   const budgets = budgetsQuery.data ?? []
+  const unitEconomics = unitEconomicsQuery.data
 
   const canEdit = user?.role === 'admin' || user?.role === 'company'
 
@@ -152,6 +160,7 @@ export const CompanyDetail = () => {
           <TabsTrigger value="metrics">Метрики</TabsTrigger>
           <TabsTrigger value="cohorts">Когорты</TabsTrigger>
           <TabsTrigger value="budget">Бюджет</TabsTrigger>
+          <TabsTrigger value="unit">Юнит-экономика</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -265,6 +274,13 @@ export const CompanyDetail = () => {
             canEdit={canEdit}
             onSubmit={(d) => budgetUpsert.mutate(d)}
             isPending={budgetUpsert.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="unit">
+          <UnitEconomicsTab
+            data={unitEconomics}
+            isLoading={unitEconomicsQuery.isLoading}
           />
         </TabsContent>
       </Tabs>

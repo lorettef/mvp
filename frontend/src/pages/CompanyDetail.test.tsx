@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     upsertMetric: vi.fn(),
     upsertCohort: vi.fn(),
     upsertBudget: vi.fn(),
+    unitEconomics: vi.fn(),
   },
 }))
 
@@ -87,6 +88,23 @@ const budget = {
   updatedAt: '',
 }
 
+const unitEconomicsData = {
+  companyId: 'comp1',
+  mrr: 120000,
+  cac: 1000,
+  ltv: 5000,
+  churn: 0.03,
+  ltvCac: 5.0,
+  runwayMonths: 15.0,
+  cash: 300000,
+  monthlyBurn: 20000,
+  magicNumber: 3.5,
+  revenueGrowth: 20000,
+  marketingSpend: 4000,
+  retention: { m1: 0.8, m3: 0.6, m6: 0.5, m12: 0.4 },
+  alerts: ['✅ LTV/CAC = 5.00 — отличный показатель.'],
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -109,13 +127,15 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.metrics.mockResolvedValue([metric])
     mocks.companiesApi.cohorts.mockResolvedValue([cohort])
     mocks.companiesApi.budgets.mockResolvedValue([budget])
+    mocks.companiesApi.unitEconomics.mockResolvedValue(unitEconomicsData)
   })
 
-  it('renders 3 tab triggers', async () => {
+  it('renders 4 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Бюджет' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Юнит-экономика' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -134,6 +154,14 @@ describe('CompanyDetail', () => {
     renderCompanyDetail()
     fireEvent.click(await screen.findByRole('tab', { name: 'Бюджет' }))
     expect(await screen.findByText('Бюджет — План vs Факт')).toBeInTheDocument()
+  })
+
+  it('switches to unit economics tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Юнит-экономика' }))
+    expect(await screen.findByText('LTV/CAC')).toBeInTheDocument()
+    expect(screen.getByText('Magic Number')).toBeInTheDocument()
+    expect(screen.getByText('80.0%')).toBeInTheDocument()
   })
 
   it('hides add buttons for observer role', async () => {
