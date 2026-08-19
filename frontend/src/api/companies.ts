@@ -10,6 +10,10 @@ import type {
   Budget,
   BudgetUpsert,
   UnitEconomicsResponse,
+  Task,
+  TaskCreate,
+  TaskUpdate,
+  ReadinessResponse,
 } from '@/types/api'
 import { api } from './client'
 
@@ -36,6 +40,16 @@ export const companiesApi = {
     api.put(`/companies/${id}/budgets`, data).then((res) => res.data),
   unitEconomics: (id: string): Promise<UnitEconomicsResponse> =>
     api.get(`/companies/${id}/unit-economics`).then((res) => res.data),
+  tasks: (id: string): Promise<Task[]> =>
+    api.get(`/companies/${id}/tasks`).then((res) => res.data),
+  createTask: (id: string, data: TaskCreate): Promise<Task> =>
+    api.post(`/companies/${id}/tasks`, data).then((res) => res.data),
+  updateTask: (id: string, taskId: string, data: TaskUpdate): Promise<Task> =>
+    api.patch(`/companies/${id}/tasks/${taskId}`, data).then((res) => res.data),
+  deleteTask: (id: string, taskId: string): Promise<void> =>
+    api.delete(`/companies/${id}/tasks/${taskId}`).then((res) => res.data),
+  readiness: (id: string): Promise<ReadinessResponse> =>
+    api.get(`/companies/${id}/readiness`).then((res) => res.data),
 }
 
 export const dashboardApi = {

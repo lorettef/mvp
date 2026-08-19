@@ -1,11 +1,12 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company import Company
 from app.models.metric import Metric
+from app.models.task import Task
 from app.schemas.dashboard import CompanyStatusItem, DashboardResponse
 
 
@@ -68,6 +69,7 @@ class DashboardService:
                     status=status,
                     latest_mrr=latest_mrr,
                     latest_plan_mrr=latest_plan_mrr,
+                    task_progress=await self._task_progress(company.id),
                 )
             )
 
@@ -93,6 +95,24 @@ class DashboardService:
             .limit(1)
         )
         return result.scalar_one_or_none()
+
+    async def _task_progress(self, company_id: UUID) -> Optional[int]:
+        """Процент выполненных задач компании (None, если задач нет)."""
+        total_result = await self.db.execute(
+            select(func.count())
+            .select_from(Task)
+            .where(Task.company_id == company_id)
+        )
+        total = total_result.scalar_one()
+        if total == 0:
+            return None
+        done_result = await self.db.execute(
+            select(func.count())
+            .select_from(Task)
+            .where(Task.company_id == company_id, Task.status == "done")
+        )
+        done = done_result.scalar_one()
+        return round(done / total * 100)
 
     @staticmethod
     def _mean(values: list[float]) -> Optional[float]:

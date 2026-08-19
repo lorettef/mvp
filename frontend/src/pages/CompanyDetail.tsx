@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { companiesApi } from '../api/companies'
 import { useAuthStore } from '../store/authStore'
-import type { Metric, CohortUpsert, BudgetUpsert } from '@/types/api'
+import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { CohortsTab } from '@/components/company/CohortsTab'
 import { BudgetTab } from '@/components/company/BudgetTab'
 import { UnitEconomicsTab } from '@/components/company/UnitEconomicsTab'
+import { TasksTab } from '@/components/company/TasksTab'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
@@ -68,6 +69,18 @@ export const CompanyDetail = () => {
     enabled: Boolean(id),
   })
 
+  const tasksQuery = useQuery({
+    queryKey: ['company-tasks', id],
+    queryFn: () => companiesApi.tasks(id),
+    enabled: Boolean(id),
+  })
+
+  const readinessQuery = useQuery({
+    queryKey: ['company-readiness', id],
+    queryFn: () => companiesApi.readiness(id),
+    enabled: Boolean(id),
+  })
+
   const upsertMutation = useMutation({
     mutationFn: () =>
       companiesApi.upsertMetric(id, {
@@ -100,6 +113,28 @@ export const CompanyDetail = () => {
     },
   })
 
+  const invalidateTasks = () => {
+    queryClient.invalidateQueries({ queryKey: ['company-tasks', id] })
+    queryClient.invalidateQueries({ queryKey: ['company-readiness', id] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+  }
+
+  const createTaskMutation = useMutation({
+    mutationFn: (d: TaskCreate) => companiesApi.createTask(id, d),
+    onSuccess: invalidateTasks,
+  })
+
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data: TaskUpdate }) =>
+      companiesApi.updateTask(id, taskId, data),
+    onSuccess: invalidateTasks,
+  })
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: (taskId: string) => companiesApi.deleteTask(id, taskId),
+    onSuccess: invalidateTasks,
+  })
+
   if (companyQuery.isLoading) {
     return (
       <div className="space-y-6 p-4 sm:p-6">
@@ -127,6 +162,8 @@ export const CompanyDetail = () => {
   const cohorts = cohortsQuery.data ?? []
   const budgets = budgetsQuery.data ?? []
   const unitEconomics = unitEconomicsQuery.data
+  const tasks = tasksQuery.data ?? []
+  const readiness = readinessQuery.data ?? null
 
   const canEdit = user?.role === 'admin' || user?.role === 'company'
 
@@ -161,6 +198,7 @@ export const CompanyDetail = () => {
           <TabsTrigger value="cohorts">Когорты</TabsTrigger>
           <TabsTrigger value="budget">Бюджет</TabsTrigger>
           <TabsTrigger value="unit">Юнит-экономика</TabsTrigger>
+          <TabsTrigger value="tasks">Задачи</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -281,6 +319,18 @@ export const CompanyDetail = () => {
           <UnitEconomicsTab
             data={unitEconomics}
             isLoading={unitEconomicsQuery.isLoading}
+          />
+        </TabsContent>
+
+        <TabsContent value="tasks">
+          <TasksTab
+            tasks={tasks}
+            readiness={readiness}
+            canEdit={canEdit}
+            onCreate={(d) => createTaskMutation.mutate(d)}
+            onUpdate={(taskId, d) => updateTaskMutation.mutate({ taskId, data: d })}
+            onDelete={(taskId) => deleteTaskMutation.mutate(taskId)}
+            isPending={createTaskMutation.isPending}
           />
         </TabsContent>
       </Tabs>

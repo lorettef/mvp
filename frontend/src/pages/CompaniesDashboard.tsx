@@ -163,6 +163,7 @@ export const CompaniesDashboard = () => {
                 <th className="text-left font-medium px-5 py-3 hidden sm:table-cell">Сфера</th>
                 <th className="text-left font-medium px-5 py-3">MRR (факт)</th>
                 <th className="text-left font-medium px-5 py-3 hidden md:table-cell">MRR (план)</th>
+                <th className="text-left font-medium px-5 py-3">Прогресс задач</th>
                 <th className="text-left font-medium px-5 py-3">Статус</th>
               </tr>
             </thead>
@@ -179,6 +180,9 @@ export const CompaniesDashboard = () => {
                     <td className="px-5 py-3 text-muted-foreground hidden sm:table-cell">{c.industry || '—'}</td>
                     <td className="px-5 py-3 text-foreground">{fmtRub(c.latestMrr)}</td>
                     <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{fmtRub(c.latestPlanMrr)}</td>
+                    <td className="px-5 py-3 text-foreground">
+                      {c.taskProgress != null ? `${c.taskProgress}%` : '—'}
+                    </td>
                     <td className="px-5 py-3">
                       <Badge className={s.className}>{s.label}</Badge>
                     </td>
@@ -187,7 +191,7 @@ export const CompaniesDashboard = () => {
               })}
               {(data?.companies ?? []).length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
                     Пока нет компаний. Добавьте первую компанию.
                   </td>
                 </tr>

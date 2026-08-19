@@ -15,6 +15,11 @@ const mocks = vi.hoisted(() => ({
     upsertCohort: vi.fn(),
     upsertBudget: vi.fn(),
     unitEconomics: vi.fn(),
+    tasks: vi.fn(),
+    createTask: vi.fn(),
+    updateTask: vi.fn(),
+    deleteTask: vi.fn(),
+    readiness: vi.fn(),
   },
 }))
 
@@ -105,6 +110,31 @@ const unitEconomicsData = {
   alerts: ['✅ LTV/CAC = 5.00 — отличный показатель.'],
 }
 
+const taskData = {
+  id: 't1',
+  companyId: 'comp1',
+  title: 'Подготовить метрики',
+  description: null,
+  stage: 'metrics',
+  status: 'pending',
+  effectiveStatus: 'pending',
+  dueDate: null,
+  createdAt: '',
+  updatedAt: '',
+}
+
+const readinessData = {
+  companyId: 'comp1',
+  readiness: 0,
+  totalTasks: 1,
+  doneTasks: 0,
+  stages: [
+    { stage: 'metrics', label: 'Подготовка метрик', total: 1, done: 0, percent: 0 },
+  ],
+  risks: ['Подготовка метрик'],
+  summary: 'Готовность 0%. Основные риски: не завершены этапы Подготовка метрик.',
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -128,14 +158,17 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.cohorts.mockResolvedValue([cohort])
     mocks.companiesApi.budgets.mockResolvedValue([budget])
     mocks.companiesApi.unitEconomics.mockResolvedValue(unitEconomicsData)
+    mocks.companiesApi.tasks.mockResolvedValue([taskData])
+    mocks.companiesApi.readiness.mockResolvedValue(readinessData)
   })
 
-  it('renders 4 tab triggers', async () => {
+  it('renders 5 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Бюджет' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Юнит-экономика' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Задачи' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -162,6 +195,13 @@ describe('CompanyDetail', () => {
     expect(await screen.findByText('LTV/CAC')).toBeInTheDocument()
     expect(screen.getByText('Magic Number')).toBeInTheDocument()
     expect(screen.getByText('80.0%')).toBeInTheDocument()
+  })
+
+  it('switches to tasks tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Задачи' }))
+    expect(await screen.findByText('Готовность к продаже')).toBeInTheDocument()
+    expect(screen.getByText('Подготовить метрики')).toBeInTheDocument()
   })
 
   it('hides add buttons for observer role', async () => {

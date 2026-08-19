@@ -152,6 +152,7 @@ export interface CompanyStatusItem {
   status: 'on_track' | 'behind' | 'no_plan' | 'no_data'
   latestMrr: number | null
   latestPlanMrr: number | null
+  taskProgress: number | null
 }
 
 export interface DashboardResponse {
@@ -234,4 +235,55 @@ export interface UnitEconomicsResponse {
   marketingSpend: number | null
   retention: RetentionBreakdown
   alerts: string[]
+}
+
+// Task system (sale-readiness, main USP)
+export type TaskStage = 'metrics' | 'documents' | 'negotiations' | 'presentation'
+export type TaskStatus = 'pending' | 'in_progress' | 'done'
+
+export interface Task {
+  id: string
+  companyId: string
+  title: string
+  description: string | null
+  stage: TaskStage
+  status: TaskStatus
+  effectiveStatus: TaskStatus | 'overdue'
+  dueDate: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TaskCreate {
+  title: string
+  description?: string
+  stage: TaskStage
+  status: TaskStatus
+  due_date?: string
+}
+
+export interface TaskUpdate {
+  title?: string
+  description?: string
+  stage?: TaskStage
+  status?: TaskStatus
+  due_date?: string
+}
+
+export interface StageProgress {
+  stage: TaskStage
+  label: string
+  total: number
+  done: number
+  percent: number
+}
+
+export interface ReadinessResponse {
+  companyId: string
+  readiness: number
+  totalTasks: number
+  doneTasks: number
+  stages: StageProgress[]
+  risks: string[]
+  summary: string
 }

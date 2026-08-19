@@ -11,6 +11,7 @@ class CompanyStatusItem(BaseModel):
     status: str  # "on_track" | "behind" | "no_plan" | "no_data"
     latest_mrr: Optional[float]
     latest_plan_mrr: Optional[float]
+    task_progress: Optional[int] = None  # % выполненных задач (None, если нет задач)
 
 
 class DashboardResponse(BaseModel):
