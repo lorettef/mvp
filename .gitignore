@@ -55,6 +55,11 @@ htmlcov/
 .codegraph/
 .omo/
 
+# Project notes (local only, not for version control)
+TZ.md
+PROGRESS.md
+TODO_CHANGES.md
+
 # Local packages (not project code)
 *.deb
 
