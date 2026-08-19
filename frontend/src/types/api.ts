@@ -19,12 +19,15 @@ export interface TokenResponse {
 export interface UserResponse {
   id: string
   email: string
-  full_name: string | null
-  company_name: string | null
-  created_at: string
-  subscription_plan: string
-  daily_limit: number
-  used_today: number
+  fullName: string | null
+  companyName: string | null
+  role: string
+  organizationId: string | null
+  companyId: string | null
+  createdAt: string
+  subscriptionPlan: string
+  dailyLimit: number
+  usedToday: number
 }
 
 export interface SeedResponse {
@@ -87,4 +90,123 @@ export interface SubscriptionStatus {
   plan: string
   daily_limit: number
   used_today: number
+}
+
+// Company
+export interface Company {
+  id: string
+  organizationId: string
+  name: string
+  industry: string | null
+  geography: string | null
+  createdAt: string
+}
+
+export interface CompanyCreate {
+  name: string
+  industry?: string
+  geography?: string
+}
+
+export interface CompanyUpdate {
+  name?: string
+  industry?: string
+  geography?: string
+}
+
+// Stored metrics (server-side)
+export interface Metric {
+  id: string
+  companyId: string
+  period: string
+  type: 'plan' | 'fact'
+  mrr: number
+  cac: number
+  ltv: number
+  churn: number
+  arpu: number | null
+  runwayMonths: number | null
+  stage: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MetricUpsert {
+  period: string
+  type: 'plan' | 'fact'
+  mrr: number
+  cac: number
+  ltv: number
+  churn: number
+  arpu?: number
+  runway_months?: number
+  stage?: string
+}
+
+// Dashboard
+export interface CompanyStatusItem {
+  id: string
+  name: string
+  industry: string | null
+  geography: string | null
+  status: 'on_track' | 'behind' | 'no_plan' | 'no_data'
+  latestMrr: number | null
+  latestPlanMrr: number | null
+}
+
+export interface DashboardResponse {
+  totalCompanies: number
+  avgMrr: number | null
+  avgCac: number | null
+  avgLtv: number | null
+  avgChurn: number | null
+  onTrack: number
+  behind: number
+  noPlan: number
+  noData: number
+  companies: CompanyStatusItem[]
+}
+
+export interface Cohort {
+  id: string
+  companyId: string
+  period: string
+  type: 'plan' | 'fact'
+  retentionM1: number
+  retentionM3: number
+  retentionM6: number
+  retentionM12: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CohortUpsert {
+  period: string
+  type: 'plan' | 'fact'
+  retention_m1: number
+  retention_m3: number
+  retention_m6: number
+  retention_m12: number
+}
+
+export interface Budget {
+  id: string
+  companyId: string
+  period: string
+  type: 'plan' | 'fact'
+  marketing: number
+  development: number
+  fot: number
+  gna: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BudgetUpsert {
+  period: string
+  type: 'plan' | 'fact'
+  marketing: number
+  development: number
+  fot: number
+  gna: number
 }

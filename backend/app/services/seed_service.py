@@ -3,10 +3,13 @@ from sqlalchemy import select
 from app.models.user import User
 from app.models.subscription import Subscription
 from app.models.ai_cache import AICache
+from app.models.organization import Organization
+from app.models.company import Company
+from app.models.metric import Metric
 from app.core.security import hash_password
 from app.schemas.metrics import MetricsRequest
 from app.services.ai_service import AIService
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 import json
 import hashlib
 from uuid import UUID
@@ -44,6 +47,30 @@ async def seed_demo_account(db: AsyncSession) -> dict:
             daily_limit=3,
         )
         db.add(subscription)
+
+        organization = Organization(name="Demo Accelerator")
+        db.add(organization)
+        await db.flush()
+
+        company = Company(organization_id=organization.id, name="SaaSify Inc.")
+        db.add(company)
+        await db.flush()
+
+        user.role = "admin"
+        user.organization_id = organization.id
+        user.company_id = company.id
+
+        today = date.today().replace(day=1)
+        db.add(Metric(
+            company_id=company.id, period=today, type="fact",
+            mrr=DEMO_METRICS["mrr"], cac=DEMO_METRICS["cac"], ltv=DEMO_METRICS["ltv"],
+            churn=DEMO_METRICS["churn"], arpu=DEMO_METRICS["arpu"],
+            runway_months=DEMO_METRICS["runway_months"], stage=DEMO_METRICS["stage"],
+        ))
+        db.add(Metric(
+            company_id=company.id, period=today, type="plan",
+            mrr=52000.0, cac=320.0, ltv=5000.0, churn=0.03,
+        ))
 
         metrics = MetricsRequest(**DEMO_METRICS)
         ai_service = AIService(db)

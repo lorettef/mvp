@@ -34,6 +34,9 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str]
     company_name: Optional[str]
+    role: str
+    organization_id: Optional[UUID]
+    company_id: Optional[UUID]
     created_at: datetime
     subscription_plan: str
     daily_limit: int

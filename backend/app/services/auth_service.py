@@ -4,6 +4,8 @@ from sqlalchemy import select
 from fastapi import HTTPException, status
 from app.models.user import User
 from app.models.subscription import Subscription
+from app.models.organization import Organization
+from app.models.company import Company
 from app.schemas.auth import UserCreate
 from app.core.security import hash_password, verify_password, create_access_token
 
@@ -44,11 +46,38 @@ class AuthService:
         self.db.add(subscription)
         await self.db.flush()
         
+        # Создание организации (акселератора) и назначение владельца
+        organization = Organization(
+            name=data.company_name or data.full_name or "Мой акселератор"
+        )
+        self.db.add(organization)
+        await self.db.flush()
+        
+        user.role = "admin"
+        user.organization_id = organization.id
+        
+        # Создание компании, если указано название компании
+        if data.company_name:
+            company = Company(
+                organization_id=organization.id,
+                name=data.company_name,
+                industry=None,
+                geography=None
+            )
+            self.db.add(company)
+            await self.db.flush()
+            user.company_id = company.id
+        
+        await self.db.flush()
+        
         return {
             "id": user.id,
             "email": user.email,
             "full_name": user.full_name,
             "company_name": user.company_name,
+            "role": user.role,
+            "organization_id": str(user.organization_id) if user.organization_id else None,
+            "company_id": str(user.company_id) if user.company_id else None,
             "created_at": user.created_at.isoformat()
         }
     

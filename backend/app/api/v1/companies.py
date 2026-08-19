@@ -1,0 +1,160 @@
+import uuid
+from datetime import date
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.api.dependencies import (
+    get_current_user_full,
+    require_role,
+    require_company_access,
+    ROLE_ADMIN,
+    ROLE_COMPANY,
+)
+from app.schemas.company import CompanyCreate, CompanyUpdate, CompanyResponse
+from app.schemas.metric import MetricUpsert, MetricResponse
+from app.services.company_service import CompanyService
+from app.services.metric_service import MetricService
+
+router = APIRouter()
+
+
+def _company_to_response(company) -> CompanyResponse:
+    return CompanyResponse(
+        id=company.id,
+        organization_id=company.organization_id,
+        name=company.name,
+        industry=company.industry,
+        geography=company.geography,
+        created_at=company.created_at,
+    )
+
+
+def _metric_to_response(metric) -> MetricResponse:
+    return MetricResponse(
+        id=metric.id,
+        company_id=metric.company_id,
+        period=metric.period,
+        type=metric.type,
+        mrr=float(metric.mrr),
+        cac=float(metric.cac),
+        ltv=float(metric.ltv),
+        churn=float(metric.churn),
+        arpu=float(metric.arpu) if metric.arpu is not None else None,
+        runway_months=(
+            float(metric.runway_months)
+            if metric.runway_months is not None
+            else None
+        ),
+        stage=metric.stage,
+        created_at=metric.created_at,
+        updated_at=metric.updated_at,
+    )
+
+
+@router.post("", response_model=CompanyResponse, status_code=status.HTTP_201_CREATED)
+async def create_company(
+    data: CompanyCreate,
+    user: dict = Depends(require_role(ROLE_ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Создание компании в организации администратора."""
+    service = CompanyService(db)
+    company = await service.create_company(user["organization_id"], data)
+    return _company_to_response(company)
+
+
+@router.get("", response_model=list[CompanyResponse])
+async def list_companies(
+    user: dict = Depends(get_current_user_full),
+    db: AsyncSession = Depends(get_db),
+):
+    """Список компаний, доступных пользователю."""
+    service = CompanyService(db)
+    companies = await service.list_companies(user)
+    return [_company_to_response(c) for c in companies]
+
+
+@router.get("/{company_id}", response_model=CompanyResponse)
+async def get_company(
+    company_id: uuid.UUID,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    """Получение компании по идентификатору."""
+    service = CompanyService(db)
+    company = await service.get_company(company_id)
+    return _company_to_response(company)
+
+
+@router.patch("/{company_id}", response_model=CompanyResponse)
+async def update_company(
+    company_id: uuid.UUID,
+    data: CompanyUpdate,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    """Обновление данных компании (admin или company)."""
+    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав"
+        )
+
+    service = CompanyService(db)
+    company = await service.get_company(company_id)
+    company = await service.update_company(company, data)
+    return _company_to_response(company)
+
+
+@router.delete("/{company_id}")
+async def delete_company(
+    company_id: uuid.UUID,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    """Удаление компании (только admin)."""
+    if user["role"] != ROLE_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав"
+        )
+
+    service = CompanyService(db)
+    company = await service.get_company(company_id)
+    await service.delete_company(company)
+    return {"detail": "ok"}
+
+
+@router.put("/{company_id}/metrics", response_model=MetricResponse)
+async def upsert_metric(
+    company_id: uuid.UUID,
+    data: MetricUpsert,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    """Создание или обновление метрики компании (admin или company)."""
+    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав"
+        )
+
+    service = MetricService(db)
+    metric = await service.upsert_metric(company_id, data)
+    return _metric_to_response(metric)
+
+
+@router.get("/{company_id}/metrics", response_model=list[MetricResponse])
+async def list_metrics(
+    company_id: uuid.UUID,
+    period: Optional[date] = None,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    """Список метрик компании."""
+    service = MetricService(db)
+    metrics = await service.list_metrics(company_id, period)
+    return [_metric_to_response(m) for m in metrics]

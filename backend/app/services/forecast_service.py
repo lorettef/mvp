@@ -1,8 +1,6 @@
 import numpy as np
 from typing import List, Dict
 from app.schemas.forecast import ForecastRequest, ForecastResponse
-import pandas as pd
-from prophet import Prophet
 
 class ForecastService:
     """Сервис прогнозирования."""
@@ -65,6 +63,9 @@ class ForecastService:
             }
 
         try:
+            import pandas as pd
+            from prophet import Prophet
+
             df = pd.DataFrame({
                 "ds": pd.date_range(end="today", periods=len(history), freq="ME"),
                 "y": history,

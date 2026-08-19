@@ -13,11 +13,14 @@ function mapAndSetUser(userData: UserResponse, setUser: (user: User) => void) {
   setUser({
     id: userData.id,
     email: userData.email,
-    fullName: userData.full_name ?? '',
-    companyName: userData.company_name ?? '',
-    subscriptionPlan: userData.subscription_plan,
-    dailyLimit: userData.daily_limit,
-    usedToday: userData.used_today,
+    fullName: userData.fullName ?? '',
+    companyName: userData.companyName ?? '',
+    role: userData.role,
+    organizationId: userData.organizationId,
+    companyId: userData.companyId,
+    subscriptionPlan: userData.subscriptionPlan,
+    dailyLimit: userData.dailyLimit,
+    usedToday: userData.usedToday,
   })
 }
 

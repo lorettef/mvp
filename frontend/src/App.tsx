@@ -1,9 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from './components/theme-provider'
+import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
+import { CompanyDetail } from './pages/CompanyDetail'
 import { Recommendations } from './pages/Recommendations'
 import { Forecast } from './pages/Forecast'
 import { Settings } from './pages/Settings'
@@ -28,13 +30,14 @@ function App() {
         <BrowserRouter>
           <ErrorBoundary>
             <Routes>
+              <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               
               <Route element={<ProtectedRoute />}>
                 <Route element={<Layout />}>
-                  <Route path="/" element={<Navigate to="/dashboard" />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/companies/:companyId" element={<CompanyDetail />} />
                   <Route path="/recommendations" element={<Recommendations />} />
                   <Route path="/forecast" element={<Forecast />} />
                   <Route path="/settings" element={<Settings />} />

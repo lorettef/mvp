@@ -6,6 +6,9 @@ export interface User {
   email: string
   fullName: string
   companyName: string
+  role: string
+  organizationId: string | null
+  companyId: string | null
   subscriptionPlan: string
   dailyLimit: number
   usedToday: number

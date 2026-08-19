@@ -1,9 +1,13 @@
-import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
 from app.main import app
 from app.core.database import Base, get_db
+from app.core.security import create_access_token
+from app.models.organization import Organization
+from app.models.company import Company
+from app.models.user import User
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
@@ -40,3 +44,78 @@ async def client(db_session: AsyncSession):
         yield ac
 
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def seeded_organization(db_session: AsyncSession) -> Organization:
+    org = Organization(name="Test Accelerator")
+    db_session.add(org)
+    await db_session.flush()
+    return org
+
+
+@pytest_asyncio.fixture
+async def seeded_company(
+    db_session: AsyncSession, seeded_organization: Organization
+) -> Company:
+    company = Company(
+        organization_id=seeded_organization.id,
+        name="Test Startup",
+        industry="SaaS",
+        geography="RU",
+    )
+    db_session.add(company)
+    await db_session.flush()
+    return company
+
+
+async def make_user(
+    db: AsyncSession,
+    email: str,
+    role: str,
+    organization_id=None,
+    company_id=None,
+) -> User:
+    user = User(
+        email=email,
+        password_hash="unused-in-tests",
+        full_name="Test User",
+        role=role,
+        organization_id=organization_id,
+        company_id=company_id,
+    )
+    db.add(user)
+    await db.flush()
+    return user
+
+
+@pytest_asyncio.fixture
+async def seeded_admin(
+    db_session: AsyncSession, seeded_organization: Organization, seeded_company: Company
+) -> User:
+    return await make_user(
+        db_session, "admin@test.ru", "admin", seeded_organization.id, seeded_company.id
+    )
+
+
+@pytest_asyncio.fixture
+async def seeded_company_user(
+    db_session: AsyncSession, seeded_organization: Organization, seeded_company: Company
+) -> User:
+    return await make_user(
+        db_session, "company@test.ru", "company", seeded_organization.id, seeded_company.id
+    )
+
+
+@pytest_asyncio.fixture
+async def seeded_observer(
+    db_session: AsyncSession, seeded_organization: Organization, seeded_company: Company
+) -> User:
+    return await make_user(
+        db_session, "observer@test.ru", "observer", seeded_organization.id, seeded_company.id
+    )
+
+
+def auth_headers(user: User) -> dict:
+    token = create_access_token({"sub": str(user.id)})
+    return {"Authorization": f"Bearer {token}"}
