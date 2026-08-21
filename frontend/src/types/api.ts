@@ -324,3 +324,45 @@ export interface MarketAnalysisResponse {
   impact: MarketImpact
   summary: string
 }
+
+// Hiring forecast (staff plan + social payments)
+export interface HiringSettingsResponse {
+  companyId: string
+  ndflRate: number
+  insuranceRate: number
+  injuryRate: number
+  totalRate: number
+}
+
+export interface HiringSettingsUpsert {
+  ndfl_rate: number
+  insurance_rate: number
+  injury_rate: number
+}
+
+export interface HiringMonthRow {
+  month: number
+  period: string
+  mrr: number
+  fot: number
+  socialPayments: number
+  totalCost: number
+  headcount: number
+  devCount: number
+  salesCount: number
+  marketingCount: number
+}
+
+export interface HiringPlanResponse {
+  companyId: string
+  industry: string
+  industryLabel: string
+  baseMrr: number | null
+  fotShare: number
+  avgSalary: number
+  monthlyGrowth: number
+  settings: HiringSettingsResponse
+  months: HiringMonthRow[]
+  finalHeadcount: number
+  summary: string
+}

@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { companiesApi } from '../api/companies'
 import { marketApi } from '../api/market'
+import { hiringApi } from '../api/hiring'
 import { useAuthStore } from '../store/authStore'
-import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest } from '@/types/api'
+import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,7 @@ import { BudgetTab } from '@/components/company/BudgetTab'
 import { UnitEconomicsTab } from '@/components/company/UnitEconomicsTab'
 import { TasksTab } from '@/components/company/TasksTab'
 import { MarketTab } from '@/components/company/MarketTab'
+import { HiringTab } from '@/components/company/HiringTab'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
@@ -81,6 +83,19 @@ export const CompanyDetail = () => {
     queryKey: ['company-readiness', id],
     queryFn: () => companiesApi.readiness(id),
     enabled: Boolean(id),
+  })
+
+  const hiringQuery = useQuery({
+    queryKey: ['company-hiring', id],
+    queryFn: () => hiringApi.plan(id),
+    enabled: Boolean(id),
+  })
+
+  const hiringSettingsMutation = useMutation({
+    mutationFn: (d: HiringSettingsUpsert) => hiringApi.upsertSettings(id, d),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-hiring', id] })
+    },
   })
 
   const upsertMutation = useMutation({
@@ -206,6 +221,7 @@ export const CompanyDetail = () => {
           <TabsTrigger value="unit">Юнит-экономика</TabsTrigger>
           <TabsTrigger value="tasks">Задачи</TabsTrigger>
           <TabsTrigger value="market">Рынок</TabsTrigger>
+          <TabsTrigger value="hiring">Найм</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -346,6 +362,18 @@ export const CompanyDetail = () => {
             data={marketMutation.data ?? null}
             isLoading={marketMutation.isPending}
             onAnalyze={(req) => marketMutation.mutate(req)}
+          />
+        </TabsContent>
+
+        <TabsContent value="hiring">
+          <HiringTab
+            data={hiringQuery.data}
+            isLoading={hiringQuery.isLoading}
+            isRefetching={hiringQuery.isFetching}
+            isSaving={hiringSettingsMutation.isPending}
+            canEdit={canEdit}
+            onGenerate={() => hiringQuery.refetch()}
+            onSaveSettings={(d) => hiringSettingsMutation.mutate(d)}
           />
         </TabsContent>
       </Tabs>

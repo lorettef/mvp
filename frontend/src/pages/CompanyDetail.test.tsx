@@ -31,6 +31,14 @@ const marketApiMock = vi.hoisted(() => ({
 
 vi.mock('@/api/market', () => ({ marketApi: marketApiMock }))
 
+const hiringApiMock = vi.hoisted(() => ({
+  plan: vi.fn(),
+  settings: vi.fn(),
+  upsertSettings: vi.fn(),
+}))
+
+vi.mock('@/api/hiring', () => ({ hiringApi: hiringApiMock }))
+
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({
     user: {
@@ -156,6 +164,39 @@ const marketData = {
   summary: 'SaaS в географии «Россия».',
 }
 
+const hiringPlanData = {
+  companyId: 'comp1',
+  industry: 'saas',
+  industryLabel: 'SaaS',
+  baseMrr: 100000,
+  fotShare: 0.35,
+  avgSalary: 150000,
+  monthlyGrowth: 0.05,
+  settings: {
+    companyId: 'comp1',
+    ndflRate: 0.13,
+    insuranceRate: 0.3,
+    injuryRate: 0.002,
+    totalRate: 0.432,
+  },
+  months: [
+    {
+      month: 1,
+      period: '2026-09-01',
+      mrr: 105000,
+      fot: 36750,
+      socialPayments: 15876,
+      totalCost: 52626,
+      headcount: 3,
+      devCount: 1,
+      salesCount: 1,
+      marketingCount: 1,
+    },
+  ],
+  finalHeadcount: 3,
+  summary: 'Целевой штат «SaaS» через 12 мес.',
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -182,9 +223,11 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.tasks.mockResolvedValue([taskData])
     mocks.companiesApi.readiness.mockResolvedValue(readinessData)
     marketApiMock.analyze.mockResolvedValue(marketData)
+    hiringApiMock.plan.mockResolvedValue(hiringPlanData)
+    hiringApiMock.upsertSettings.mockResolvedValue(hiringPlanData.settings)
   })
 
-  it('renders 6 tab triggers', async () => {
+  it('renders 7 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
@@ -192,6 +235,7 @@ describe('CompanyDetail', () => {
     expect(screen.getByRole('tab', { name: 'Юнит-экономика' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Задачи' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Рынок' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Найм' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -232,6 +276,12 @@ describe('CompanyDetail', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Рынок' }))
     expect(await screen.findByText('Внешний анализ рынка')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Анализировать' })).toBeInTheDocument()
+  })
+
+  it('switches to hiring tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Найм' }))
+    expect(await screen.findByText('Прогноз найма')).toBeInTheDocument()
   })
 
   it('hides add buttons for observer role', async () => {
