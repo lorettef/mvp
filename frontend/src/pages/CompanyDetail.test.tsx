@@ -39,6 +39,12 @@ const hiringApiMock = vi.hoisted(() => ({
 
 vi.mock('@/api/hiring', () => ({ hiringApi: hiringApiMock }))
 
+const pnlApiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+}))
+
+vi.mock('@/api/pnl', () => ({ pnlApi: pnlApiMock }))
+
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({
     user: {
@@ -197,6 +203,26 @@ const hiringPlanData = {
   summary: 'Целевой штат «SaaS» через 12 мес.',
 }
 
+const pnlData = {
+  companyId: 'comp1',
+  period: '2026-02-01',
+  mrr: 100000,
+  oneTimeRevenue: 0,
+  revenue: 100000,
+  fot: 30000,
+  socialPayments: 12960,
+  marketing: 10000,
+  development: 20000,
+  gna: 5000,
+  totalOpex: 77960,
+  ebitda: 22040,
+  financialExpenses: 15000,
+  netProfit: 7040,
+  ebitdaMargin: 0.2204,
+  netMargin: 0.0704,
+  summary: 'EBITDA = 22 040 ₽.',
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -225,9 +251,10 @@ describe('CompanyDetail', () => {
     marketApiMock.analyze.mockResolvedValue(marketData)
     hiringApiMock.plan.mockResolvedValue(hiringPlanData)
     hiringApiMock.upsertSettings.mockResolvedValue(hiringPlanData.settings)
+    pnlApiMock.get.mockResolvedValue(pnlData)
   })
 
-  it('renders 7 tab triggers', async () => {
+  it('renders 8 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
@@ -236,6 +263,7 @@ describe('CompanyDetail', () => {
     expect(screen.getByRole('tab', { name: 'Задачи' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Рынок' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Найм' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'P&L' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -282,6 +310,14 @@ describe('CompanyDetail', () => {
     renderCompanyDetail()
     fireEvent.click(await screen.findByRole('tab', { name: 'Найм' }))
     expect(await screen.findByText('Прогноз найма')).toBeInTheDocument()
+  })
+
+  it('switches to pnl tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'P&L' }))
+    expect(
+      await screen.findByText('P&L — Отчёт о прибылях и убытках'),
+    ).toBeInTheDocument()
   })
 
   it('hides add buttons for observer role', async () => {

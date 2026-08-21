@@ -366,3 +366,24 @@ export interface HiringPlanResponse {
   finalHeadcount: number
   summary: string
 }
+
+// P&L (profit & loss statement)
+export interface PnLResponse {
+  companyId: string
+  period: string | null
+  mrr: number | null
+  oneTimeRevenue: number
+  revenue: number | null
+  fot: number | null
+  socialPayments: number | null
+  marketing: number | null
+  development: number | null
+  gna: number | null
+  totalOpex: number | null
+  ebitda: number | null
+  financialExpenses: number
+  netProfit: number | null
+  ebitdaMargin: number | null
+  netMargin: number | null
+  summary: string
+}

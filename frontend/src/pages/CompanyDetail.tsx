@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { companiesApi } from '../api/companies'
 import { marketApi } from '../api/market'
 import { hiringApi } from '../api/hiring'
+import { pnlApi } from '../api/pnl'
 import { useAuthStore } from '../store/authStore'
 import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
@@ -18,6 +19,7 @@ import { UnitEconomicsTab } from '@/components/company/UnitEconomicsTab'
 import { TasksTab } from '@/components/company/TasksTab'
 import { MarketTab } from '@/components/company/MarketTab'
 import { HiringTab } from '@/components/company/HiringTab'
+import { PnLTab } from '@/components/company/PnLTab'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
@@ -96,6 +98,12 @@ export const CompanyDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company-hiring', id] })
     },
+  })
+
+  const pnlQuery = useQuery({
+    queryKey: ['company-pnl', id],
+    queryFn: () => pnlApi.get(id),
+    enabled: Boolean(id),
   })
 
   const upsertMutation = useMutation({
@@ -222,6 +230,7 @@ export const CompanyDetail = () => {
           <TabsTrigger value="tasks">Задачи</TabsTrigger>
           <TabsTrigger value="market">Рынок</TabsTrigger>
           <TabsTrigger value="hiring">Найм</TabsTrigger>
+          <TabsTrigger value="pnl">P&amp;L</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -375,6 +384,10 @@ export const CompanyDetail = () => {
             onGenerate={() => hiringQuery.refetch()}
             onSaveSettings={(d) => hiringSettingsMutation.mutate(d)}
           />
+        </TabsContent>
+
+        <TabsContent value="pnl">
+          <PnLTab data={pnlQuery.data} isLoading={pnlQuery.isLoading} />
         </TabsContent>
       </Tabs>
     </div>
