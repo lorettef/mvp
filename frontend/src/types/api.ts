@@ -405,3 +405,37 @@ export interface CashFlowResponse {
   closingBalance: number | null
   summary: string
 }
+
+// Credit forecasting (cash gap detection)
+export interface CashProjectionMonth {
+  month: number
+  period: string
+  revenue: number
+  opex: number
+  netCf: number
+  balanceBefore: number
+  balanceAfter: number
+}
+
+export interface CreditGap {
+  month: number
+  period: string
+  balanceBefore: number
+  gap: number
+  creditAmount: number
+  rate: number
+}
+
+export interface CreditForecastResponse {
+  companyId: string
+  geography: string
+  keyRate: number
+  creditRate: number
+  openingCash: number
+  baseRevenue: number | null
+  baseOpex: number | null
+  months: CashProjectionMonth[]
+  gaps: CreditGap[]
+  totalCreditNeeded: number
+  summary: string
+}

@@ -51,6 +51,12 @@ const cashflowApiMock = vi.hoisted(() => ({
 
 vi.mock('@/api/cashflow', () => ({ cashflowApi: cashflowApiMock }))
 
+const creditApiMock = vi.hoisted(() => ({
+  forecast: vi.fn(),
+}))
+
+vi.mock('@/api/credit', () => ({ creditApi: creditApiMock }))
+
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({
     user: {
@@ -246,6 +252,20 @@ const cashflowData = {
   summary: 'Операционный CF = 7 040 ₽.',
 }
 
+const creditData = {
+  companyId: 'comp1',
+  geography: 'RU',
+  keyRate: 21,
+  creditRate: 26,
+  openingCash: 100000,
+  baseRevenue: 50000,
+  baseOpex: 77960,
+  months: [],
+  gaps: [],
+  totalCreditNeeded: 0,
+  summary: 'Кассовых разрывов не прогнозируется.',
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -276,9 +296,10 @@ describe('CompanyDetail', () => {
     hiringApiMock.upsertSettings.mockResolvedValue(hiringPlanData.settings)
     pnlApiMock.get.mockResolvedValue(pnlData)
     cashflowApiMock.get.mockResolvedValue(cashflowData)
+    creditApiMock.forecast.mockResolvedValue(creditData)
   })
 
-  it('renders 9 tab triggers', async () => {
+  it('renders 10 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
@@ -289,6 +310,7 @@ describe('CompanyDetail', () => {
     expect(screen.getByRole('tab', { name: 'Найм' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'P&L' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Cash Flow' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Кредиты' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -350,6 +372,14 @@ describe('CompanyDetail', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Cash Flow' }))
     expect(
       await screen.findByText('Cash Flow — Движение денежных средств'),
+    ).toBeInTheDocument()
+  })
+
+  it('switches to credit tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Кредиты' }))
+    expect(
+      await screen.findByText('Кредиты — умное прогнозирование'),
     ).toBeInTheDocument()
   })
 
