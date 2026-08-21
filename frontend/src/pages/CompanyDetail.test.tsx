@@ -45,6 +45,12 @@ const pnlApiMock = vi.hoisted(() => ({
 
 vi.mock('@/api/pnl', () => ({ pnlApi: pnlApiMock }))
 
+const cashflowApiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+}))
+
+vi.mock('@/api/cashflow', () => ({ cashflowApi: cashflowApiMock }))
+
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({
     user: {
@@ -223,6 +229,23 @@ const pnlData = {
   summary: 'EBITDA = 22 040 ₽.',
 }
 
+const cashflowData = {
+  companyId: 'comp1',
+  period: '2026-02-01',
+  netProfit: 7040,
+  amortization: 0,
+  operatingCf: 7040,
+  capex: 0,
+  investingCf: 0,
+  investments: 200000,
+  credits: 100000,
+  financingCf: 300000,
+  totalCf: 307040,
+  openingBalance: 0,
+  closingBalance: 307040,
+  summary: 'Операционный CF = 7 040 ₽.',
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -252,9 +275,10 @@ describe('CompanyDetail', () => {
     hiringApiMock.plan.mockResolvedValue(hiringPlanData)
     hiringApiMock.upsertSettings.mockResolvedValue(hiringPlanData.settings)
     pnlApiMock.get.mockResolvedValue(pnlData)
+    cashflowApiMock.get.mockResolvedValue(cashflowData)
   })
 
-  it('renders 8 tab triggers', async () => {
+  it('renders 9 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
@@ -264,6 +288,7 @@ describe('CompanyDetail', () => {
     expect(screen.getByRole('tab', { name: 'Рынок' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Найм' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'P&L' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Cash Flow' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -317,6 +342,14 @@ describe('CompanyDetail', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'P&L' }))
     expect(
       await screen.findByText('P&L — Отчёт о прибылях и убытках'),
+    ).toBeInTheDocument()
+  })
+
+  it('switches to cashflow tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Cash Flow' }))
+    expect(
+      await screen.findByText('Cash Flow — Движение денежных средств'),
     ).toBeInTheDocument()
   })
 

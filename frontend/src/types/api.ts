@@ -387,3 +387,21 @@ export interface PnLResponse {
   netMargin: number | null
   summary: string
 }
+
+// Cash flow statement
+export interface CashFlowResponse {
+  companyId: string
+  period: string | null
+  netProfit: number | null
+  amortization: number
+  operatingCf: number | null
+  capex: number
+  investingCf: number
+  investments: number
+  credits: number
+  financingCf: number
+  totalCf: number | null
+  openingBalance: number
+  closingBalance: number | null
+  summary: string
+}

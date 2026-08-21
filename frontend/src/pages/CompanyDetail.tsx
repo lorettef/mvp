@@ -5,6 +5,7 @@ import { companiesApi } from '../api/companies'
 import { marketApi } from '../api/market'
 import { hiringApi } from '../api/hiring'
 import { pnlApi } from '../api/pnl'
+import { cashflowApi } from '../api/cashflow'
 import { useAuthStore } from '../store/authStore'
 import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
@@ -20,6 +21,7 @@ import { TasksTab } from '@/components/company/TasksTab'
 import { MarketTab } from '@/components/company/MarketTab'
 import { HiringTab } from '@/components/company/HiringTab'
 import { PnLTab } from '@/components/company/PnLTab'
+import { CashFlowTab } from '@/components/company/CashFlowTab'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
@@ -103,6 +105,12 @@ export const CompanyDetail = () => {
   const pnlQuery = useQuery({
     queryKey: ['company-pnl', id],
     queryFn: () => pnlApi.get(id),
+    enabled: Boolean(id),
+  })
+
+  const cashflowQuery = useQuery({
+    queryKey: ['company-cashflow', id],
+    queryFn: () => cashflowApi.get(id),
     enabled: Boolean(id),
   })
 
@@ -231,6 +239,7 @@ export const CompanyDetail = () => {
           <TabsTrigger value="market">Рынок</TabsTrigger>
           <TabsTrigger value="hiring">Найм</TabsTrigger>
           <TabsTrigger value="pnl">P&amp;L</TabsTrigger>
+          <TabsTrigger value="cashflow">Cash Flow</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -388,6 +397,13 @@ export const CompanyDetail = () => {
 
         <TabsContent value="pnl">
           <PnLTab data={pnlQuery.data} isLoading={pnlQuery.isLoading} />
+        </TabsContent>
+
+        <TabsContent value="cashflow">
+          <CashFlowTab
+            data={cashflowQuery.data}
+            isLoading={cashflowQuery.isLoading}
+          />
         </TabsContent>
       </Tabs>
     </div>
