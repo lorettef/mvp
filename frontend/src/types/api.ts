@@ -439,3 +439,23 @@ export interface CreditForecastResponse {
   totalCreditNeeded: number
   summary: string
 }
+
+// Gordon growth model valuation
+export interface ValuationResponse {
+  companyId: string
+  geography: string
+  keyRate: number
+  discountRate: number
+  growthRate: number
+  fcf: number | null
+  terminalValue: number | null
+  debt: number
+  cash: number
+  netDebt: number
+  equityValue: number | null
+  revenueAnnual: number | null
+  psRatio: number | null
+  headcount: number
+  valuePerEmployee: number | null
+  summary: string
+}

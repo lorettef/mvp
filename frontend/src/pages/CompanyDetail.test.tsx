@@ -57,6 +57,12 @@ const creditApiMock = vi.hoisted(() => ({
 
 vi.mock('@/api/credit', () => ({ creditApi: creditApiMock }))
 
+const valuationApiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+}))
+
+vi.mock('@/api/valuation', () => ({ valuationApi: valuationApiMock }))
+
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({
     user: {
@@ -266,6 +272,25 @@ const creditData = {
   summary: 'Кассовых разрывов не прогнозируется.',
 }
 
+const valuationData = {
+  companyId: 'comp1',
+  geography: 'RU',
+  keyRate: 21,
+  discountRate: 31,
+  growthRate: 8.5,
+  fcf: 7040,
+  terminalValue: 33948.44,
+  debt: 100000,
+  cash: 200000,
+  netDebt: -100000,
+  equityValue: 133948.44,
+  revenueAnnual: 1200000,
+  psRatio: 0.11,
+  headcount: 1,
+  valuePerEmployee: 133948.44,
+  summary: 'Оценка (Equity Value) = 133 948 ₽.',
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -297,9 +322,10 @@ describe('CompanyDetail', () => {
     pnlApiMock.get.mockResolvedValue(pnlData)
     cashflowApiMock.get.mockResolvedValue(cashflowData)
     creditApiMock.forecast.mockResolvedValue(creditData)
+    valuationApiMock.get.mockResolvedValue(valuationData)
   })
 
-  it('renders 10 tab triggers', async () => {
+  it('renders 11 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
@@ -311,6 +337,7 @@ describe('CompanyDetail', () => {
     expect(screen.getByRole('tab', { name: 'P&L' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Cash Flow' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Кредиты' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Оценка' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -380,6 +407,14 @@ describe('CompanyDetail', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Кредиты' }))
     expect(
       await screen.findByText('Кредиты — умное прогнозирование'),
+    ).toBeInTheDocument()
+  })
+
+  it('switches to valuation tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Оценка' }))
+    expect(
+      await screen.findByText('Оценка бизнеса — модель Гордона'),
     ).toBeInTheDocument()
   })
 

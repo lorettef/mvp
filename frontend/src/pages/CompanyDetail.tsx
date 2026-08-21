@@ -7,6 +7,7 @@ import { hiringApi } from '../api/hiring'
 import { pnlApi } from '../api/pnl'
 import { cashflowApi } from '../api/cashflow'
 import { creditApi } from '../api/credit'
+import { valuationApi } from '../api/valuation'
 import { useAuthStore } from '../store/authStore'
 import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
@@ -24,6 +25,7 @@ import { HiringTab } from '@/components/company/HiringTab'
 import { PnLTab } from '@/components/company/PnLTab'
 import { CashFlowTab } from '@/components/company/CashFlowTab'
 import { CreditTab } from '@/components/company/CreditTab'
+import { ValuationTab } from '@/components/company/ValuationTab'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
@@ -119,6 +121,12 @@ export const CompanyDetail = () => {
   const creditQuery = useQuery({
     queryKey: ['company-credit', id],
     queryFn: () => creditApi.forecast(id),
+    enabled: Boolean(id),
+  })
+
+  const valuationQuery = useQuery({
+    queryKey: ['company-valuation', id],
+    queryFn: () => valuationApi.get(id),
     enabled: Boolean(id),
   })
 
@@ -249,6 +257,7 @@ export const CompanyDetail = () => {
           <TabsTrigger value="pnl">P&amp;L</TabsTrigger>
           <TabsTrigger value="cashflow">Cash Flow</TabsTrigger>
           <TabsTrigger value="credit">Кредиты</TabsTrigger>
+          <TabsTrigger value="valuation">Оценка</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -417,6 +426,13 @@ export const CompanyDetail = () => {
 
         <TabsContent value="credit">
           <CreditTab data={creditQuery.data} isLoading={creditQuery.isLoading} />
+        </TabsContent>
+
+        <TabsContent value="valuation">
+          <ValuationTab
+            data={valuationQuery.data}
+            isLoading={valuationQuery.isLoading}
+          />
         </TabsContent>
       </Tabs>
     </div>
