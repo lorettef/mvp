@@ -459,3 +459,28 @@ export interface ValuationResponse {
   valuePerEmployee: number | null
   summary: string
 }
+
+// Sensitivity analysis (conservative scenario)
+export interface Scenario {
+  equityValue: number | null
+  terminalValue: number | null
+  fcf: number | null
+  growthRate: number | null
+  mrr: number | null
+  cac: number | null
+  ltv: number | null
+  churn: number | null
+  ltvCac: number | null
+}
+
+export interface SensitivityResponse {
+  companyId: string
+  geography: string
+  keyRate: number
+  discountRate: number
+  base: Scenario
+  conservative: Scenario
+  equityDelta: number | null
+  equityDeltaPct: number | null
+  summary: string
+}

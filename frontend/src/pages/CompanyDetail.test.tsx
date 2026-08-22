@@ -63,6 +63,12 @@ const valuationApiMock = vi.hoisted(() => ({
 
 vi.mock('@/api/valuation', () => ({ valuationApi: valuationApiMock }))
 
+const sensitivityApiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+}))
+
+vi.mock('@/api/sensitivity', () => ({ sensitivityApi: sensitivityApiMock }))
+
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({
     user: {
@@ -291,6 +297,38 @@ const valuationData = {
   summary: 'Оценка (Equity Value) = 133 948 ₽.',
 }
 
+const sensitivityData = {
+  companyId: 'comp1',
+  geography: 'RU',
+  keyRate: 21,
+  discountRate: 31,
+  base: {
+    equityValue: 1000000,
+    terminalValue: 500000,
+    fcf: 107040,
+    growthRate: 8.5,
+    mrr: 200000,
+    cac: 1000,
+    ltv: 5000,
+    churn: 0.035,
+    ltvCac: 5.0,
+  },
+  conservative: {
+    equityValue: 800000,
+    terminalValue: 400000,
+    fcf: 86040,
+    growthRate: 7.8,
+    mrr: 180000,
+    cac: 1100,
+    ltv: 4750,
+    churn: 0.0385,
+    ltvCac: 4.32,
+  },
+  equityDelta: -200000,
+  equityDeltaPct: -20.0,
+  summary: 'Консервативный сценарий снижает оценку.',
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -323,9 +361,10 @@ describe('CompanyDetail', () => {
     cashflowApiMock.get.mockResolvedValue(cashflowData)
     creditApiMock.forecast.mockResolvedValue(creditData)
     valuationApiMock.get.mockResolvedValue(valuationData)
+    sensitivityApiMock.get.mockResolvedValue(sensitivityData)
   })
 
-  it('renders 11 tab triggers', async () => {
+  it('renders 12 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
@@ -338,6 +377,7 @@ describe('CompanyDetail', () => {
     expect(screen.getByRole('tab', { name: 'Cash Flow' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Кредиты' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Оценка' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Чувствительность' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -415,6 +455,14 @@ describe('CompanyDetail', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Оценка' }))
     expect(
       await screen.findByText('Оценка бизнеса — модель Гордона'),
+    ).toBeInTheDocument()
+  })
+
+  it('switches to sensitivity tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Чувствительность' }))
+    expect(
+      await screen.findByText('Анализ чувствительности — консервативный сценарий'),
     ).toBeInTheDocument()
   })
 
