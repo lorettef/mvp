@@ -484,3 +484,18 @@ export interface SensitivityResponse {
   equityDeltaPct: number | null
   summary: string
 }
+
+// Forced recalculation (TZ v5.0, section 18)
+export interface RecalculateResponse {
+  companyId: string
+  recalculatedAt: string
+  mrr: number | null
+  runwayMonths: number | null
+  ltvCac: number | null
+  ebitda: number | null
+  netProfit: number | null
+  totalCf: number | null
+  equityValue: number | null
+  totalCreditNeeded: number | null
+  summary: string
+}

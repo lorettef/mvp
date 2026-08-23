@@ -29,7 +29,7 @@ import { CreditTab } from '@/components/company/CreditTab'
 import { ValuationTab } from '@/components/company/ValuationTab'
 import { SensitivityTab } from '@/components/company/SensitivityTab'
 import { ReportsTab } from '@/components/company/ReportsTab'
-import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
 
@@ -137,6 +137,19 @@ export const CompanyDetail = () => {
     queryKey: ['company-sensitivity', id],
     queryFn: () => sensitivityApi.get(id),
     enabled: Boolean(id),
+  })
+
+  const recalculateMutation = useMutation({
+    mutationFn: () => companiesApi.recalculate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-unit-economics', id] })
+      queryClient.invalidateQueries({ queryKey: ['company-pnl', id] })
+      queryClient.invalidateQueries({ queryKey: ['company-cashflow', id] })
+      queryClient.invalidateQueries({ queryKey: ['company-credit', id] })
+      queryClient.invalidateQueries({ queryKey: ['company-valuation', id] })
+      queryClient.invalidateQueries({ queryKey: ['company-sensitivity', id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 
   const upsertMutation = useMutation({
@@ -248,10 +261,21 @@ export const CompanyDetail = () => {
             </p>
           </div>
         </div>
-        <Button size="sm" variant="outline" disabled title="Появится в AI-модуле">
-          <Sparkles className="w-4 h-4 mr-2" />
-          Сгенерировать план AI
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => recalculateMutation.mutate()}
+            disabled={recalculateMutation.isPending}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${recalculateMutation.isPending ? 'animate-spin' : ''}`} />
+            {recalculateMutation.isPending ? 'Пересчёт...' : 'Принудительный пересчёт'}
+          </Button>
+          <Button size="sm" variant="outline" disabled title="Появится в AI-модуле">
+            <Sparkles className="w-4 h-4 mr-2" />
+            Сгенерировать план AI
+          </Button>
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>

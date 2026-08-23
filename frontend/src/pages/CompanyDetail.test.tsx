@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
     updateTask: vi.fn(),
     deleteTask: vi.fn(),
     readiness: vi.fn(),
+    recalculate: vi.fn(),
   },
 }))
 
@@ -329,6 +330,20 @@ const sensitivityData = {
   summary: 'Консервативный сценарий снижает оценку.',
 }
 
+const recalculateData = {
+  companyId: 'comp1',
+  recalculatedAt: '2026-08-23T00:00:00Z',
+  mrr: 120000,
+  runwayMonths: 15.0,
+  ltvCac: 5.0,
+  ebitda: 22040,
+  netProfit: 7040,
+  totalCf: 307040,
+  equityValue: 133948.44,
+  totalCreditNeeded: 0,
+  summary: 'Кассовых разрывов не прогнозируется.',
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -362,6 +377,7 @@ describe('CompanyDetail', () => {
     creditApiMock.forecast.mockResolvedValue(creditData)
     valuationApiMock.get.mockResolvedValue(valuationData)
     sensitivityApiMock.get.mockResolvedValue(sensitivityData)
+    mocks.companiesApi.recalculate.mockResolvedValue(recalculateData)
   })
 
   it('renders 13 tab triggers', async () => {
@@ -471,6 +487,13 @@ describe('CompanyDetail', () => {
     renderCompanyDetail()
     fireEvent.click(await screen.findByRole('tab', { name: 'Отчёты' }))
     expect(await screen.findByText('Отчёты для инвесторов')).toBeInTheDocument()
+  })
+
+  it('triggers forced recalculation on click', async () => {
+    renderCompanyDetail()
+    const btn = await screen.findByRole('button', { name: /Принудительный пересчёт/ })
+    fireEvent.click(btn)
+    await waitFor(() => expect(mocks.companiesApi.recalculate).toHaveBeenCalledWith('comp1'))
   })
 
   it('hides add buttons for observer role', async () => {

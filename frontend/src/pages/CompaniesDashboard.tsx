@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Building2, TrendingUp, CircleCheck, AlertTriangle, Plus, AlertCircle } from 'lucide-react'
+import { Building2, TrendingUp, CircleCheck, AlertTriangle, Plus, AlertCircle, RefreshCw } from 'lucide-react'
 
 const statusMap: Record<string, { label: string; className: string }> = {
   on_track: { label: 'Выполняет план', className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
@@ -26,7 +26,7 @@ export const CompaniesDashboard = () => {
   const [industry, setIndustry] = useState('')
   const [geography, setGeography] = useState('')
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, isFetching, refetch } = useQuery({
     queryKey: ['dashboard'],
     queryFn: dashboardApi.get,
   })
@@ -94,10 +94,16 @@ export const CompaniesDashboard = () => {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Портфель компаний</h1>
           <p className="text-muted-foreground">Обзор всех стартапов акселератора</p>
         </div>
-        <Button size="sm" onClick={() => setShowForm(!showForm)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Добавить компанию
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+            {isFetching ? 'Пересчёт...' : 'Принудительный пересчёт'}
+          </Button>
+          <Button size="sm" onClick={() => setShowForm(!showForm)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Добавить компанию
+          </Button>
+        </div>
       </div>
 
       {showForm && (

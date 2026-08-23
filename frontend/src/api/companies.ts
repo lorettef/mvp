@@ -14,6 +14,7 @@ import type {
   TaskCreate,
   TaskUpdate,
   ReadinessResponse,
+  RecalculateResponse,
 } from '@/types/api'
 import { api } from './client'
 
@@ -50,6 +51,8 @@ export const companiesApi = {
     api.delete(`/companies/${id}/tasks/${taskId}`).then((res) => res.data),
   readiness: (id: string): Promise<ReadinessResponse> =>
     api.get(`/companies/${id}/readiness`).then((res) => res.data),
+  recalculate: (id: string): Promise<RecalculateResponse> =>
+    api.post(`/companies/${id}/recalculate`).then((res) => res.data),
 }
 
 export const dashboardApi = {
