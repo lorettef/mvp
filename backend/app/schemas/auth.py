@@ -39,5 +39,5 @@ class UserResponse(BaseModel):
     company_id: Optional[UUID]
     created_at: datetime
     subscription_plan: str
-    daily_limit: int
+    daily_limit: Optional[int] = None  # None — безлимит
     used_today: int

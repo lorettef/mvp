@@ -40,8 +40,7 @@ class AuthService:
         # Создание бесплатной подписки
         subscription = Subscription(
             user_id=user.id,
-            plan="free",
-            daily_limit=1
+            plan="starter"
         )
         self.db.add(subscription)
         await self.db.flush()

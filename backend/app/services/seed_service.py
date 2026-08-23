@@ -43,8 +43,7 @@ async def seed_demo_account(db: AsyncSession) -> dict:
 
         subscription = Subscription(
             user_id=user.id,
-            plan="free",
-            daily_limit=3,
+            plan="starter",
         )
         db.add(subscription)
 
@@ -94,14 +93,6 @@ async def seed_demo_account(db: AsyncSession) -> dict:
         )
         db.add(cache_entry)
         await db.flush()
-    else:
-        subscription_result = await db.execute(
-            select(Subscription).where(Subscription.user_id == user.id)
-        )
-        sub = subscription_result.scalar_one_or_none()
-        if sub and sub.daily_limit < 3:
-            sub.daily_limit = 3
-            await db.flush()
 
     return {
         "email": settings.DEMO_ACCOUNT_EMAIL,

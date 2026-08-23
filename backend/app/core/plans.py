@@ -79,3 +79,8 @@ def get_plan(plan: Optional[str]) -> dict:
 
 def company_limit(plan: Optional[str]) -> Optional[int]:
     return get_plan(plan).get("company_limit")
+
+
+def ai_reports_limit(plan: Optional[str]) -> Optional[int]:
+    """Лимит AI-запросов по тарифу (None — безлимит)."""
+    return get_plan(plan).get("ai_reports_limit")
