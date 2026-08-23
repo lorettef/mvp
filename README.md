@@ -1,11 +1,10 @@
 <h1 align="center">🚀 Startup Engine</h1>
-<h3 align="center">Операционная система для pre-seed SaaS стартапов</h3>
+<h3 align="center">Операционная система для акселераторов и венчурных фондов</h3>
 
 <p align="center">
-  <a href="https://github.com/NickNewill/startup_engine/actions/workflows/test.yml"><img src="https://github.com/NickNewill/startup_engine/actions/workflows/test.yml/badge.svg" alt="Test"></a>
-  <a href="https://github.com/NickNewill/startup_engine/actions/workflows/deploy.yml"><img src="https://github.com/NickNewill/startup_engine/actions/workflows/deploy.yml/badge.svg" alt="Deploy"></a>
   <img src="https://img.shields.io/badge/react-18.3-61dafb?logo=react" alt="React">
   <img src="https://img.shields.io/badge/fastapi-0.115-009688?logo=fastapi" alt="FastAPI">
+  <img src="https://img.shields.io/badge/python-3.12-3776ab?logo=python" alt="Python">
   <img src="https://img.shields.io/badge/лицензия-Проприетарная-red" alt="License">
 </p>
 
@@ -13,57 +12,75 @@
 
 ## Что такое Startup Engine?
 
-Гибридная платформа для управления юнит-экономикой SaaS-стартапов на ранней стадии. Объединяет **дашборд с ключевыми метриками**, **AI-рекомендации** от GigaChat, **прогнозирование роста** и **систему задач** — помогая фаундерам принимать решения на основе данных.
+B2B-платформа для управления портфелем стартапов: акселераторы и венчурные фонды ведут в ней свои компании, отслеживают метрики «План vs Факт», анализируют юнит-экономику, готовят компании к продаже и формируют отчёты для инвесторов.
 
-> **Ваши данные — ваши.** Метрики хранятся локально в браузере (localStorage). На сервер отправляются только агрегированные показатели для AI-анализа.
+Платформа **мультитенантная**: у каждого акселератора своя организация, внутри — компании и пользователи с ролевым доступом.
 
 ### ✨ Возможности
 
-- **📊 Дашборд** — MRR, CAC, LTV, Churn, ARPU, Runway. Редактируемые карточки метрик с анализом здоровья бизнеса в реальном времени
-- **🤖 AI-рекомендации** — Персональные советы от GigaChat (Сбер) на основе ваших метрик, с приоритетами и категориями
-- **📈 Прогнозирование** — Предсказание роста MRR: линейная регрессия, квадратичная регрессия, Prophet
-- **🎨 Тёмная и светлая темы** — Интерфейс на [shadcn/ui](https://ui.shadcn.com), тёмная тема по умолчанию, переключатель в один клик
-- **🔐 JWT-аутентификация** — httpOnly cookies, bcrypt-хэширование паролей, rate limiting на критичных endpoint'ах
-- **🚀 Демо-доступ** — Мгновенный вход без регистрации: кнопка «Быстрый демо-доступ» на странице логина
+**Портфель и компании**
+- Дашборд портфеля — агрегаты (средние MRR/CAC/LTV/Churn, % выполняющих план) и таблица компаний со статусами
+- Страница компании — 13 вкладок: Метрики, Когорты, Бюджет, Юнит-экономика, Задачи, Рынок, Найм, P&L, Cash Flow, Кредиты, Оценка, Чувствительность, Отчёты
+- Метрики «План vs Факт» с отклонениями и трендами (красный/зелёный)
+
+**Аналитика и финансы**
+- Юнит-экономика: Runway, LTV/CAC, Magic Number, Retention (M1/M3/M6/M12) + диагностика
+- Когортное удержание и бюджет (Маркетинг/Разработка/ФОТ/G&A)
+- Финансовый модуль: P&L, Cash Flow, умное прогнозирование кредитов (кассовый разрыв + буфер 10%, ставка = ключевая + 5%), оценка бизнеса по модели Гордона, анализ чувствительности
+- Внешний анализ рынка (макро, объём, тренды) с влиянием на метрики
+- Прогноз найма с настраиваемыми соц. платежами (НДФЛ/взносы/травматизм)
+
+**Система задач — главное УТП**
+- Этапы готовности к продаже: Метрики → Документы → Переговоры → Презентация
+- Вывод «Готовность N%» + риски по незавершённым этапам
+
+**AI (12 сценариев)**
+- AI-рекомендации по улучшению метрик
+- Генерация плана метрик («Сгенерировать план AI»)
+- AI-инсайты (нарративы) по каждому аналитическому модулю
+- Провайдеры: **DeepSeek** (рекомендован) и **GigaChat**, с детерминированным demo-фолбэком
+
+**Отчёты и монетизация**
+- Отчёты для инвесторов: PDF (ReportLab) + Excel (openpyxl)
+- Тарифы Starter / Pro / Business / Enterprise с лимитами компаний и AI-запросов
+- Принудительный пересчёт всех прогнозов одной кнопкой
+
+### 👥 Роли
+
+| Роль | Доступ |
+|------|--------|
+| **Администратор** (акселератор) | Полный доступ ко всем компаниям, настройкам, отчётам |
+| **Компания** (стартап) | Только свои данные (ввод Плана и Факта) |
+| **Наблюдатель** (инвестор) | Только просмотр отчётов (read-only) |
 
 ---
 
 ## 🏗 Архитектура
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        КЛИЕНТ (Браузер)                         │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │              React 18 · TypeScript · shadcn/ui             │  │
-│  │              Tailwind CSS · Vite · Recharts               │  │
-│  │                                                           │  │
-│  │   Дашборд  │  AI-рекомендации  │  Прогноз  │  Настройки   │  │
-│  └──────────────────────┬────────────────────────────────────┘  │
-└─────────────────────────┼───────────────────────────────────────┘
-                          │  HTTPS / REST API
-                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      СЕРВЕР (Облако / VPS)                      │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                   Nginx (reverse proxy)                    │  │
-│  └──────────────────────┬────────────────────────────────────┘  │
-│                         │                                       │
-│  ┌──────────────────────┴──────────────────────────────────┐   │
-│  │                  FastAPI (Python 3.12)                    │   │
-│  │                                                          │   │
-│  │   /auth/*    │  /metrics/*  │  /forecast/*               │   │
-│  │   JWT        │  Анализ      │  Прогнозы                  │   │
-│  │                                                          │   │
-│  │   /recommendations/*  │  /subscription/*                 │   │
-│  │   GigaChat AI          │  Тарифы и лимиты                │   │
-│  └──────┬──────────────────────────────────┬────────────────┘   │
-│         │                                  │                    │
-│         ▼                                  ▼                    │
-│  ┌─────────────┐                  ┌─────────────────┐          │
-│  │ PostgreSQL  │                  │  GigaChat API   │          │
-│  │ (или SQLite)│                  │  (Сбер)         │          │
-│  └─────────────┘                  └─────────────────┘          │
-└─────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│                      КЛИЕНТ (Браузер)                           │
+│   React 18 · TypeScript · shadcn/ui · Tailwind · Recharts       │
+│                                                                │
+│   Дашборд │ Компания (13 вкладок) │ AI │ Настройки              │
+└──────────────────────────┬─────────────────────────────────────┘
+                           │  HTTPS / REST API
+                           ▼
+┌────────────────────────────────────────────────────────────────┐
+│                      Nginx (reverse proxy)                      │
+└──────────────────────────┬─────────────────────────────────────┘
+                           │
+┌──────────────────────────┴─────────────────────────────────────┐
+│                    FastAPI (Python 3.12)                        │
+│   /auth/*  /companies/*  /dashboard/*  /subscription/*          │
+│   JWT + httpOnly cookie · RBAC · rate limiting                  │
+└──────┬───────────────────────────────┬─────────────────────────┘
+       │                               │
+       ▼                               ▼
+┌─────────────┐              ┌─────────────────┐
+│ PostgreSQL  │              │  DeepSeek API   │
+│ (или SQLite)│              │  GigaChat API   │
+└─────────────┘              └─────────────────┘
 ```
 
 ---
@@ -72,13 +89,13 @@
 
 | Слой | Технологии |
 |------|-----------|
-| **Фронтенд** | React 18 · TypeScript 5.7 · Tailwind CSS 3.4 · [shadcn/ui](https://ui.shadcn.com) · Vite 5 |
-| **Стейт-менеджмент** | Zustand 5 · TanStack React Query 5 |
-| **Графики** | Recharts 2 |
+| **Фронтенд** | React 18 · TypeScript 5 · Tailwind CSS 3 · shadcn/ui · Vite · Recharts |
+| **Стейт-менеджмент** | Zustand · TanStack React Query |
 | **Бэкенд** | FastAPI 0.115 · Python 3.12 · Pydantic 2 · SQLAlchemy 2 (async) |
-| **База данных** | PostgreSQL 15 (production) · SQLite (разработка) |
-| **Аутентификация** | PyJWT · bcrypt · httpOnly cookies |
-| **AI** | GigaChat API (Сбер) с демо-режимом |
+| **База данных** | PostgreSQL 15 (production) · SQLite (разработка/тесты) |
+| **Аутентификация** | JWT + httpOnly cookie · bcrypt · rate limiting |
+| **AI** | DeepSeek API · GigaChat API · Prophet · demo-фолбэк |
+| **Отчёты** | ReportLab (PDF) · openpyxl (Excel) |
 | **Инфраструктура** | Docker Compose · Nginx · GitHub Actions CI/CD |
 | **Тестирование** | Vitest + Testing Library (фронт) · Pytest + pytest-asyncio (бэк) |
 
@@ -87,39 +104,40 @@
 ## 🚀 Быстрый старт
 
 ### Требования
-- [Docker](https://docs.docker.com/get-docker/) и Docker Compose
-- [Git](https://git-scm.com/)
+- Docker и Docker Compose
 
 ### 1. Клонирование и настройка
 
 ```bash
-git clone https://github.com/NickNewill/startup_engine.git
-cd startup_engine
+git clone <repo-url>
+cd <project-dir>
 
-# Настройка переменных окружения
-cp .env.example .env            # переменные для Docker Compose (POSTGRES_*)
+# Переменные окружения (Docker Compose)
+cp .env.example .env
+
+# Настройки бэкенда (AI-провайдер и ключи)
 cp backend/.env.example backend/.env
-# Отредактируйте backend/.env — добавьте ключи AI-провайдера (опционально)
-# AI_PROVIDER=demo работает из коробки для локальной разработки
 ```
 
-### 2. Запуск через Docker (рекомендуется)
+> **AI-провайдер**: по умолчанию `AI_PROVIDER=deepseek` — добавьте `DEEPSEEK_API_KEY`. Без ключа AI-функции автоматически падают на детерминированный demo-режим (правила вместо нейросети).
+
+### 2. Запуск через Docker
 
 ```bash
-# Режим разработки (hot reload, открытые порты)
+# Режим разработки (hot reload)
 docker compose up -d
 
-# Production-режим (Nginx, оптимизированные сборки)
+# Production (Nginx + собранные фронт-образы)
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-### 3. Доступ к приложению
+### 3. Доступ
 
 | Сервис | URL |
 |--------|-----|
 | Фронтенд | http://localhost:5173 |
 | Бэкенд API | http://localhost:8000 |
-| Документация API (Swagger) | http://localhost:8000/docs |
+| Swagger | http://localhost:8000/docs |
 
 ### 4. Локальная разработка (без Docker)
 
@@ -131,64 +149,56 @@ pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 
-# Фронтенд (в другом терминале)
+# Фронтенд (другой терминал)
 cd frontend
 npm install
 npm run dev
 ```
 
-> **Демо-режим**: нажмите **«Быстрый демо-доступ»** на странице входа — мгновенный доступ ко всем функциям с предзаполненными данными. Регистрация не требуется при `DEMO_MODE=true`.
+> **Демо-доступ**: при `DEMO_MODE=true` на странице входа доступна кнопка «Быстрый демо-доступ» — мгновенный вход с предзаполненными данными.
 
 ---
 
 ## 💰 Тарифы
 
-| Тариф | Цена | AI-запросов/день | Возможности |
+| Тариф | Цена | Лимит компаний | Возможности |
 |-------|------|:---:|-------------|
-| **Starter** | Бесплатно | 1 | Базовый дашборд, 1 AI-рекомендация |
-| **Pro** | $19/мес | 10 | Всё выше + прогнозы, экспорт PDF |
-| **Business** | $49/мес | ∞ | Всё выше + кастомные промпты, приоритет |
+| **Starter** | 0 ₽ | 2 | Демо 3 мес, базовый дашборд, 1 AI-отчёт/мес |
+| **Pro** | 19 000 ₽ (+1 900/компания) | до 10 | + Когорты, экспорт Excel, 5 AI-отчётов/мес |
+| **Business** | 39 000 ₽ (+2 900/компания) | до 25 | + полный фин. модуль (P&L, Cash Flow, Оценка), PDF-отчёты |
+| **Enterprise** | индивидуально | >25 | + кастомизация |
 
 ---
 
 ## 📂 Структура проекта
 
 ```
-startup_engine/
 ├── frontend/                    # React 18 + TypeScript + shadcn/ui
 │   ├── src/
 │   │   ├── api/                 # Axios-клиент и модули endpoint'ов
 │   │   ├── components/
-│   │   │   ├── common/          # Layout, ProtectedRoute, ErrorBoundary, StatCard
-│   │   │   ├── ui/              # shadcn/ui-компоненты (Button, Card, Input, …)
-│   │   │   ├── theme-provider.tsx
-│   │   │   └── theme-toggle.tsx
-│   │   ├── pages/               # Dashboard, Login, Register, Recommendations,
-│   │   │                          Forecast, Settings
+│   │   │   ├── common/          # Layout, ProtectedRoute, ErrorBoundary
+│   │   │   ├── company/         # 13 вкладок страницы компании + AIInsight
+│   │   │   └── ui/              # shadcn/ui-компоненты
+│   │   ├── pages/               # Dashboard, CompanyDetail, Recommendations, …
 │   │   ├── store/               # Zustand-стор (persist в localStorage)
-│   │   ├── types/               # Общие типы API-контрактов
-│   │   ├── lib/                 # Утилита cn()
-│   │   └── test/                # Настройка тестов + моки
-│   ├── tailwind.config.js
-│   ├── vite.config.ts
+│   │   └── types/               # Общие типы API-контрактов
 │   └── package.json
 │
 ├── backend/                     # FastAPI + SQLAlchemy (async)
 │   ├── app/
-│   │   ├── api/v1/              # Роуты (auth, metrics, forecast,
-│   │   │                          recommendations, subscription)
-│   │   ├── core/                # Конфиг, БД, безопасность, rate limiter
-│   │   ├── models/              # SQLAlchemy-модели (User, Subscription, AICache, AuditLog)
-│   │   ├── schemas/             # Pydantic-схемы запросов/ответов
-│   │   └── services/            # Бизнес-логика (auth, AI, аналитика, forecast, seed)
-│   ├── alembic/                 # Миграции базы данных
+│   │   ├── api/v1/              # Роуты (auth, companies, dashboard, financial, AI, …)
+│   │   ├── core/                # Конфиг, БД, безопасность, тарифы, rate limiter
+│   │   ├── models/              # SQLAlchemy-модели (мультитенантность)
+│   │   ├── schemas/             # Pydantic-схемы
+│   │   └── services/            # Бизнес-логика (auth, AI, финансы, отчёты, …)
+│   ├── alembic/                 # Миграции БД
 │   ├── tests/                   # Pytest-тесты
 │   └── requirements.txt
 │
 ├── nginx/                       # Конфигурация Nginx для production
 ├── scripts/                     # Деплой и утилиты
-├── .github/workflows/           # CI/CD (test.yml, deploy.yml)
-├── .env.example                 # Пример переменных окружения для Docker Compose
+├── .github/workflows/           # CI/CD (test, build-images, deploy)
 ├── docker-compose.yml           # Docker для разработки
 └── docker-compose.prod.yml      # Docker для production
 ```
@@ -200,7 +210,7 @@ startup_engine/
 ```bash
 # Бэкенд
 cd backend
-pytest --cov=app
+pytest
 
 # Фронтенд
 cd frontend
@@ -211,15 +221,9 @@ npm run test
 
 ## 📦 Деплой
 
-Проект автоматически деплоится через GitHub Actions при пуше в `main`.
+Деплой через GitHub Actions при пуше в `main`.
 
-**Секреты репозитория:**
-
-| Секрет | Описание |
-|--------|----------|
-| `SERVER_HOST` | IP-адрес сервера |
-| `SERVER_USER` | Пользователь SSH |
-| `SSH_PRIVATE_KEY` | Приватный ключ для SSH-доступа |
+**Секреты репозитория**: `SERVER_HOST`, `SERVER_USER`, `SSH_PRIVATE_KEY`.
 
 Ручной деплой:
 
@@ -229,23 +233,6 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ---
 
-## 🤝 Участие в разработке
-
-1. Форкните репозиторий
-2. Создайте ветку: `git checkout -b feature/название-фичи`
-3. Внесите изменения с тестами
-4. Убедитесь, что `npm run build && pytest` проходит
-5. Используйте [conventional commits](https://www.conventionalcommits.org/)
-6. Запушьте и откройте Pull Request
-
----
-
 ## 📄 Лицензия
 
 Проприетарная. Все права защищены. Подробнее в [LICENSE](LICENSE).
-
----
-
-<p align="center">
-  Разработчик: <a href="https://github.com/NickNewill">NickNewill</a> · <a href="https://startupengine.ru">startupengine.ru</a>
-</p>
