@@ -516,3 +516,24 @@ export interface PlanGenerateResponse {
   summary: string
   metrics: PlanMetricItem[]
 }
+
+// AI insight (narrative) per module (TZ v5.0, section 2.3)
+export type InsightScenario =
+  | 'unit_economics'
+  | 'cohorts'
+  | 'budget'
+  | 'readiness'
+  | 'hiring'
+  | 'pnl'
+  | 'cashflow'
+  | 'credit'
+  | 'valuation'
+  | 'sensitivity'
+  | 'reports'
+
+export interface InsightResponse {
+  companyId: string
+  scenario: string
+  provider: string
+  text: string
+}

@@ -16,6 +16,8 @@ import type {
   ReadinessResponse,
   RecalculateResponse,
   PlanGenerateResponse,
+  InsightScenario,
+  InsightResponse,
 } from '@/types/api'
 import { api } from './client'
 
@@ -56,6 +58,8 @@ export const companiesApi = {
     api.post(`/companies/${id}/recalculate`).then((res) => res.data),
   generatePlan: (id: string, months = 6): Promise<PlanGenerateResponse> =>
     api.post(`/companies/${id}/generate-plan`, null, { params: { months } }).then((res) => res.data),
+  insight: (id: string, scenario: InsightScenario): Promise<InsightResponse> =>
+    api.post(`/companies/${id}/insights/${scenario}`).then((res) => res.data),
 }
 
 export const dashboardApi = {

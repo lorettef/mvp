@@ -10,7 +10,7 @@ import { creditApi } from '../api/credit'
 import { valuationApi } from '../api/valuation'
 import { sensitivityApi } from '../api/sensitivity'
 import { useAuthStore } from '../store/authStore'
-import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert } from '@/types/api'
+import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, InsightScenario } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +29,7 @@ import { CreditTab } from '@/components/company/CreditTab'
 import { ValuationTab } from '@/components/company/ValuationTab'
 import { SensitivityTab } from '@/components/company/SensitivityTab'
 import { ReportsTab } from '@/components/company/ReportsTab'
+import { AIInsight } from '@/components/company/AIInsight'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
@@ -39,6 +40,20 @@ const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${(v * 10
 
 const providerLabel = (p: string) =>
   p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : 'демо-режим'
+
+const scenarioByTab: Record<string, InsightScenario> = {
+  unit: 'unit_economics',
+  cohorts: 'cohorts',
+  budget: 'budget',
+  tasks: 'readiness',
+  hiring: 'hiring',
+  pnl: 'pnl',
+  cashflow: 'cashflow',
+  credit: 'credit',
+  valuation: 'valuation',
+  sensitivity: 'sensitivity',
+  reports: 'reports',
+}
 
 export const CompanyDetail = () => {
   const { companyId } = useParams<{ companyId: string }>()
@@ -252,6 +267,8 @@ export const CompanyDetail = () => {
   const readiness = readinessQuery.data ?? null
 
   const canEdit = user?.role === 'admin' || user?.role === 'company'
+
+  const scenario = scenarioByTab[tab]
 
   const periods = new Map<string, { plan?: Metric; fact?: Metric }>()
   for (const m of metrics) {
@@ -504,6 +521,14 @@ export const CompanyDetail = () => {
           <ReportsTab companyId={id} />
         </TabsContent>
       </Tabs>
+
+      {scenario && (
+        <Card className="border bg-card/50">
+          <CardContent className="p-5">
+            <AIInsight companyId={id} scenario={scenario} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
