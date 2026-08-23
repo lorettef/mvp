@@ -1,10 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.services.subscription_service import SubscriptionService
+from app.schemas.subscription import PlanResponse
 from app.api.dependencies import get_current_user
 
 router = APIRouter()
+
+@router.get("/plans", response_model=list[PlanResponse])
+async def get_plans(
+    current_user: dict = Depends(get_current_user),
+):
+    """Список доступных тарифных планов."""
+    return SubscriptionService.get_plans()
 
 @router.get("/status")
 async def get_subscription_status(

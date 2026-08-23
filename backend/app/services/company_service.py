@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
@@ -83,3 +83,12 @@ class CompanyService:
         """Удаление компании."""
         await self.db.delete(company)
         await self.db.flush()
+
+    async def count_companies(self, organization_id: UUID) -> int:
+        """Количество компаний в организации."""
+        result = await self.db.execute(
+            select(func.count(Company.id)).where(
+                Company.organization_id == organization_id
+            )
+        )
+        return result.scalar() or 0

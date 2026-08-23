@@ -1,10 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from fastapi import HTTPException, status
-from app.models.user import User
 from app.models.subscription import Subscription
 from app.models.ai_cache import AICache
-from datetime import datetime, timedelta, timezone
+from app.core.plans import PLANS, normalize_plan
+from app.schemas.subscription import PlanResponse
+from datetime import datetime, timezone
 from uuid import UUID
 
 class SubscriptionService:
@@ -18,6 +19,19 @@ class SubscriptionService:
     
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    @staticmethod
+    def get_plans() -> list[PlanResponse]:
+        """Доступные тарифные планы (TZ v5.0, раздел 17)."""
+        return [PlanResponse(**p) for p in PLANS]
+
+    async def get_plan_id(self, user_id: UUID) -> str:
+        """Нормализованный идентификатор тарифа пользователя (дефолт — starter)."""
+        result = await self.db.execute(
+            select(Subscription).where(Subscription.user_id == user_id)
+        )
+        sub = result.scalar_one_or_none()
+        return normalize_plan(sub.plan if sub else None)
     
     async def get_user_subscription(self, user_id: UUID) -> dict:
         """Получить информацию о подписке пользователя."""

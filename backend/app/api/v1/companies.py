@@ -17,6 +17,8 @@ from app.schemas.company import CompanyCreate, CompanyUpdate, CompanyResponse
 from app.schemas.metric import MetricUpsert, MetricResponse
 from app.services.company_service import CompanyService
 from app.services.metric_service import MetricService
+from app.services.subscription_service import SubscriptionService
+from app.core.plans import company_limit
 
 router = APIRouter()
 
@@ -62,6 +64,15 @@ async def create_company(
 ):
     """Создание компании в организации администратора."""
     service = CompanyService(db)
+    plan_id = await SubscriptionService(db).get_plan_id(user["user_id"])
+    limit = company_limit(plan_id)
+    if limit is not None:
+        count = await service.count_companies(user["organization_id"])
+        if count >= limit:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Превышен лимит компаний по тарифу (максимум {limit}).",
+            )
     company = await service.create_company(user["organization_id"], data)
     return _company_to_response(company)
 
