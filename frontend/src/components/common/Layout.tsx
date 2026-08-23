@@ -128,14 +128,17 @@ export const Layout = () => {
   </div>
 )}
           <div className="flex items-center gap-3 ml-auto">
-            {user?.subscriptionPlan === 'free' && (
-              <Badge variant="secondary">Free</Badge>
+            {user?.subscriptionPlan === 'starter' && (
+              <Badge variant="secondary">Starter</Badge>
             )}
             {user?.subscriptionPlan === 'pro' && (
               <Badge variant="default">Pro</Badge>
             )}
             {user?.subscriptionPlan === 'business' && (
               <Badge variant="outline" className="bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 border-amber-200">Business</Badge>
+            )}
+            {user?.subscriptionPlan === 'enterprise' && (
+              <Badge variant="outline" className="bg-gradient-to-r from-purple-50 to-blue-50 text-purple-700 border-purple-200">Enterprise</Badge>
             )}
             <ThemeToggle />
           </div>

@@ -11,7 +11,7 @@ export interface User {
   organizationId: string | null
   companyId: string | null
   subscriptionPlan: string
-  dailyLimit: number
+  dailyLimit: number | null
   usedToday: number
 }
 
@@ -19,7 +19,6 @@ interface AuthState {
   user: User | null
   setUser: (user: AuthState['user']) => void
   logout: () => Promise<void>
-  updateSubscription: (plan: string, limit: number) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -35,10 +34,6 @@ export const useAuthStore = create<AuthState>()(
         }
         set({ user: null })
       },
-      updateSubscription: (plan, limit) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, subscriptionPlan: plan, dailyLimit: limit } : null,
-        })),
     }),
     {
       name: 'auth-storage',

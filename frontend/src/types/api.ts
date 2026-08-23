@@ -26,7 +26,7 @@ export interface UserResponse {
   companyId: string | null
   createdAt: string
   subscriptionPlan: string
-  dailyLimit: number
+  dailyLimit: number | null
   usedToday: number
 }
 
@@ -87,10 +87,14 @@ export interface RecommendationResponse {
 }
 
 // Subscription
-export interface SubscriptionStatus {
-  plan: string
-  daily_limit: number
-  used_today: number
+export interface PlanResponse {
+  id: string
+  name: string
+  price: number | null
+  pricePerCompany: number | null
+  companyLimit: number | null
+  aiReportsLimit: number | null
+  features: string[]
 }
 
 // Company

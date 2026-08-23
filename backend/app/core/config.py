@@ -35,16 +35,6 @@ class Settings(BaseSettings):
     DEMO_ACCOUNT_EMAIL: str = "demo@startupengine.ru"
     DEMO_ACCOUNT_PASSWORD: str = "demo123"  # Override in .env; only used when DEMO_MODE=true
     
-    # AI лимиты
-    FREE_DAILY_LIMIT: int = 1
-    PRO_DAILY_LIMIT: int = 10
-    BUSINESS_DAILY_LIMIT: int = 50
-    
-    # Rate Limiting
-    RATE_LIMIT_FREE: int = 10  # запросов в минуту
-    RATE_LIMIT_PRO: int = 100
-    RATE_LIMIT_BUSINESS: int = 500
-    
     model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 
 settings = Settings()

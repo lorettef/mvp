@@ -1,14 +1,30 @@
-import React, { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
-import { authApi } from '../api/auth'
-import { User, CreditCard, LogOut, CheckCircle2 } from 'lucide-react'
+import { subscriptionApi } from '../api/subscription'
+import type { PlanResponse } from '@/types/api'
+import { User, CreditCard, LogOut, CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
+const fmtPrice = (v: number | null) =>
+  v == null ? 'Индивидуально' : v === 0 ? 'Бесплатно' : `₽${v.toLocaleString('ru-RU')}/мес`
+
+const fmtAiLimit = (v: number | null) =>
+  v == null ? 'Безлимит AI' : `${v} AI-отчёт(ов)/мес`
+
 export const Settings = () => {
   const { user, logout } = useAuthStore()
-  const [error, setError] = useState('')
+  const [plans, setPlans] = useState<PlanResponse[]>([])
+  const [plansLoading, setPlansLoading] = useState(true)
+
+  useEffect(() => {
+    subscriptionApi
+      .plans()
+      .then(setPlans)
+      .catch(() => setPlans([]))
+      .finally(() => setPlansLoading(false))
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -37,58 +53,49 @@ export const Settings = () => {
             Подписка
           </h3>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { id: 'free', label: 'Бесплатный', limit: '1 запрос/день', price: '$0' },
-                { id: 'pro', label: 'Pro', limit: '10 запросов/день', price: '$19/мес' },
-                { id: 'business', label: 'Business', limit: 'Безлимит', price: '$49/мес' },
-              ].map((plan) => (
+          {plansLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground py-6">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Загрузка тарифов...
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {plans.map((plan) => (
                 <Card
                   key={plan.id}
-                  className={`cursor-pointer transition-all duration-200 ${
+                  className={`transition-all duration-200 ${
                     user?.subscriptionPlan === plan.id
                       ? 'border-primary bg-primary/5'
                       : 'border-input bg-card/50'
                   }`}
                 >
                   <CardContent className="p-5">
-                    <p className="font-semibold text-foreground">{plan.label}</p>
-                    <p className="text-sm text-muted-foreground">{plan.limit}</p>
-                    <p className="text-sm font-bold text-foreground mt-1">{plan.price}</p>
+                    <p className="font-semibold text-foreground">{plan.name}</p>
+                    <p className="text-sm text-muted-foreground">{fmtAiLimit(plan.aiReportsLimit)}</p>
+                    <p className="text-sm font-bold text-foreground mt-1">{fmtPrice(plan.price)}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      До {plan.companyLimit ?? '∞'} компаний
+                    </p>
                     {user?.subscriptionPlan === plan.id ? (
                       <Badge variant="default" className="mt-2">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
                         Активен
                       </Badge>
-                    ) : (
-                      <button
-                        className="text-xs text-muted-foreground mt-2 cursor-not-allowed"
-                        disabled
-                        title="Contact support to upgrade"
-                      >
-                        Upgrade
-                      </button>
-                    )}
+                    ) : null}
                   </CardContent>
                 </Card>
               ))}
             </div>
+          )}
 
-            {error && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-destructive text-sm">
-                {error}
+          {user && (
+            <div className="flex items-center justify-between p-3 bg-card/50 rounded-lg mt-4">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Использовано сегодня: {user.usedToday} / {user.dailyLimit ?? '∞'}
+                </p>
               </div>
-            )}
-
-
-            {user && (
-              <div className="flex items-center justify-between p-3 bg-card/50 rounded-lg">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Использовано сегодня: {user.usedToday} / {user.dailyLimit}
-                  </p>
-                </div>
+              {user.dailyLimit != null && (
                 <div className="w-full max-w-xs bg-muted h-2 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary transition-all"
@@ -97,9 +104,9 @@ export const Settings = () => {
                     }}
                   />
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
