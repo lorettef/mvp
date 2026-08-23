@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     DEMO_ACCOUNT_EMAIL: str = "demo@startupengine.ru"
     DEMO_ACCOUNT_PASSWORD: str = "demo123"  # Override in .env; only used when DEMO_MODE=true
     
+    # Email (SMTP) — если SMTP_HOST пуст, отправка отключена (no-op)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "Startup Engine <noreply@startupengine.ru>"
+    SMTP_USE_TLS: bool = True
+    
     model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 
 settings = Settings()

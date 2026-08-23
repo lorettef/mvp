@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.database import engine
-from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics
+from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin
 
 # Настройка логирования
 logging.basicConfig(
@@ -87,6 +87,7 @@ app.include_router(recalculate.router, prefix="/api/v1/companies", tags=["recalc
 app.include_router(plan_generation.router, prefix="/api/v1/companies", tags=["plan-generation"])
 app.include_router(insights.router, prefix="/api/v1/companies", tags=["insights"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(market.router, prefix="/api/v1/market", tags=["market"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
 app.include_router(
