@@ -1,9 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowRight, LogOut } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { Button } from '@/components/ui/button'
+import { LanguageToggle } from '@/components/LanguageToggle'
 
 export const Landing = () => {
+  const { t } = useTranslation()
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
 
@@ -47,21 +50,24 @@ export const Landing = () => {
             <span className="text-lg font-semibold text-white">Startup Engine</span>
           </div>
 
-          {isLoggedIn ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white/80 hover:text-white hover:bg-white/10"
-              onClick={logout}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Выйти
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" className="text-white/80 hover:text-white hover:bg-white/10" asChild>
-              <Link to="/login">Войти</Link>
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            <LanguageToggle className="text-white/70 hover:text-white" />
+            {isLoggedIn ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white/80 hover:text-white hover:bg-white/10"
+                onClick={logout}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                {t('landing.logout')}
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" className="text-white/80 hover:text-white hover:bg-white/10" asChild>
+                <Link to="/login">{t('landing.login')}</Link>
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -79,25 +85,25 @@ export const Landing = () => {
           </div>
 
           <span className="inline-block px-4 py-1.5 rounded-full border border-white/15 bg-white/5 text-sm text-primary-200 mb-6">
-            B2B-платформа для акселераторов и фондов
+            {t('landing.badge')}
           </span>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1]">
-            Управляйте портфелем стартапов как профессионал
+            {t('landing.title')}
           </h1>
 
           <p className="mt-6 text-lg sm:text-xl text-slate-300/90 leading-relaxed">
-            Собирайте метрики, анализируйте юнит-экономику и готовьте компании к продаже — в одном окне.
+            {t('landing.subtitle')}
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button size="lg" className="w-full sm:w-auto px-8" onClick={handlePrimary}>
-              {isLoggedIn ? 'Перейти в дашборд' : 'Начать управлять'}
+              {isLoggedIn ? t('landing.goDashboard') : t('landing.start')}
               <ArrowRight className="w-4 h-4" />
             </Button>
             {!isLoggedIn && (
               <Button variant="outline" size="lg" className="w-full sm:w-auto px-8 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white" asChild>
-                <Link to="/login">Войти</Link>
+                <Link to="/login">{t('landing.login')}</Link>
               </Button>
             )}
           </div>
@@ -107,11 +113,11 @@ export const Landing = () => {
       {/* Нижняя строка с ключевыми возможностями */}
       <footer className="relative z-10 w-full border-t border-white/10">
         <div className="mx-auto max-w-6xl px-6 py-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
-          <span>Юнит-экономика · MRR / CAC / LTV</span>
+          <span>{t('landing.footerUnit')}</span>
           <span className="hidden sm:inline text-white/20">·</span>
-          <span>Когортный анализ удержания</span>
+          <span>{t('landing.footerCohorts')}</span>
           <span className="hidden sm:inline text-white/20">·</span>
-          <span>Готовность к продаже бизнеса</span>
+          <span>{t('landing.footerReadiness')}</span>
         </div>
       </footer>
     </div>
