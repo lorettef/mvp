@@ -37,6 +37,9 @@ const fmtPeriod = (period: string) => (period ? period.slice(0, 7) : '—')
 
 const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${(v * 100).toFixed(1)}%`)
 
+const providerLabel = (p: string) =>
+  p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : 'демо-режим'
+
 export const CompanyDetail = () => {
   const { companyId } = useParams<{ companyId: string }>()
   const { user } = useAuthStore()
@@ -148,6 +151,14 @@ export const CompanyDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['company-credit', id] })
       queryClient.invalidateQueries({ queryKey: ['company-valuation', id] })
       queryClient.invalidateQueries({ queryKey: ['company-sensitivity', id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+
+  const generatePlanMutation = useMutation({
+    mutationFn: () => companiesApi.generatePlan(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-metrics', id] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
@@ -271,12 +282,24 @@ export const CompanyDetail = () => {
             <RefreshCw className={`w-4 h-4 mr-2 ${recalculateMutation.isPending ? 'animate-spin' : ''}`} />
             {recalculateMutation.isPending ? 'Пересчёт...' : 'Принудительный пересчёт'}
           </Button>
-          <Button size="sm" variant="outline" disabled title="Появится в AI-модуле">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Сгенерировать план AI
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => generatePlanMutation.mutate()}
+            disabled={!canEdit || generatePlanMutation.isPending}
+            title={!canEdit ? 'Недостаточно прав' : 'Сгенерировать план метрик на основе фактов'}
+          >
+            <Sparkles className={`w-4 h-4 mr-2 ${generatePlanMutation.isPending ? 'animate-spin' : ''}`} />
+            {generatePlanMutation.isPending ? 'Генерация...' : 'Сгенерировать план AI'}
           </Button>
         </div>
       </div>
+
+      {generatePlanMutation.data && (
+        <div className="text-sm text-muted-foreground bg-muted/40 border border-border rounded-lg px-4 py-2">
+          План на {generatePlanMutation.data.metrics.length} мес. сгенерирован ({providerLabel(generatePlanMutation.data.provider)}).
+        </div>
+      )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>

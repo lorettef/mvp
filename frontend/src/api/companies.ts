@@ -15,6 +15,7 @@ import type {
   TaskUpdate,
   ReadinessResponse,
   RecalculateResponse,
+  PlanGenerateResponse,
 } from '@/types/api'
 import { api } from './client'
 
@@ -53,6 +54,8 @@ export const companiesApi = {
     api.get(`/companies/${id}/readiness`).then((res) => res.data),
   recalculate: (id: string): Promise<RecalculateResponse> =>
     api.post(`/companies/${id}/recalculate`).then((res) => res.data),
+  generatePlan: (id: string, months = 6): Promise<PlanGenerateResponse> =>
+    api.post(`/companies/${id}/generate-plan`, null, { params: { months } }).then((res) => res.data),
 }
 
 export const dashboardApi = {

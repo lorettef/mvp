@@ -83,6 +83,7 @@ export interface RecommendationResponse {
   summary: string
   recommendations: RecommendationAction[]
   raw_response: string | null
+  provider: string
 }
 
 // Subscription
@@ -498,4 +499,20 @@ export interface RecalculateResponse {
   equityValue: number | null
   totalCreditNeeded: number | null
   summary: string
+}
+
+// AI plan generation (TZ v5.0, section 7.1)
+export interface PlanMetricItem {
+  period: string
+  mrr: number
+  cac: number
+  ltv: number
+  churn: number
+}
+
+export interface PlanGenerateResponse {
+  companyId: string
+  provider: string
+  summary: string
+  metrics: PlanMetricItem[]
 }

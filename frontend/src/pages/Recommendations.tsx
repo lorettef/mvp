@@ -66,6 +66,12 @@ export const Recommendations = () => {
     low: 'Низкий',
   }
 
+  const providerLabels: Record<string, string> = {
+    deepseek: 'AI (DeepSeek)',
+    gigachat: 'AI (GigaChat)',
+    demo: 'Базовая рекомендация',
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -190,8 +196,13 @@ export const Recommendations = () => {
             <CardContent className="p-5">
               <div className="flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-primary-800">Анализ</p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-primary-800">Анализ</p>
+                    <Badge variant="outline">
+                      {providerLabels[result.provider] ?? 'Базовая рекомендация'}
+                    </Badge>
+                  </div>
                   <p className="text-sm text-primary-700 mt-1">{result.summary}</p>
                 </div>
               </div>

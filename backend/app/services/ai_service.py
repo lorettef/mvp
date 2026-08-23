@@ -14,6 +14,8 @@ from app.schemas.recommendations import RecommendationResponse, RecommendationAc
 
 logger = logging.getLogger(__name__)
 
+SYSTEM_PROMPT = "Ты аналитик по юнит-экономике. Отвечай строго в формате JSON."
+
 class AIService:
     """Сервис для работы с AI-провайдерами (DeepSeek, GigaChat, Demo)."""
     
@@ -33,6 +35,7 @@ class AIService:
         
         if settings.AI_PROVIDER == "demo":
             response = self._generate_demo_recommendations(metrics)
+            response.provider = "demo"
             await self._cache_response(metrics_hash, response, user_id)
             return response
         
@@ -41,11 +44,13 @@ class AIService:
                 response = await self._call_deepseek(metrics)
             else:
                 response = await self._call_gigachat(metrics)
+            response.provider = settings.AI_PROVIDER
             await self._cache_response(metrics_hash, response, user_id)
             return response
         except Exception:
             logger.error("%s API call failed, falling back to demo", settings.AI_PROVIDER)
             response = self._generate_demo_recommendations(metrics)
+            response.provider = "demo"
             await self._cache_response(metrics_hash, response, user_id)
             return response
     
@@ -142,14 +147,14 @@ class AIService:
         except (json.JSONDecodeError, KeyError, ValueError):
             return self._generate_demo_recommendations(metrics)
     
-    async def _call_deepseek(self, metrics: MetricsRequest) -> RecommendationResponse:
-        """Вызов DeepSeek API (OpenAI-совместимый)."""
+    async def _chat_deepseek(self, system: str, user: str) -> str:
+        """Вызов DeepSeek API (OpenAI-совместимый) — возвращает сырой текст."""
         if not settings.DEEPSEEK_API_KEY:
             raise ValueError("DEEPSEEK_API_KEY не задан")
-        
-        logger.info("Calling DeepSeek API: %s/chat/completions model=%s", 
+
+        logger.info("Calling DeepSeek API: %s/chat/completions model=%s",
                      settings.DEEPSEEK_BASE_URL, settings.DEEPSEEK_MODEL)
-        
+
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 f"{settings.DEEPSEEK_BASE_URL}/chat/completions",
@@ -160,8 +165,8 @@ class AIService:
                 json={
                     "model": settings.DEEPSEEK_MODEL,
                     "messages": [
-                        {"role": "system", "content": "Ты аналитик по юнит-экономике. Отвечай строго в формате JSON."},
-                        {"role": "user", "content": self._build_prompt(metrics)}
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user}
                     ],
                     "temperature": 0.7,
                     "max_tokens": 1000,
@@ -169,16 +174,13 @@ class AIService:
             )
             response.raise_for_status()
             result = response.json()
-            content = result["choices"][0]["message"]["content"]
-            return self._parse_ai_response(content, metrics)
-    
-    async def _call_gigachat(self, metrics: MetricsRequest) -> RecommendationResponse:
-        """Вызов GigaChat API (Сбер)."""
+            return result["choices"][0]["message"]["content"]
+
+    async def _chat_gigachat(self, system: str, user: str) -> str:
+        """Вызов GigaChat API (Сбер) — возвращает сырой текст."""
         if not settings.GIGACHAT_AUTH_KEY:
             raise ValueError("GIGACHAT_AUTH_KEY не задан")
-        
-        prompt = self._build_prompt(metrics)
-        
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             auth_response = await client.post(
                 f"{settings.GIGACHAT_API_URL}/auth",
@@ -192,10 +194,10 @@ class AIService:
             auth_response.raise_for_status()
             auth_data = auth_response.json()
             access_token = auth_data.get("access_token")
-            
+
             if not access_token:
                 raise ValueError("Не удалось получить токен доступа GigaChat")
-            
+
             response = await client.post(
                 f"{settings.GIGACHAT_API_URL}/chat/completions",
                 headers={
@@ -205,8 +207,8 @@ class AIService:
                 json={
                     "model": "GigaChat",
                     "messages": [
-                        {"role": "system", "content": "Ты аналитик по юнит-экономике. Отвечай строго в формате JSON."},
-                        {"role": "user", "content": prompt}
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user}
                     ],
                     "temperature": 0.7,
                     "max_tokens": 1000
@@ -214,8 +216,41 @@ class AIService:
             )
             response.raise_for_status()
             result = response.json()
-            content = result["choices"][0]["message"]["content"]
-            return self._parse_ai_response(content, metrics)
+            return result["choices"][0]["message"]["content"]
+
+    async def _call_deepseek(self, metrics: MetricsRequest) -> RecommendationResponse:
+        """Рекомендации через DeepSeek."""
+        content = await self._chat_deepseek(SYSTEM_PROMPT, self._build_prompt(metrics))
+        return self._parse_ai_response(content, metrics)
+
+    async def _call_gigachat(self, metrics: MetricsRequest) -> RecommendationResponse:
+        """Рекомендации через GigaChat."""
+        content = await self._chat_gigachat(SYSTEM_PROMPT, self._build_prompt(metrics))
+        return self._parse_ai_response(content, metrics)
+
+    async def complete(
+        self,
+        prompt: str,
+        system: str = SYSTEM_PROMPT,
+        demo_text: str = "",
+    ) -> tuple[str, str]:
+        """Универсальный вызов LLM. Возвращает (text, provider).
+
+        При AI_PROVIDER=demo или ошибке провайдера возвращает demo_text
+        с provider="demo" — так каждый сценарий задаёт свой детерминированный
+        фолбэк, а расчёты остаются предсказуемыми.
+        """
+        if settings.AI_PROVIDER == "demo":
+            return demo_text, "demo"
+        try:
+            if settings.AI_PROVIDER == "deepseek":
+                text = await self._chat_deepseek(system, prompt)
+            else:
+                text = await self._chat_gigachat(system, prompt)
+            return text, settings.AI_PROVIDER
+        except Exception:
+            logger.error("%s API call failed, falling back to demo", settings.AI_PROVIDER)
+            return demo_text, "demo"
     
     def _generate_demo_recommendations(self, metrics: MetricsRequest) -> RecommendationResponse:
         """Генерирует демо-рекомендации (без реального AI)."""

@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
     deleteTask: vi.fn(),
     readiness: vi.fn(),
     recalculate: vi.fn(),
+    generatePlan: vi.fn(),
   },
 }))
 
@@ -344,6 +345,16 @@ const recalculateData = {
   summary: 'Кассовых разрывов не прогнозируется.',
 }
 
+const planGenerateData = {
+  companyId: 'comp1',
+  provider: 'demo',
+  summary: 'Демо-план: рост MRR 5% в месяц.',
+  metrics: [
+    { period: '2026-03-01', mrr: 126000, cac: 4500, ltv: 22000, churn: 0.04 },
+    { period: '2026-04-01', mrr: 132300, cac: 4500, ltv: 22000, churn: 0.04 },
+  ],
+}
+
 function renderCompanyDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -378,6 +389,7 @@ describe('CompanyDetail', () => {
     valuationApiMock.get.mockResolvedValue(valuationData)
     sensitivityApiMock.get.mockResolvedValue(sensitivityData)
     mocks.companiesApi.recalculate.mockResolvedValue(recalculateData)
+    mocks.companiesApi.generatePlan.mockResolvedValue(planGenerateData)
   })
 
   it('renders 13 tab triggers', async () => {
@@ -494,6 +506,13 @@ describe('CompanyDetail', () => {
     const btn = await screen.findByRole('button', { name: /Принудительный пересчёт/ })
     fireEvent.click(btn)
     await waitFor(() => expect(mocks.companiesApi.recalculate).toHaveBeenCalledWith('comp1'))
+  })
+
+  it('generates AI plan on click', async () => {
+    renderCompanyDetail()
+    const btn = await screen.findByRole('button', { name: /Сгенерировать план AI/ })
+    fireEvent.click(btn)
+    await waitFor(() => expect(mocks.companiesApi.generatePlan).toHaveBeenCalledWith('comp1'))
   })
 
   it('hides add buttons for observer role', async () => {

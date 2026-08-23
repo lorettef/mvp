@@ -16,3 +16,4 @@ class RecommendationResponse(BaseModel):
     summary: str
     recommendations: List[RecommendationAction]
     raw_response: Optional[str] = None
+    provider: str = "demo"  # deepseek | gigachat | demo
