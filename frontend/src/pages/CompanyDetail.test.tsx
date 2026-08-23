@@ -364,7 +364,7 @@ describe('CompanyDetail', () => {
     sensitivityApiMock.get.mockResolvedValue(sensitivityData)
   })
 
-  it('renders 12 tab triggers', async () => {
+  it('renders 13 tab triggers', async () => {
     renderCompanyDetail()
     expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
@@ -378,6 +378,7 @@ describe('CompanyDetail', () => {
     expect(screen.getByRole('tab', { name: 'Кредиты' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Оценка' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Чувствительность' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Отчёты' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -464,6 +465,12 @@ describe('CompanyDetail', () => {
     expect(
       await screen.findByText('Анализ чувствительности — консервативный сценарий'),
     ).toBeInTheDocument()
+  })
+
+  it('switches to reports tab on click', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Отчёты' }))
+    expect(await screen.findByText('Отчёты для инвесторов')).toBeInTheDocument()
   })
 
   it('hides add buttons for observer role', async () => {

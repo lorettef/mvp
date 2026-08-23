@@ -28,6 +28,7 @@ import { CashFlowTab } from '@/components/company/CashFlowTab'
 import { CreditTab } from '@/components/company/CreditTab'
 import { ValuationTab } from '@/components/company/ValuationTab'
 import { SensitivityTab } from '@/components/company/SensitivityTab'
+import { ReportsTab } from '@/components/company/ReportsTab'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
@@ -267,6 +268,7 @@ export const CompanyDetail = () => {
           <TabsTrigger value="credit">Кредиты</TabsTrigger>
           <TabsTrigger value="valuation">Оценка</TabsTrigger>
           <TabsTrigger value="sensitivity">Чувствительность</TabsTrigger>
+          <TabsTrigger value="reports">Отчёты</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -449,6 +451,10 @@ export const CompanyDetail = () => {
             data={sensitivityQuery.data}
             isLoading={sensitivityQuery.isLoading}
           />
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <ReportsTab companyId={id} />
         </TabsContent>
       </Tabs>
     </div>
