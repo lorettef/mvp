@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { authApi } from '../api/auth'
 
 export interface User {
   id: string
@@ -17,7 +18,7 @@ export interface User {
 interface AuthState {
   user: User | null
   setUser: (user: AuthState['user']) => void
-  logout: () => void
+  logout: () => Promise<void>
   updateSubscription: (plan: string, limit: number) => void
 }
 
@@ -26,7 +27,14 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       setUser: (user) => set({ user }),
-      logout: () => set({ user: null }),
+      logout: async () => {
+        try {
+          await authApi.logout()
+        } catch {
+          // сеть/API недоступны — всё равно чистим локальный стейт
+        }
+        set({ user: null })
+      },
       updateSubscription: (plan, limit) =>
         set((state) => ({
           user: state.user ? { ...state.user, subscriptionPlan: plan, dailyLimit: limit } : null,
