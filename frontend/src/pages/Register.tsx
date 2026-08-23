@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { authApi } from '../api/auth'
+import { analytics } from '../api/analytics'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -24,6 +25,7 @@ export const Register = () => {
 
     try {
       await authApi.register(form)
+      analytics.track('registered')
       navigate('/login', { state: { message: 'Регистрация успешна! Войдите.' } })
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ detail?: string }>

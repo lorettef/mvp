@@ -52,6 +52,27 @@ async def get_current_user(
 
     return {"user_id": uuid.UUID(user_id) if isinstance(user_id, str) else user_id, "token": token}
 
+async def get_current_user_optional(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    access_token: Optional[str] = Cookie(None),
+) -> Optional[dict]:
+    """Как get_current_user, но возвращает None при отсутствии/невалидном токене."""
+    token = access_token or (credentials.credentials if credentials else None)
+
+    if not token:
+        return None
+
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+
+    return {"user_id": uuid.UUID(user_id) if isinstance(user_id, str) else user_id, "token": token}
+
 async def audit_action(
     request: Request,
     current_user: dict = Depends(get_current_user),

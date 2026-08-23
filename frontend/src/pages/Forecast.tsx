@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { forecastApi } from '../api/forecast'
+import { analytics } from '../api/analytics'
 import {
   LineChart,
   Line,
@@ -45,6 +46,7 @@ export const Forecast = () => {
 
       const response = await forecastApi.predict({ history, months, method })
       setResult(response)
+      analytics.track('forecast_requested')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Ошибка прогнозирования')
     } finally {

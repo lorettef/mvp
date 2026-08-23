@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { useAuthStore, type User } from '../store/authStore'
 import { authApi } from '../api/auth'
+import { analytics } from '../api/analytics'
 import { UserResponse } from '@/types/api'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,6 +42,7 @@ export const Login = () => {
       await authApi.seed()
       const userData = await authApi.me()
       mapAndSetUser(userData, setUser)
+      analytics.track('demo_activated')
       navigate('/dashboard')
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ detail?: string }>

@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
+import { analytics } from '../../api/analytics'
 import {
   LayoutDashboard,
   Sparkles,
@@ -17,6 +18,10 @@ export const Layout = () => {
   const { user, logout } = useAuthStore()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    analytics.track('session_started')
+  }, [])
 
   const navigation = [
     { name: 'Дашборд', href: '/dashboard', icon: LayoutDashboard },

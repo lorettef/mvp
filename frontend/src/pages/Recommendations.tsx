@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { AxiosError } from 'axios'
 import { recommendationsApi } from '../api/recommendations'
+import { analytics } from '../api/analytics'
 import { RecommendationAction, RecommendationResponse } from '@/types/api'
 import { 
   Sparkles, 
@@ -46,6 +47,7 @@ export const Recommendations = () => {
         metrics,
       })
       setResult(response)
+      analytics.track('recommendations_requested')
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ detail?: string }>
       setError(axiosErr.response?.data?.detail || 'Ошибка получения рекомендаций')
