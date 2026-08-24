@@ -39,14 +39,24 @@ jobs:
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/test_db
-          SECRET_KEY: test-secret-key
+          SECRET_KEY: test-secret-key-min-32-chars-long!!
           GIGACHAT_AUTH_KEY: test-key
           GIGACHAT_CLIENT_ID: test-client
           DEMO_MODE: true
         run: |
           cd backend
           pytest --cov=app --cov-report=xml
-      
+
+      - name: Verify migrations (PostgreSQL)
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/test_db
+          SECRET_KEY: test-secret-key-min-32-chars-long!!
+        run: |
+          cd backend
+          alembic upgrade head
+          alembic current
+          alembic downgrade base
+
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
