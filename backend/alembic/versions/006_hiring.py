@@ -16,21 +16,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "hiring_plans",
-        sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True),
-        sa.Column("company_id", sa.Uuid(as_uuid=True), sa.ForeignKey("companies.id", ondelete="CASCADE", name="fk_hiring_plans_company_id"), nullable=False),
-        sa.Column("period", sa.Date(), nullable=False),
-        sa.Column("dev_count", sa.Integer(), nullable=False),
-        sa.Column("sales_count", sa.Integer(), nullable=False),
-        sa.Column("marketing_count", sa.Integer(), nullable=False),
-        sa.Column("total_fot", sa.Numeric(14, 2), nullable=True),
-        sa.Column("social_payments", sa.Numeric(14, 2), nullable=True),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
-        sa.UniqueConstraint("company_id", "period", name="uq_hiring_company_period"),
-    )
-    op.create_index("ix_hiring_plans_company_id", "hiring_plans", ["company_id"])
-
+    # hiring_plans создаётся в 003_multi_tenancy — здесь только hiring_settings.
     op.create_table(
         "hiring_settings",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True),
@@ -47,5 +33,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_hiring_settings_company_id", table_name="hiring_settings")
     op.drop_table("hiring_settings")
-    op.drop_index("ix_hiring_plans_company_id", table_name="hiring_plans")
-    op.drop_table("hiring_plans")

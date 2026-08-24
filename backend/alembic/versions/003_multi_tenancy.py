@@ -39,27 +39,27 @@ def upgrade() -> None:
     )
     op.create_index("ix_companies_organization_id", "companies", ["organization_id"])
 
-    # 3. добавляем колонки к users
-    op.add_column("users", sa.Column("role", sa.String(20), nullable=False, server_default="company"))
-    op.add_column("users", sa.Column("organization_id", sa.Uuid(as_uuid=True), nullable=True))
-    op.add_column("users", sa.Column("company_id", sa.Uuid(as_uuid=True), nullable=True))
-
-    op.create_foreign_key(
-        "fk_users_organization_id",
-        "users",
-        "organizations",
-        ["organization_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
-    op.create_foreign_key(
-        "fk_users_company_id",
-        "users",
-        "companies",
-        ["company_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    # 3. добавляем колонки к users (+ FK).
+    # batch_alter_table обязателен: SQLite не поддерживает ALTER для
+    # constraints/foreign keys (copy-and-move strategy).
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.add_column(sa.Column("role", sa.String(20), nullable=False, server_default="company"))
+        batch_op.add_column(sa.Column("organization_id", sa.Uuid(as_uuid=True), nullable=True))
+        batch_op.add_column(sa.Column("company_id", sa.Uuid(as_uuid=True), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_users_organization_id",
+            "organizations",
+            ["organization_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        batch_op.create_foreign_key(
+            "fk_users_company_id",
+            "companies",
+            ["company_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
     op.create_index("ix_users_organization_id", "users", ["organization_id"])
     op.create_index("ix_users_company_id", "users", ["company_id"])
 
@@ -135,7 +135,7 @@ def upgrade() -> None:
         bind.execute(
             sa.text(
                 "INSERT INTO organizations (id, name, created_at) "
-                "VALUES (:id, :name, NOW())"
+                "VALUES (:id, :name, CURRENT_TIMESTAMP)"
             ),
             {"id": org_id, "name": org_name},
         )
@@ -145,7 +145,7 @@ def upgrade() -> None:
         bind.execute(
             sa.text(
                 "INSERT INTO companies (id, organization_id, name, industry, geography, created_at) "
-                "VALUES (:id, :organization_id, :name, NULL, NULL, NOW())"
+                "VALUES (:id, :organization_id, :name, NULL, NULL, CURRENT_TIMESTAMP)"
             ),
             {"id": company_id, "organization_id": org_id, "name": company_name},
         )
@@ -163,11 +163,12 @@ def downgrade() -> None:
     # Сначала индексы и FK колонок users
     op.drop_index("ix_users_company_id", table_name="users")
     op.drop_index("ix_users_organization_id", table_name="users")
-    op.drop_constraint("fk_users_company_id", "users", type_="foreignkey")
-    op.drop_constraint("fk_users_organization_id", "users", type_="foreignkey")
-    op.drop_column("users", "company_id")
-    op.drop_column("users", "organization_id")
-    op.drop_column("users", "role")
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.drop_constraint("fk_users_company_id", type_="foreignkey")
+        batch_op.drop_constraint("fk_users_organization_id", type_="foreignkey")
+        batch_op.drop_column("company_id")
+        batch_op.drop_column("organization_id")
+        batch_op.drop_column("role")
 
     # Таблицы в обратном порядке зависимостей
     op.drop_table("valuations")
