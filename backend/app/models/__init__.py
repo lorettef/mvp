@@ -13,5 +13,6 @@ from app.models.valuation import Valuation
 from app.models.cohort import Cohort
 from app.models.budget import Budget
 from app.models.task import Task
+from app.models.analytics_event import AnalyticsEvent
 
-__all__ = ["Base", "User", "Subscription", "AICache", "AuditLog", "Organization", "Company", "Metric", "HiringPlan", "HiringSettings", "Financing", "Valuation", "Cohort", "Budget", "Task"]
+__all__ = ["Base", "User", "Subscription", "AICache", "AuditLog", "Organization", "Company", "Metric", "HiringPlan", "HiringSettings", "Financing", "Valuation", "Cohort", "Budget", "Task", "AnalyticsEvent"]
