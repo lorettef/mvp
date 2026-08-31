@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Float, ForeignKey, UniqueConstraint, Date
+from sqlalchemy import Column, String, DateTime, Float, Integer, Numeric, ForeignKey, UniqueConstraint, Date
 from sqlalchemy import Uuid
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -14,9 +14,19 @@ class Cohort(Base):
     company_id = Column(Uuid(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     period = Column(Date, nullable=False)
     type = Column(String(20), nullable=False)
+    size = Column(Integer, nullable=False, server_default="1")
     retention_m1 = Column(Float, nullable=False)
+    retention_m2 = Column(Float, nullable=False, server_default="0")
     retention_m3 = Column(Float, nullable=False)
+    retention_m4 = Column(Float, nullable=False, server_default="0")
+    retention_m5 = Column(Float, nullable=False, server_default="0")
     retention_m6 = Column(Float, nullable=False)
+    retention_m7 = Column(Float, nullable=False, server_default="0")
+    retention_m8 = Column(Float, nullable=False, server_default="0")
+    retention_m9 = Column(Float, nullable=False, server_default="0")
+    retention_m10 = Column(Float, nullable=False, server_default="0")
+    retention_m11 = Column(Float, nullable=False, server_default="0")
     retention_m12 = Column(Float, nullable=False)
+    marketing_spend = Column(Numeric(14, 2), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
