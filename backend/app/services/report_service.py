@@ -116,7 +116,7 @@ class ReportService:
 
         elements.append(Paragraph("Сводка", h2))
         summary_rows = [
-            ["MRR", _money(unit.mrr)],
+            ["MRR", _money(unit.revenue)],
             ["CAC", _money(unit.cac)],
             ["LTV", _money(unit.ltv)],
             ["Churn", _pct(unit.churn)],
@@ -216,7 +216,7 @@ class ReportService:
             ["Компания", company.name],
             ["Отрасль", company.industry or "—"],
             ["География", company.geography or "—"],
-            ["MRR", unit.mrr],
+            ["MRR", unit.revenue],
             ["CAC", unit.cac],
             ["LTV", unit.ltv],
             ["Churn", unit.churn],

@@ -42,7 +42,7 @@ class WeeklyReportService:
             sections.append(
                 f"<h3>{html.escape(company.name)}</h3>"
                 "<ul>"
-                f"<li>MRR: {_money(unit.mrr)}</li>"
+                f"<li>MRR: {_money(unit.revenue)}</li>"
                 f"<li>CAC: {_money(unit.cac)}</li>"
                 f"<li>LTV: {_money(unit.ltv)}</li>"
                 f"<li>Churn: {_pct(unit.churn)}</li>"

@@ -40,7 +40,7 @@ class RecalculateService:
         return RecalculateResponse(
             company_id=company_id,
             recalculated_at=datetime.now(timezone.utc),
-            mrr=unit.mrr,
+            revenue=unit.revenue,
             runway_months=unit.runway_months,
             ltv_cac=unit.ltv_cac,
             ebitda=pnl.ebitda,

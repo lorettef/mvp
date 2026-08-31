@@ -110,7 +110,7 @@ class InsightService:
         cashflow = await CashFlowService(self.db).get_cashflow(company_id)
         valuation = await ValuationService(self.db).get_valuation(company_id)
         return {
-            "mrr": unit.mrr,
+            "revenue": unit.revenue,
             "cac": unit.cac,
             "ltv": unit.ltv,
             "churn": unit.churn,

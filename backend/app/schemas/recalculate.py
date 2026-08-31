@@ -11,7 +11,7 @@ class RecalculateResponse(BaseModel):
     company_id: UUID
     recalculated_at: datetime
 
-    mrr: Optional[float] = None
+    revenue: Optional[float] = None
     runway_months: Optional[float] = None
     ltv_cac: Optional[float] = None
     ebitda: Optional[float] = None

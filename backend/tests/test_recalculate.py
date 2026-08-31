@@ -12,7 +12,7 @@ async def _seed_report(db, company_id):
             company_id=company_id,
             period=date(2026, 2, 1),
             type="fact",
-            mrr=200000,
+            revenue=200000,
             cac=1000,
             ltv=5000,
             churn=0.035,
@@ -47,7 +47,7 @@ async def test_recalculate(client, seeded_company, seeded_admin, db_session):
     assert body["recalculated_at"] is not None
     assert body["summary"]
     # при наличии метрик и бюджета ключевые показатели вычислены
-    assert body["mrr"] == 200000
+    assert body["revenue"] == 200000
     assert body["equity_value"] is not None
 
 

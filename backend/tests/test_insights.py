@@ -14,7 +14,7 @@ async def _seed(db, company_id, user):
             company_id=company_id,
             period=date(2026, 2, 1),
             type="fact",
-            mrr=200000,
+            revenue=200000,
             cac=1000,
             ltv=5000,
             churn=0.035,
