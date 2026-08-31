@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, DateTime, Float, ForeignKey, UniqueConstraint
 from sqlalchemy import Uuid
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -15,4 +15,5 @@ class Company(Base):
     name = Column(String(255), nullable=False)
     industry = Column(String(100), nullable=True)
     geography = Column(String(100), nullable=True)
+    gross_margin = Column(Float, nullable=False, default=0.75)
     created_at = Column(DateTime, server_default=func.now())

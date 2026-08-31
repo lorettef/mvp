@@ -30,6 +30,7 @@ def _company_to_response(company) -> CompanyResponse:
         name=company.name,
         industry=company.industry,
         geography=company.geography,
+        gross_margin=company.gross_margin,
         created_at=company.created_at,
     )
 

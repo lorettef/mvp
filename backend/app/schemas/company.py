@@ -8,12 +8,14 @@ class CompanyCreate(BaseModel):
     name: str = Field(..., max_length=255)
     industry: Optional[str] = None
     geography: Optional[str] = None
+    gross_margin: Optional[float] = Field(None, gt=0, le=1)
 
 
 class CompanyUpdate(BaseModel):
     name: Optional[str] = None
     industry: Optional[str] = None
     geography: Optional[str] = None
+    gross_margin: Optional[float] = Field(None, gt=0, le=1)
 
 
 class CompanyResponse(BaseModel):
@@ -22,4 +24,5 @@ class CompanyResponse(BaseModel):
     name: str
     industry: Optional[str]
     geography: Optional[str]
+    gross_margin: float
     created_at: datetime
