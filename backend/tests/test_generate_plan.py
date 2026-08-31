@@ -14,10 +14,14 @@ async def _seed_facts(db, company_id):
             company_id=company_id,
             period=date(2026, 1, 1),
             type="fact",
-            mrr=100000,
-            cac=5000,
-            ltv=20000,
+            new_units=40,
+            arpu=2500,
+            revenue=100000,
+            marketing_spend=20000,
+            retention_rate=0.95,
             churn=0.05,
+            ltv=50000,
+            cac=500,
         )
     )
     db.add(
@@ -25,10 +29,14 @@ async def _seed_facts(db, company_id):
             company_id=company_id,
             period=date(2026, 2, 1),
             type="fact",
-            mrr=120000,
-            cac=4500,
-            ltv=22000,
+            new_units=45,
+            arpu=2666.67,
+            revenue=120000,
+            marketing_spend=20250,
+            retention_rate=0.96,
             churn=0.04,
+            ltv=66666.75,
+            cac=450,
         )
     )
     await db.flush()
@@ -62,8 +70,8 @@ async def test_generate_plan_demo(client, seeded_company, seeded_admin, db_sessi
     assert len(body["metrics"]) == 6
     # первый месяц плана — март 2026 (после последнего факта 2026-02)
     assert body["metrics"][0]["period"].startswith("2026-03")
-    # MRR растёт на 5% в месяц: 120000 * 1.05
-    assert body["metrics"][0]["mrr"] == pytest.approx(126000.0)
+    # Выручка растёт на 5% в месяц: 120000 * 1.05
+    assert body["metrics"][0]["revenue"] == pytest.approx(126000.0)
 
 
 async def test_generate_plan_persists(client, seeded_company, seeded_admin, db_session, monkeypatch):

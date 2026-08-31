@@ -9,10 +9,11 @@ class PlanMetricItem(BaseModel):
     """Одна строка сгенерированного плана метрик."""
 
     period: date
-    mrr: float
-    cac: float
-    ltv: float
-    churn: float
+    new_units: int
+    arpu: float
+    revenue: float
+    marketing_spend: float
+    retention_rate: float
 
 
 class PlanGenerateResponse(BaseModel):

@@ -8,14 +8,14 @@ from app.models.financing import Financing
 
 
 async def _seed_unit_economics(db, company_id):
-    """Два факт-периода (ΔMRR), когорта, бюджет, финансирование."""
+    """Два факт-периода (ΔRevenue), когорта, бюджет, финансирование."""
     db.add(Metric(
         company_id=company_id, period=date(2026, 1, 1), type="fact",
-        mrr=100000, cac=1000, ltv=5000, churn=0.03,
+        revenue=100000, arpu=100, cac=1000, ltv=5000, churn=0.03,
     ))
     db.add(Metric(
         company_id=company_id, period=date(2026, 2, 1), type="fact",
-        mrr=120000, cac=1000, ltv=5000, churn=0.03,
+        revenue=120000, arpu=100, cac=1000, ltv=5000, churn=0.03,
     ))
     db.add(Cohort(
         company_id=company_id, period=date(2026, 2, 1), type="fact",
@@ -40,7 +40,7 @@ async def test_unit_economics_happy(client, seeded_company, seeded_admin, db_ses
     assert res.status_code == 200
     body = res.json()
 
-    assert body["mrr"] == 120000
+    assert body["revenue"] == 120000
     assert body["cac"] == 1000
     assert body["ltv"] == 5000
     assert body["churn"] == 0.03
@@ -49,10 +49,14 @@ async def test_unit_economics_happy(client, seeded_company, seeded_admin, db_ses
     assert body["cash"] == 300000
     assert body["monthly_burn"] == 20000
     assert body["runway_months"] == 15.0
-    # ΔMRR = 120000 - 100000 = 20000; marketing = 4000
+    # ΔRevenue = 120000 - 100000 = 20000; marketing = 4000
     assert body["revenue_growth"] == 20000
     assert body["marketing_spend"] == 4000
     assert body["magic_number"] == 5.0
+    # payback = cac / (arpu * gross_margin) = 1000 / (100 * 0.75) = 13.33
+    assert body["payback_period"] == 13.33
+    # romi = (ltv - cac) / cac = (5000 - 1000) / 1000 = 4.0
+    assert body["romi"] == 4.0
     # retention
     assert body["retention"]["m1"] == 0.8
     assert body["retention"]["m3"] == 0.6
@@ -72,7 +76,7 @@ async def test_unit_economics_empty(client, seeded_company, seeded_admin):
     assert res.status_code == 200
     body = res.json()
 
-    assert body["mrr"] is None
+    assert body["revenue"] is None
     assert body["cac"] is None
     assert body["ltv"] is None
     assert body["churn"] is None
@@ -82,6 +86,8 @@ async def test_unit_economics_empty(client, seeded_company, seeded_admin):
     assert body["runway_months"] is None
     assert body["revenue_growth"] is None
     assert body["magic_number"] is None
+    assert body["payback_period"] is None
+    assert body["romi"] is None
     assert body["retention"]["m1"] is None
     assert body["retention"]["m12"] is None
     assert body["alerts"] == []
@@ -96,7 +102,7 @@ async def test_unit_economics_div_by_zero(client, seeded_company, seeded_admin, 
     db_session.add(Financing(company_id=seeded_company.id, type="investment", amount=100000))
     db_session.add(Metric(
         company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
-        mrr=50000, cac=1000, ltv=3000, churn=0.04,
+        revenue=50000, cac=1000, ltv=3000, churn=0.04,
     ))
     await db_session.flush()
 

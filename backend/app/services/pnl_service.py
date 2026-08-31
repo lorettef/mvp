@@ -32,7 +32,7 @@ class PnLService:
         settings = await HiringService(self.db).get_settings(company_id)
         credit_interest = await self._financial_expenses(company_id)
 
-        mrr = self._f(metric.mrr) if metric else None
+        mrr = self._f(metric.revenue) if metric else None
         one_time = 0.0
         revenue = round(mrr + one_time, 2) if mrr is not None else None
 

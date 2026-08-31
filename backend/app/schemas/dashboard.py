@@ -9,14 +9,14 @@ class CompanyStatusItem(BaseModel):
     industry: Optional[str]
     geography: Optional[str]
     status: str  # "on_track" | "behind" | "no_plan" | "no_data"
-    latest_mrr: Optional[float]
-    latest_plan_mrr: Optional[float]
+    latest_revenue: Optional[float]
+    latest_plan_revenue: Optional[float]
     task_progress: Optional[int] = None  # % выполненных задач (None, если нет задач)
 
 
 class DashboardResponse(BaseModel):
     total_companies: int
-    avg_mrr: Optional[float]
+    avg_revenue: Optional[float]
     avg_cac: Optional[float]
     avg_ltv: Optional[float]
     avg_churn: Optional[float]

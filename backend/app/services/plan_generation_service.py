@@ -55,10 +55,11 @@ class PlanGenerationService:
                     "months": [
                         {
                             "period": it.period.strftime("%Y-%m"),
-                            "mrr": it.mrr,
-                            "cac": it.cac,
-                            "ltv": it.ltv,
-                            "churn": it.churn,
+                            "new_units": it.new_units,
+                            "arpu": it.arpu,
+                            "revenue": it.revenue,
+                            "marketing_spend": it.marketing_spend,
+                            "retention_rate": it.retention_rate,
                         }
                         for it in demo_items
                     ],
@@ -76,10 +77,11 @@ class PlanGenerationService:
                 MetricUpsert(
                     period=item.period,
                     type="plan",
-                    mrr=item.mrr,
-                    cac=item.cac,
-                    ltv=item.ltv,
-                    churn=item.churn,
+                    new_units=item.new_units,
+                    arpu=item.arpu,
+                    revenue=item.revenue,
+                    marketing_spend=item.marketing_spend,
+                    retention_rate=item.retention_rate,
                 ),
             )
         await self.db.flush()
@@ -102,9 +104,10 @@ class PlanGenerationService:
     def _build_prompt(self, facts: List[Metric], months: int) -> str:
         lines = [
             (
-                f"- {f.period.isoformat()}: MRR={float(f.mrr):,.0f}, "
-                f"CAC={float(f.cac):,.0f}, LTV={float(f.ltv):,.0f}, "
-                f"Churn={float(f.churn) * 100:.1f}%"
+                f"- {f.period.isoformat()}: Выручка={float(f.revenue):,.0f}, "
+                f"Новые юниты={f.new_units}, ARPU={float(f.arpu):,.0f}, "
+                f"Маркетинг={float(f.marketing_spend):,.0f}, "
+                f"Retention={float(f.retention_rate) * 100:.1f}%"
             )
             for f in facts
         ]
@@ -118,42 +121,45 @@ class PlanGenerationService:
             "{\n"
             '  "summary": "Краткое обоснование плана",\n'
             '  "months": [\n'
-            '    {"period": "YYYY-MM", "mrr": <число>, "cac": <число>, '
-            '"ltv": <число>, "churn": <доля от 0 до 1>},\n'
+            '    {"period": "YYYY-MM", "new_units": <число>, "arpu": <число>, '
+            '"revenue": <число>, "marketing_spend": <число>, '
+            '"retention_rate": <доля от 0 до 1>},\n'
             "    ...\n"
             "  ]\n"
             "}\n\n"
             "Правила:\n"
             f"- Ровно {months} записей, периоды идут подряд по месяцам начиная со следующего после последнего факта.\n"
-            "- MRR растёт реалистично (5–15% в месяц), CAC/LTV меняются плавно.\n"
-            "- churn — доля в диапазоне [0, 1].\n"
+            "- Выручка растёт реалистично (5–15% в месяц), ARPU/Retention меняются плавно.\n"
+            "- retention_rate — доля в диапазоне [0, 1].\n"
             "- Все числа > 0, валюта — рубли.\n"
         )
 
     def _demo_plan(
         self, latest: Metric, months: int
     ) -> Tuple[str, List[PlanMetricItem]]:
-        """Детерминированный демо-план: MRR +5%/мес, прочие метрики постоянны."""
-        mrr = float(latest.mrr)
-        cac = float(latest.cac)
-        ltv = float(latest.ltv)
-        churn = float(latest.churn)
+        """Детерминированный демо-план: выручка +5%/мес, прочие метрики постоянны."""
+        revenue = float(latest.revenue)
+        new_units = int(latest.new_units)
+        arpu = float(latest.arpu)
+        marketing_spend = float(latest.marketing_spend)
+        retention_rate = float(latest.retention_rate)
 
         items = []
         for m in range(1, months + 1):
             items.append(
                 PlanMetricItem(
                     period=self._add_months(latest.period, m),
-                    mrr=round(mrr * (1 + GROWTH) ** m, 2),
-                    cac=round(cac, 2),
-                    ltv=round(ltv, 2),
-                    churn=round(churn, 4),
+                    new_units=new_units,
+                    arpu=round(arpu, 2),
+                    revenue=round(revenue * (1 + GROWTH) ** m, 2),
+                    marketing_spend=round(marketing_spend, 2),
+                    retention_rate=round(retention_rate, 4),
                 )
             )
 
         summary = (
-            f"Демо-план: рост MRR {GROWTH:.0%} в месяц на {months} мес. "
-            "CAC/LTV/Churn сохранены на уровне последнего факта."
+            f"Демо-план: рост выручки {GROWTH:.0%} в месяц на {months} мес. "
+            "Новые юниты/ARPU/Маркетинг/Retention сохранены на уровне последнего факта."
         )
         return summary, items
 
@@ -178,19 +184,21 @@ class PlanGenerationService:
                 if not isinstance(m, dict):
                     continue
                 period = self._parse_period(m.get("period"))
-                mrr = self._positive(m.get("mrr"))
-                cac = self._positive(m.get("cac"))
-                ltv = self._positive(m.get("ltv"))
-                churn = self._fraction(m.get("churn"))
-                if period is None or mrr is None or cac is None or ltv is None:
+                new_units = self._nonneg_int(m.get("new_units"))
+                arpu = self._positive(m.get("arpu"))
+                revenue = self._positive(m.get("revenue"))
+                marketing_spend = self._nonneg(m.get("marketing_spend"))
+                retention_rate = self._fraction(m.get("retention_rate"))
+                if period is None or new_units is None or arpu is None or revenue is None:
                     continue
                 items.append(
                     PlanMetricItem(
                         period=period,
-                        mrr=round(mrr, 2),
-                        cac=round(cac, 2),
-                        ltv=round(ltv, 2),
-                        churn=round(churn, 4),
+                        new_units=new_units,
+                        arpu=round(arpu, 2),
+                        revenue=round(revenue, 2),
+                        marketing_spend=round(marketing_spend, 2),
+                        retention_rate=round(retention_rate, 4),
                     )
                 )
             if not items:
@@ -206,6 +214,22 @@ class PlanGenerationService:
         except (TypeError, ValueError):
             return None
         return num if num > 0 else None
+
+    @staticmethod
+    def _nonneg(value) -> Optional[float]:
+        try:
+            num = float(value)
+        except (TypeError, ValueError):
+            return None
+        return num if num >= 0 else None
+
+    @staticmethod
+    def _nonneg_int(value) -> Optional[int]:
+        try:
+            num = int(float(value))
+        except (TypeError, ValueError):
+            return None
+        return num if num >= 0 else None
 
     @staticmethod
     def _fraction(value) -> float:

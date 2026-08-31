@@ -19,7 +19,7 @@ class UnitEconomicsResponse(BaseModel):
     company_id: UUID
 
     # Базовые метрики (последний факт)
-    mrr: Optional[float] = None
+    revenue: Optional[float] = None
     cac: Optional[float] = None
     ltv: Optional[float] = None
     churn: Optional[float] = None  # 0..1
@@ -30,8 +30,10 @@ class UnitEconomicsResponse(BaseModel):
     cash: Optional[float] = None  # Сумма финансирования (investment + credit)
     monthly_burn: Optional[float] = None  # Сумма статей бюджета (факт)
     magic_number: Optional[float] = None  # Прирост дохода / Затраты на маркетинг (норма > 1)
-    revenue_growth: Optional[float] = None  # ΔMRR (последний − предыдущий факт)
+    revenue_growth: Optional[float] = None  # ΔRevenue (последний − предыдущий факт)
     marketing_spend: Optional[float] = None  # Затраты на маркетинг (факт)
+    payback_period: Optional[float] = None  # CAC / (ARPU × gross_margin), мес
+    romi: Optional[float] = None  # (LTV − CAC) / CAC
 
     retention: RetentionBreakdown = RetentionBreakdown()
 

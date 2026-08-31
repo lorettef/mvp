@@ -30,7 +30,7 @@ class HiringMonthRow(BaseModel):
 
     month: int  # 1..12
     period: date
-    mrr: float
+    revenue: float
     fot: float
     social_payments: float
     total_cost: float  # ФОТ + соц. платежи
@@ -46,7 +46,7 @@ class HiringPlanResponse(BaseModel):
     company_id: UUID
     industry: str
     industry_label: str
-    base_mrr: Optional[float] = None
+    base_revenue: Optional[float] = None
     fot_share: float  # доля ФОТ от MRR (0.35)
     avg_salary: float  # средняя зарплата, ₽
     monthly_growth: float  # ежемесячный рост MRR (0.05)

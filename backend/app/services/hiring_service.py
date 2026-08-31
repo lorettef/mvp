@@ -115,14 +115,14 @@ class HiringService:
         industry = self._normalize_industry(company.industry)
         mix = INDUSTRY_STAFF_MIX[industry]
         settings = await self.get_settings(company_id)
-        base_mrr = await self._latest_mrr(company_id)
+        base_revenue = await self._latest_revenue(company_id)
 
-        if base_mrr is None:
+        if base_revenue is None:
             return HiringPlanResponse(
                 company_id=company_id,
                 industry=industry,
                 industry_label=INDUSTRY_LABELS[industry],
-                base_mrr=None,
+                base_revenue=None,
                 fot_share=FOT_SHARE,
                 avg_salary=AVG_SALARY,
                 monthly_growth=MONTHLY_GROWTH,
@@ -130,7 +130,7 @@ class HiringService:
                 months=[],
                 final_headcount=0,
                 summary=(
-                    "Метрики MRR не найдены. Добавьте метрики (План или Факт), "
+                    "Метрики выручки не найдены. Добавьте метрики (План или Факт), "
                     "чтобы рассчитать прогноз найма."
                 ),
             )
@@ -138,8 +138,8 @@ class HiringService:
         months: List[HiringMonthRow] = []
         for m in range(1, HORIZON_MONTHS + 1):
             period = self._period_for_month(m)
-            mrr = round(base_mrr * (1 + MONTHLY_GROWTH) ** m, 2)
-            fot = round(mrr * FOT_SHARE, 2)
+            revenue = round(base_revenue * (1 + MONTHLY_GROWTH) ** m, 2)
+            fot = round(revenue * FOT_SHARE, 2)
             social = round(fot * settings.total_rate, 2)
             total_cost = round(fot + social, 2)
             headcount = max(1, int(fot / AVG_SALARY))
@@ -150,7 +150,7 @@ class HiringService:
                 HiringMonthRow(
                     month=m,
                     period=period,
-                    mrr=mrr,
+                    revenue=revenue,
                     fot=fot,
                     social_payments=social,
                     total_cost=total_cost,
@@ -168,14 +168,14 @@ class HiringService:
         summary = (
             f"Целевой штат «{INDUSTRY_LABELS[industry]}» через {HORIZON_MONTHS} мес. — "
             f"{final.headcount} чел. (ФОТ ≈ {final.fot:,.0f} ₽/мес). "
-            f"Бюджет ФОТ = {FOT_SHARE:.0%} от MRR, соц. платежи {settings.total_rate:.1%}."
+            f"Бюджет ФОТ = {FOT_SHARE:.0%} от выручки, соц. платежи {settings.total_rate:.1%}."
         )
 
         return HiringPlanResponse(
             company_id=company_id,
             industry=industry,
             industry_label=INDUSTRY_LABELS[industry],
-            base_mrr=base_mrr,
+            base_revenue=base_revenue,
             fot_share=FOT_SHARE,
             avg_salary=AVG_SALARY,
             monthly_growth=MONTHLY_GROWTH,
@@ -185,7 +185,7 @@ class HiringService:
             summary=summary,
         )
 
-    async def _latest_mrr(self, company_id: UUID) -> Optional[float]:
+    async def _latest_revenue(self, company_id: UUID) -> Optional[float]:
         # План имеет приоритет, иначе — последний факт.
         for type_ in ("plan", "fact"):
             result = await self.db.execute(
@@ -196,7 +196,7 @@ class HiringService:
             )
             metric = result.scalar_one_or_none()
             if metric is not None:
-                return float(metric.mrr)
+                return float(metric.revenue)
         return None
 
     @staticmethod

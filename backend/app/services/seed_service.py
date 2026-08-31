@@ -24,7 +24,32 @@ DEMO_METRICS = {
     "runway_months": 14.0,
     "stage": "seed",
     "active_users": 62,
+    # metriki.md seed fields (consumed by Metric constructors below, not by MetricsRequest)
+    "new_units": 45,
+    "revenue": 48700.0,
+    "marketing_spend": 15750.0,
+    "retention_rate": 0.965,
 }
+
+
+def _metric_payload(
+    *, new_units: int, arpu: float, revenue: float,
+    marketing_spend: float, retention_rate: float,
+) -> dict:
+    """Metric kwargs with churn/ltv/cac derived (mirrors MetricService._derived)."""
+    churn = round(1 - retention_rate, 4)
+    ltv = round(arpu / churn, 2) if churn > 0 else round(arpu * 12, 2)
+    cac = round(marketing_spend / new_units, 2) if new_units > 0 else 0.0
+    return {
+        "new_units": new_units,
+        "arpu": arpu,
+        "revenue": revenue,
+        "marketing_spend": marketing_spend,
+        "retention_rate": retention_rate,
+        "churn": churn,
+        "ltv": ltv,
+        "cac": cac,
+    }
 
 
 async def seed_demo_account(db: AsyncSession) -> dict:
@@ -62,13 +87,20 @@ async def seed_demo_account(db: AsyncSession) -> dict:
         today = date.today().replace(day=1)
         db.add(Metric(
             company_id=company.id, period=today, type="fact",
-            mrr=DEMO_METRICS["mrr"], cac=DEMO_METRICS["cac"], ltv=DEMO_METRICS["ltv"],
-            churn=DEMO_METRICS["churn"], arpu=DEMO_METRICS["arpu"],
-            runway_months=DEMO_METRICS["runway_months"], stage=DEMO_METRICS["stage"],
+            **_metric_payload(
+                new_units=DEMO_METRICS["new_units"],
+                arpu=DEMO_METRICS["arpu"],
+                revenue=DEMO_METRICS["revenue"],
+                marketing_spend=DEMO_METRICS["marketing_spend"],
+                retention_rate=DEMO_METRICS["retention_rate"],
+            ),
         ))
         db.add(Metric(
             company_id=company.id, period=today, type="plan",
-            mrr=52000.0, cac=320.0, ltv=5000.0, churn=0.03,
+            **_metric_payload(
+                new_units=50, arpu=890.0, revenue=52000.0,
+                marketing_spend=16000.0, retention_rate=0.97,
+            ),
         ))
 
         metrics = MetricsRequest(**DEMO_METRICS)

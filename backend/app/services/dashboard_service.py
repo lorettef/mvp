@@ -28,7 +28,7 @@ class DashboardService:
         items: list[CompanyStatusItem] = []
         counts = {"on_track": 0, "behind": 0, "no_plan": 0, "no_data": 0}
 
-        mrr_values: list[float] = []
+        revenue_values: list[float] = []
         cac_values: list[float] = []
         ltv_values: list[float] = []
         churn_values: list[float] = []
@@ -39,21 +39,21 @@ class DashboardService:
 
             if fact is None:
                 status = "no_data"
-                latest_mrr = None
-                latest_plan_mrr = None
+                latest_revenue = None
+                latest_plan_revenue = None
             else:
-                latest_mrr = float(fact.mrr)
-                mrr_values.append(latest_mrr)
+                latest_revenue = float(fact.revenue)
+                revenue_values.append(latest_revenue)
                 cac_values.append(float(fact.cac))
                 ltv_values.append(float(fact.ltv))
                 churn_values.append(float(fact.churn))
 
                 if plan is None:
                     status = "no_plan"
-                    latest_plan_mrr = None
+                    latest_plan_revenue = None
                 else:
-                    latest_plan_mrr = float(plan.mrr)
-                    if latest_mrr >= latest_plan_mrr:
+                    latest_plan_revenue = float(plan.revenue)
+                    if latest_revenue >= latest_plan_revenue:
                         status = "on_track"
                     else:
                         status = "behind"
@@ -67,15 +67,15 @@ class DashboardService:
                     industry=company.industry,
                     geography=company.geography,
                     status=status,
-                    latest_mrr=latest_mrr,
-                    latest_plan_mrr=latest_plan_mrr,
+                    latest_revenue=latest_revenue,
+                    latest_plan_revenue=latest_plan_revenue,
                     task_progress=await self._task_progress(company.id),
                 )
             )
 
         return DashboardResponse(
             total_companies=len(companies),
-            avg_mrr=self._mean(mrr_values),
+            avg_revenue=self._mean(revenue_values),
             avg_cac=self._mean(cac_values),
             avg_ltv=self._mean(ltv_values),
             avg_churn=self._mean(churn_values),

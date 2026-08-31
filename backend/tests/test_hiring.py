@@ -6,13 +6,13 @@ from .conftest import auth_headers
 from app.models.metric import Metric
 
 
-async def _seed_metric(db, company_id, mrr=100000, type_="plan"):
+async def _seed_metric(db, company_id, revenue=100000, type_="plan"):
     db.add(
         Metric(
             company_id=company_id,
             period=date(2026, 1, 1),
             type=type_,
-            mrr=mrr,
+            revenue=revenue,
             cac=1000,
             ltv=5000,
             churn=0.03,
@@ -24,7 +24,7 @@ async def _seed_metric(db, company_id, mrr=100000, type_="plan"):
 async def test_get_hiring_plan_generates_12_months(
     client, seeded_company, seeded_admin, db_session
 ):
-    await _seed_metric(db_session, seeded_company.id, mrr=100000)
+    await _seed_metric(db_session, seeded_company.id, revenue=100000)
 
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/hiring",
@@ -35,14 +35,14 @@ async def test_get_hiring_plan_generates_12_months(
 
     assert body["industry"] == "saas"
     assert body["industry_label"] == "SaaS"
-    assert body["base_mrr"] == 100000
+    assert body["base_revenue"] == 100000
     assert body["fot_share"] == pytest.approx(0.35)
     assert len(body["months"]) == 12
 
     m1 = body["months"][0]
-    # MRR растёт на 5%/мес
-    assert m1["mrr"] == pytest.approx(105000)
-    assert m1["fot"] == pytest.approx(m1["mrr"] * 0.35)
+    # Выручка растёт на 5%/мес
+    assert m1["revenue"] == pytest.approx(105000)
+    assert m1["fot"] == pytest.approx(m1["revenue"] * 0.35)
     # суммарный тариф соц. платежей по умолчанию = 0.432
     assert body["settings"]["total_rate"] == pytest.approx(0.432)
     assert m1["social_payments"] == pytest.approx(m1["fot"] * 0.432)
@@ -63,7 +63,7 @@ async def test_hiring_plan_no_metrics_empty(client, seeded_company, seeded_admin
     )
     assert res.status_code == 200
     body = res.json()
-    assert body["base_mrr"] is None
+    assert body["base_revenue"] is None
     assert body["months"] == []
     assert body["final_headcount"] == 0
 
@@ -71,14 +71,14 @@ async def test_hiring_plan_no_metrics_empty(client, seeded_company, seeded_admin
 async def test_hiring_plan_uses_fact_when_no_plan(
     client, seeded_company, seeded_admin, db_session
 ):
-    await _seed_metric(db_session, seeded_company.id, mrr=80000, type_="fact")
+    await _seed_metric(db_session, seeded_company.id, revenue=80000, type_="fact")
 
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/hiring",
         headers=auth_headers(seeded_admin),
     )
     assert res.status_code == 200
-    assert res.json()["base_mrr"] == 80000
+    assert res.json()["base_revenue"] == 80000
 
 
 async def test_hiring_settings_defaults(client, seeded_company, seeded_admin):
@@ -107,7 +107,7 @@ async def test_hiring_settings_upsert_affects_plan(
     assert res.json()["total_rate"] == pytest.approx(0.455)
 
     # 2. добавляем метрику и проверяем, что план использует новые настройки
-    await _seed_metric(db_session, seeded_company.id, mrr=100000)
+    await _seed_metric(db_session, seeded_company.id, revenue=100000)
 
     plan = await client.get(
         f"/api/v1/companies/{seeded_company.id}/hiring",

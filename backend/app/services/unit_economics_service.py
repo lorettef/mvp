@@ -8,6 +8,7 @@ from app.models.metric import Metric
 from app.models.cohort import Cohort
 from app.models.budget import Budget
 from app.models.financing import Financing
+from app.models.company import Company
 from app.schemas.unit_economics import UnitEconomicsResponse, RetentionBreakdown
 
 
@@ -26,11 +27,14 @@ class UnitEconomicsService:
         latest_cohort = await self._latest(Cohort, company_id, "fact")
         latest_budget = await self._latest(Budget, company_id, "fact")
         cash = await self._financing_total(company_id)
+        company = await self.db.get(Company, company_id)
 
-        mrr = self._f(latest_metric.mrr) if latest_metric else None
+        revenue = self._f(latest_metric.revenue) if latest_metric else None
+        arpu = self._f(latest_metric.arpu) if latest_metric else None
         cac = self._f(latest_metric.cac) if latest_metric else None
         ltv = self._f(latest_metric.ltv) if latest_metric else None
         churn = float(latest_metric.churn) if latest_metric else None
+        gross_margin = float(company.gross_margin) if company else None
 
         # LTV / CAC
         ltv_cac = self._div(ltv, cac)
@@ -47,17 +51,21 @@ class UnitEconomicsService:
         monthly_burn = self._monthly_burn(latest_budget)
         runway = self._div(cash, monthly_burn, round_to=1)
 
-        # Magic Number = ΔMRR / затраты на маркетинг
-        prev_mrr = self._f(previous_metric.mrr) if previous_metric else None
-        revenue_growth = (mrr - prev_mrr) if (mrr is not None and prev_mrr is not None) else None
+        # Magic Number = ΔRevenue / затраты на маркетинг
+        prev_revenue = self._f(previous_metric.revenue) if previous_metric else None
+        revenue_growth = (revenue - prev_revenue) if (revenue is not None and prev_revenue is not None) else None
         marketing_spend = self._f(latest_budget.marketing) if latest_budget else None
         magic_number = self._div(revenue_growth, marketing_spend)
+
+        # Payback = CAC / (ARPU × gross_margin); ROMI = (LTV − CAC) / CAC
+        payback_period = round(cac / (arpu * gross_margin), 2) if (arpu and gross_margin) else None
+        romi = round((ltv - cac) / cac, 4) if cac else None
 
         alerts = self._build_alerts(ltv_cac, churn, runway, magic_number)
 
         return UnitEconomicsResponse(
             company_id=company_id,
-            mrr=mrr,
+            revenue=revenue,
             cac=cac,
             ltv=ltv,
             churn=churn,
@@ -68,6 +76,8 @@ class UnitEconomicsService:
             magic_number=magic_number,
             revenue_growth=revenue_growth,
             marketing_spend=marketing_spend,
+            payback_period=payback_period,
+            romi=romi,
             retention=retention,
             alerts=alerts,
         )
