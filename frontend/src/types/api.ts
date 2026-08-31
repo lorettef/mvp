@@ -104,6 +104,7 @@ export interface Company {
   name: string
   industry: string | null
   geography: string | null
+  grossMargin: number
   createdAt: string
 }
 
@@ -111,12 +112,14 @@ export interface CompanyCreate {
   name: string
   industry?: string
   geography?: string
+  grossMargin?: number
 }
 
 export interface CompanyUpdate {
   name?: string
   industry?: string
   geography?: string
+  grossMargin?: number
 }
 
 // Stored metrics (server-side)
@@ -125,13 +128,16 @@ export interface Metric {
   companyId: string
   period: string
   type: 'plan' | 'fact'
-  mrr: number
-  cac: number
-  ltv: number
+  newUnits: number
+  arpu: number
+  revenue: number
+  marketingSpend: number
+  retentionRate: number
   churn: number
-  arpu: number | null
-  runwayMonths: number | null
-  stage: string | null
+  ltv: number
+  cac: number
+  activeUnits: number | null
+  comment: string | null
   createdAt: string
   updatedAt: string
 }
@@ -139,13 +145,16 @@ export interface Metric {
 export interface MetricUpsert {
   period: string
   type: 'plan' | 'fact'
-  mrr: number
-  cac: number
-  ltv: number
-  churn: number
-  arpu?: number
-  runway_months?: number
-  stage?: string
+  new_units: number
+  arpu: number
+  revenue: number
+  marketing_spend: number
+  retention_rate: number
+  comment?: string
+}
+
+export interface MetricBulkUpsert {
+  items: MetricUpsert[]
 }
 
 // Dashboard
@@ -155,14 +164,14 @@ export interface CompanyStatusItem {
   industry: string | null
   geography: string | null
   status: 'on_track' | 'behind' | 'no_plan' | 'no_data'
-  latestMrr: number | null
-  latestPlanMrr: number | null
+  latestRevenue: number | null
+  latestPlanRevenue: number | null
   taskProgress: number | null
 }
 
 export interface DashboardResponse {
   totalCompanies: number
-  avgMrr: number | null
+  avgRevenue: number | null
   avgCac: number | null
   avgLtv: number | null
   avgChurn: number | null
@@ -178,10 +187,20 @@ export interface Cohort {
   companyId: string
   period: string
   type: 'plan' | 'fact'
+  size: number
   retentionM1: number
+  retentionM2: number
   retentionM3: number
+  retentionM4: number
+  retentionM5: number
   retentionM6: number
+  retentionM7: number
+  retentionM8: number
+  retentionM9: number
+  retentionM10: number
+  retentionM11: number
   retentionM12: number
+  marketingSpend: number | null
   createdAt: string
   updatedAt: string
 }
@@ -189,10 +208,20 @@ export interface Cohort {
 export interface CohortUpsert {
   period: string
   type: 'plan' | 'fact'
+  size: number
   retention_m1: number
+  retention_m2: number
   retention_m3: number
+  retention_m4: number
+  retention_m5: number
   retention_m6: number
+  retention_m7: number
+  retention_m8: number
+  retention_m9: number
+  retention_m10: number
+  retention_m11: number
   retention_m12: number
+  marketing_spend?: number
 }
 
 export interface Budget {
@@ -227,12 +256,14 @@ export interface RetentionBreakdown {
 
 export interface UnitEconomicsResponse {
   companyId: string
-  mrr: number | null
+  revenue: number | null
   cac: number | null
   ltv: number | null
   churn: number | null
   ltvCac: number | null
   runwayMonths: number | null
+  paybackPeriod: number | null
+  romi: number | null
   cash: number | null
   monthlyBurn: number | null
   magicNumber: number | null
@@ -348,7 +379,7 @@ export interface HiringSettingsUpsert {
 export interface HiringMonthRow {
   month: number
   period: string
-  mrr: number
+  revenue: number
   fot: number
   socialPayments: number
   totalCost: number
@@ -362,7 +393,7 @@ export interface HiringPlanResponse {
   companyId: string
   industry: string
   industryLabel: string
-  baseMrr: number | null
+  baseRevenue: number | null
   fotShare: number
   avgSalary: number
   monthlyGrowth: number
@@ -494,7 +525,7 @@ export interface SensitivityResponse {
 export interface RecalculateResponse {
   companyId: string
   recalculatedAt: string
-  mrr: number | null
+  revenue: number | null
   runwayMonths: number | null
   ltvCac: number | null
   ebitda: number | null
@@ -508,10 +539,11 @@ export interface RecalculateResponse {
 // AI plan generation (TZ v5.0, section 7.1)
 export interface PlanMetricItem {
   period: string
-  mrr: number
-  cac: number
-  ltv: number
-  churn: number
+  newUnits: number
+  arpu: number
+  revenue: number
+  marketingSpend: number
+  retentionRate: number
 }
 
 export interface PlanGenerateResponse {

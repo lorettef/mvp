@@ -4,6 +4,7 @@ import type {
   CompanyUpdate,
   Metric,
   MetricUpsert,
+  MetricBulkUpsert,
   DashboardResponse,
   Cohort,
   CohortUpsert,
@@ -34,6 +35,8 @@ export const companiesApi = {
     api.get(`/companies/${id}/metrics`, { params: period ? { period } : {} }).then((res) => res.data),
   upsertMetric: (id: string, data: MetricUpsert): Promise<Metric> =>
     api.put(`/companies/${id}/metrics`, data).then((res) => res.data),
+  upsertMetricBulk: (id: string, data: MetricBulkUpsert): Promise<Metric[]> =>
+    api.put(`/companies/${id}/metrics/bulk`, data).then((res) => res.data),
   cohorts: (id: string, period?: string): Promise<Cohort[]> =>
     api.get(`/companies/${id}/cohorts`, { params: period ? { period } : {} }).then((res) => res.data),
   upsertCohort: (id: string, data: CohortUpsert): Promise<Cohort> =>
