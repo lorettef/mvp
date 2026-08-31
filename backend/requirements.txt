@@ -24,9 +24,11 @@ httpx==0.28.1
 slowapi==0.1.9
 
 # AI/ML
+# NOTE: prophet/cmdstanpy removed — they require a C++ toolchain (g++/cmake/Stan)
+# that is absent from python:3.12-slim, so `docker build` failed at pip install.
+# The 'prophet' forecast method degrades to polynomial regression (see
+# ForecastService.prophet_forecast try/except fallback).
 numpy>=2.0
-prophet>=1.3.0
-cmdstanpy>=1.3.0
 pandas>=2.0
 
 # Reports
