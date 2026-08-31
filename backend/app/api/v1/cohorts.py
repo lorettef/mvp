@@ -19,10 +19,22 @@ def _cohort_to_response(cohort) -> CohortResponse:
         company_id=cohort.company_id,
         period=cohort.period,
         type=cohort.type,
+        size=cohort.size,
         retention_m1=float(cohort.retention_m1),
+        retention_m2=float(cohort.retention_m2),
         retention_m3=float(cohort.retention_m3),
+        retention_m4=float(cohort.retention_m4),
+        retention_m5=float(cohort.retention_m5),
         retention_m6=float(cohort.retention_m6),
+        retention_m7=float(cohort.retention_m7),
+        retention_m8=float(cohort.retention_m8),
+        retention_m9=float(cohort.retention_m9),
+        retention_m10=float(cohort.retention_m10),
+        retention_m11=float(cohort.retention_m11),
         retention_m12=float(cohort.retention_m12),
+        marketing_spend=(
+            float(cohort.marketing_spend) if cohort.marketing_spend is not None else None
+        ),
         created_at=cohort.created_at,
         updated_at=cohort.updated_at,
     )
