@@ -7,13 +7,12 @@ from typing import Optional
 class MetricUpsert(BaseModel):
     period: date
     type: str
-    mrr: float = Field(..., gt=0)
-    cac: float = Field(..., gt=0)
-    ltv: float = Field(..., gt=0)
-    churn: float = Field(..., ge=0, le=1)
-    arpu: Optional[float] = Field(None, gt=0)
-    runway_months: Optional[float] = Field(None, gt=0)
-    stage: Optional[str] = None
+    new_units: int = Field(..., ge=0)
+    arpu: float = Field(..., gt=0)
+    revenue: float = Field(..., ge=0)
+    marketing_spend: float = Field(..., ge=0)
+    retention_rate: float = Field(..., ge=0, le=1)
+    comment: Optional[str] = None
 
     @field_validator("type")
     @classmethod
@@ -28,12 +27,26 @@ class MetricResponse(BaseModel):
     company_id: UUID
     period: date
     type: str
-    mrr: float
-    cac: float
-    ltv: float
+    new_units: int
+    arpu: float
+    revenue: float
+    marketing_spend: float
+    retention_rate: float
     churn: float
-    arpu: Optional[float]
-    runway_months: Optional[float]
-    stage: Optional[str]
+    ltv: float
+    cac: float
+    active_units: Optional[int]
+    comment: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+
+class MetricBulkUpsert(BaseModel):
+    items: list[MetricUpsert]
+
+    @field_validator("items")
+    @classmethod
+    def validate_items_non_empty(cls, v: list[MetricUpsert]) -> list[MetricUpsert]:
+        if not v:
+            raise ValueError("items не должен быть пустым")
+        return v

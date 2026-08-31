@@ -14,7 +14,7 @@ from app.api.dependencies import (
     ROLE_COMPANY,
 )
 from app.schemas.company import CompanyCreate, CompanyUpdate, CompanyResponse
-from app.schemas.metric import MetricUpsert, MetricResponse
+from app.schemas.metric import MetricUpsert, MetricResponse, MetricBulkUpsert
 from app.services.company_service import CompanyService
 from app.services.metric_service import MetricService
 from app.services.subscription_service import SubscriptionService
@@ -41,17 +41,16 @@ def _metric_to_response(metric) -> MetricResponse:
         company_id=metric.company_id,
         period=metric.period,
         type=metric.type,
-        mrr=float(metric.mrr),
-        cac=float(metric.cac),
-        ltv=float(metric.ltv),
+        new_units=metric.new_units,
+        arpu=float(metric.arpu),
+        revenue=float(metric.revenue),
+        marketing_spend=float(metric.marketing_spend),
+        retention_rate=float(metric.retention_rate),
         churn=float(metric.churn),
-        arpu=float(metric.arpu) if metric.arpu is not None else None,
-        runway_months=(
-            float(metric.runway_months)
-            if metric.runway_months is not None
-            else None
-        ),
-        stage=metric.stage,
+        ltv=float(metric.ltv),
+        cac=float(metric.cac),
+        active_units=metric.active_units,
+        comment=metric.comment,
         created_at=metric.created_at,
         updated_at=metric.updated_at,
     )
@@ -157,6 +156,25 @@ async def upsert_metric(
     service = MetricService(db)
     metric = await service.upsert_metric(company_id, data)
     return _metric_to_response(metric)
+
+
+@router.put("/{company_id}/metrics/bulk", response_model=list[MetricResponse])
+async def upsert_metrics_bulk(
+    company_id: uuid.UUID,
+    data: MetricBulkUpsert,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    """Массовое создание или обновление метрик компании (admin или company)."""
+    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав"
+        )
+
+    service = MetricService(db)
+    metrics = await service.bulk_upsert(company_id, data.items)
+    return [_metric_to_response(m) for m in metrics]
 
 
 @router.get("/{company_id}/metrics", response_model=list[MetricResponse])
