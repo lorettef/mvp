@@ -88,7 +88,7 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
                 Выручка
               </p>
-              <Row label="MRR" value={fmtRub(data.mrr)} />
+              <Row label="Выручка" value={fmtRub(data.mrr)} />
               <Row
                 label="Единовременные доходы"
                 value={fmtRub(data.oneTimeRevenue)}

@@ -26,7 +26,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
         <CardContent className="p-5">
           <Skeleton className="h-6 w-40 mb-4" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <Skeleton key={i} className="h-20 w-full" />
             ))}
           </div>
@@ -62,6 +62,16 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
       label: 'Runway',
       value: fmtMonths(data.runwayMonths),
       ok: data.runwayMonths == null ? null : data.runwayMonths >= 6,
+    },
+    {
+      label: 'Payback',
+      value: fmtMonths(data.paybackPeriod),
+      ok: data.paybackPeriod == null ? null : data.paybackPeriod <= 12,
+    },
+    {
+      label: 'ROMI',
+      value: fmtPct(data.romi),
+      ok: data.romi == null ? null : data.romi >= 0,
     },
     {
       label: 'Churn',
@@ -111,8 +121,8 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
             <h3 className="font-semibold text-foreground mb-4">Базовые метрики (факт)</h3>
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">MRR</dt>
-                <dd className="text-foreground">{fmtRub(data.mrr)}</dd>
+                <dt className="text-muted-foreground">Выручка</dt>
+                <dd className="text-foreground">{fmtRub(data.revenue)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">CAC</dt>

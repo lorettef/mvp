@@ -6,12 +6,14 @@ import type { UnitEconomicsResponse } from '@/types/api'
 function makeData(over: Partial<UnitEconomicsResponse> = {}): UnitEconomicsResponse {
   return {
     companyId: 'comp1',
-    mrr: 120000,
+    revenue: 120000,
     cac: 1000,
     ltv: 5000,
     churn: 0.03,
     ltvCac: 5.0,
     runwayMonths: 15.0,
+    paybackPeriod: 12.0,
+    romi: 4.0,
     cash: 300000,
     monthlyBurn: 20000,
     magicNumber: 3.5,
@@ -41,6 +43,14 @@ describe('UnitEconomicsTab', () => {
     expect(screen.getByText('60.0%')).toBeInTheDocument()
     expect(screen.getByText('50.0%')).toBeInTheDocument()
     expect(screen.getByText('40.0%')).toBeInTheDocument()
+  })
+
+  it('renders Payback and ROMI cards', () => {
+    render(<UnitEconomicsTab data={makeData()} />)
+    expect(screen.getByText('Payback')).toBeInTheDocument()
+    expect(screen.getByText('12.0 мес.')).toBeInTheDocument()
+    expect(screen.getByText('ROMI')).toBeInTheDocument()
+    expect(screen.getByText('400.0%')).toBeInTheDocument()
   })
 
   it('renders alerts', () => {

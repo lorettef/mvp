@@ -35,6 +35,12 @@ describe('PnLTab', () => {
     expect(screen.getByText('2026-02')).toBeInTheDocument()
   })
 
+  it('labels recurring revenue row as Выручка (not MRR)', () => {
+    render(<PnLTab data={makePnl()} />)
+    expect(screen.queryByText('MRR')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Выручка').length).toBeGreaterThanOrEqual(1)
+  })
+
   it('renders margins', () => {
     render(<PnLTab data={makePnl()} />)
     expect(screen.getByText('22.0%')).toBeInTheDocument()

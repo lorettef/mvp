@@ -7,7 +7,7 @@ function makeMonth(over: Partial<HiringMonthRow> = {}): HiringMonthRow {
   return {
     month: 1,
     period: '2026-09-01',
-    mrr: 105000,
+    revenue: 105000,
     fot: 36750,
     socialPayments: 15876,
     totalCost: 52626,
@@ -24,7 +24,7 @@ function makePlan(over: Partial<HiringPlanResponse> = {}): HiringPlanResponse {
     companyId: 'c1',
     industry: 'saas',
     industryLabel: 'SaaS',
-    baseMrr: 100000,
+    baseRevenue: 100000,
     fotShare: 0.35,
     avgSalary: 150000,
     monthlyGrowth: 0.05,
@@ -58,13 +58,20 @@ describe('HiringTab', () => {
   it('shows empty hint when no metrics', () => {
     render(
       <HiringTab
-        data={makePlan({ baseMrr: null, months: [], finalHeadcount: 0 })}
+        data={makePlan({ baseRevenue: null, months: [], finalHeadcount: 0 })}
         canEdit={false}
       />,
     )
     expect(
-      screen.getByText(/Добавьте метрики MRR/),
+      screen.getByText(/Добавьте метрики выручки/),
     ).toBeInTheDocument()
+  })
+
+  it('shows social payment field labels', () => {
+    render(<HiringTab data={makePlan()} canEdit />)
+    expect(screen.getByText('НДФЛ (%)')).toBeInTheDocument()
+    expect(screen.getByText('Страховые взносы (%)')).toBeInTheDocument()
+    expect(screen.getByText('Травматизм (%)')).toBeInTheDocument()
   })
 
   it('saves social payment settings as fractions', () => {

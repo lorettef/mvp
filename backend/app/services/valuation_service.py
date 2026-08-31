@@ -10,11 +10,10 @@ from app.models.financing import Financing
 from app.schemas.valuation import ValuationResponse
 from app.services.cashflow_service import CashFlowService
 from app.services.hiring_service import HiringService
-from app.services.market_service import GEOGRAPHIES
+from app.services.market_service import GEOGRAPHIES, normalize_geography
 from app.services.pnl_service import PnLService
 
 RISK_PREMIUM = 10.0
-DEFAULT_GEOGRAPHY = "RU"
 MONTHS_IN_YEAR = 12
 
 
@@ -32,7 +31,7 @@ class ValuationService:
                 detail="Компания не найдена",
             )
 
-        geography = self._normalize_geography(company.geography)
+        geography = normalize_geography(company.geography)
         key_rate = GEOGRAPHIES[geography]["key_rate"]
         discount_rate = round(key_rate + RISK_PREMIUM, 2)
         growth_rate = round(GEOGRAPHIES[geography]["inflation"], 2)
@@ -112,11 +111,6 @@ class ValuationService:
             else:
                 cash += float(total)
         return round(debt, 2), round(cash, 2)
-
-    @staticmethod
-    def _normalize_geography(geography: Optional[str]) -> str:
-        key = (geography or DEFAULT_GEOGRAPHY).strip().upper()
-        return key if key in GEOGRAPHIES else DEFAULT_GEOGRAPHY
 
     @staticmethod
     def _div(numerator, denominator, round_to: int = 4) -> Optional[float]:

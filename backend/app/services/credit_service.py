@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -13,7 +13,7 @@ from app.schemas.credit import (
     CreditForecastResponse,
     CreditGap,
 )
-from app.services.market_service import GEOGRAPHIES
+from app.services.market_service import GEOGRAPHIES, normalize_geography
 from app.services.pnl_service import PnLService
 
 MONTHLY_REVENUE_GROWTH = 0.05
@@ -21,7 +21,6 @@ OPEX_GROWTH = 0.0
 BUFFER = 0.10
 RATE_PREMIUM = 5.0
 HORIZON_MONTHS = 12
-DEFAULT_GEOGRAPHY = "RU"
 
 
 class CreditService:
@@ -39,7 +38,7 @@ class CreditService:
             )
 
         pnl = await PnLService(self.db).get_pnl(company_id)
-        geography = self._normalize_geography(company.geography)
+        geography = normalize_geography(company.geography)
         key_rate = GEOGRAPHIES[geography]["key_rate"]
         credit_rate = round(key_rate + RATE_PREMIUM, 2)
 
@@ -150,11 +149,6 @@ class CreditService:
         )
         total = result.scalar_one_or_none()
         return round(float(total), 2) if total is not None else 0.0
-
-    @staticmethod
-    def _normalize_geography(geography: Optional[str]) -> str:
-        key = (geography or DEFAULT_GEOGRAPHY).strip().upper()
-        return key if key in GEOGRAPHIES else DEFAULT_GEOGRAPHY
 
     @staticmethod
     def _period_for_month(m: int) -> date:

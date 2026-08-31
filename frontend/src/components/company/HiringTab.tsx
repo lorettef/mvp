@@ -105,9 +105,9 @@ export function HiringTab({
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                База MRR
+                База выручки
               </p>
-              <p className="text-xl font-bold mt-1">{fmtRub(data.baseMrr)}</p>
+              <p className="text-xl font-bold mt-1">{fmtRub(data.baseRevenue)}</p>
             </div>
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -140,38 +140,66 @@ export function HiringTab({
               Настройки соц. платежей
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                aria-label="НДФЛ (%)"
-                value={form.ndfl}
-                onChange={(e) => setForm({ ...form, ndfl: e.target.value })}
-              />
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                aria-label="Страховые взносы (%)"
-                value={form.insurance}
-                onChange={(e) =>
-                  setForm({ ...form, insurance: e.target.value })
-                }
-              />
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                aria-label="Травматизм (%)"
-                value={form.injury}
-                onChange={(e) => setForm({ ...form, injury: e.target.value })}
-              />
-              <div className="flex items-center rounded-lg border border-border px-3 py-2 text-sm">
-                <span className="text-muted-foreground mr-2">Итого:</span>
-                <span className="font-semibold">{totalRate.toFixed(1)}%</span>
+              <div>
+                <label
+                  htmlFor="ndfl"
+                  className="block text-xs font-medium text-muted-foreground mb-1"
+                >
+                  НДФЛ (%)
+                </label>
+                <Input
+                  id="ndfl"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={form.ndfl}
+                  onChange={(e) => setForm({ ...form, ndfl: e.target.value })}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="insurance"
+                  className="block text-xs font-medium text-muted-foreground mb-1"
+                >
+                  Страховые взносы (%)
+                </label>
+                <Input
+                  id="insurance"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={form.insurance}
+                  onChange={(e) =>
+                    setForm({ ...form, insurance: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="injury"
+                  className="block text-xs font-medium text-muted-foreground mb-1"
+                >
+                  Травматизм (%)
+                </label>
+                <Input
+                  id="injury"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={form.injury}
+                  onChange={(e) => setForm({ ...form, injury: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-muted-foreground mb-1">
+                  Итого
+                </span>
+                <div className="flex items-center rounded-lg border border-border px-3 py-2 text-sm flex-1">
+                  <span className="font-semibold">{totalRate.toFixed(1)}%</span>
+                </div>
               </div>
             </div>
             <div className="mt-3 flex gap-2">
@@ -192,7 +220,7 @@ export function HiringTab({
                 <tr className="border-b border-border text-muted-foreground">
                   <th className="text-left font-medium px-4 py-3">Месяц</th>
                   <th className="text-left font-medium px-4 py-3">Период</th>
-                  <th className="text-left font-medium px-4 py-3">MRR</th>
+                  <th className="text-left font-medium px-4 py-3">Выручка</th>
                   <th className="text-left font-medium px-4 py-3">ФОТ</th>
                   <th className="text-left font-medium px-4 py-3">Соц. платежи</th>
                   <th className="text-left font-medium px-4 py-3">Всего</th>
@@ -212,7 +240,7 @@ export function HiringTab({
                       {fmtPeriod(m.period)}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {fmtRub(m.mrr)}
+                      {fmtRub(m.revenue)}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {fmtRub(m.fot)}
@@ -234,8 +262,8 @@ export function HiringTab({
                       colSpan={7}
                       className="px-4 py-8 text-center text-muted-foreground"
                     >
-                      {data.baseMrr == null
-                        ? 'Добавьте метрики MRR, чтобы рассчитать прогноз найма.'
+                      {data.baseRevenue == null
+                        ? 'Добавьте метрики выручки, чтобы рассчитать прогноз найма.'
                         : 'Прогноз ещё не рассчитан.'}
                     </td>
                   </tr>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { companiesApi } from '../api/companies'
@@ -10,7 +10,7 @@ import { creditApi } from '../api/credit'
 import { valuationApi } from '../api/valuation'
 import { sensitivityApi } from '../api/sensitivity'
 import { useAuthStore } from '../store/authStore'
-import type { Metric, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, InsightScenario } from '@/types/api'
+import type { Metric, MetricUpsert, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, InsightScenario } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,6 +41,50 @@ const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${(v * 10
 const providerLabel = (p: string) =>
   p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : 'демо-режим'
 
+const INDUSTRY_LABELS: Record<string, string> = {
+  saas: 'SaaS',
+  fintech: 'Fintech',
+  ecommerce: 'E-commerce',
+  edtech: 'EdTech',
+  healthtech: 'HealthTech',
+  ai: 'AI/ML',
+  other: 'Другое',
+}
+
+interface BulkRow {
+  newUnits: string
+  arpu: string
+  revenue: string
+  marketingSpend: string
+  retentionPct: string
+}
+
+const emptyBulkRow = (): BulkRow => ({
+  newUnits: '',
+  arpu: '',
+  revenue: '',
+  marketingSpend: '',
+  retentionPct: '',
+})
+
+const addMonths = (ym: string, n: number): string => {
+  if (!ym) return ''
+  const [y, m] = ym.split('-').map(Number)
+  const d = new Date(y, m - 1 + n, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const deriveMetric = (r: BulkRow) => {
+  const retention = Math.min(1, Math.max(0, (Number(r.retentionPct) || 0) / 100))
+  const churn = 1 - retention
+  const arpu = Number(r.arpu) || 0
+  const newUnits = Number(r.newUnits) || 0
+  const marketing = Number(r.marketingSpend) || 0
+  const ltv = churn > 0 ? arpu / churn : arpu * 12
+  const cac = newUnits > 0 ? marketing / newUnits : 0
+  return { churn, ltv, cac }
+}
+
 const scenarioByTab: Record<string, InsightScenario> = {
   unit: 'unit_economics',
   cohorts: 'cohorts',
@@ -61,14 +105,11 @@ export const CompanyDetail = () => {
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('metrics')
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({
-    period: '',
-    type: 'fact' as 'plan' | 'fact',
-    mrr: '',
-    cac: '',
-    ltv: '',
-    churnPct: '',
-  })
+  const [bulkType, setBulkType] = useState<'plan' | 'fact'>('fact')
+  const [bulkStartMonth, setBulkStartMonth] = useState('')
+  const [bulkCount, setBulkCount] = useState(3)
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyBulkRow(), emptyBulkRow(), emptyBulkRow()])
+  const [grossMarginPct, setGrossMarginPct] = useState('75')
 
   const id = companyId ?? ''
 
@@ -77,6 +118,11 @@ export const CompanyDetail = () => {
     queryFn: () => companiesApi.get(id),
     enabled: Boolean(id),
   })
+
+  useEffect(() => {
+    const gm = companyQuery.data?.grossMargin
+    if (gm != null) setGrossMarginPct(String(Math.round(gm * 100)))
+  }, [companyQuery.data?.grossMargin])
 
   const metricsQuery = useQuery({
     queryKey: ['company-metrics', id],
@@ -178,23 +224,48 @@ export const CompanyDetail = () => {
     },
   })
 
-  const upsertMutation = useMutation({
-    mutationFn: () =>
-      companiesApi.upsertMetric(id, {
-        period: `${form.period}-01`,
-        type: form.type,
-        mrr: Number(form.mrr),
-        cac: Number(form.cac),
-        ltv: Number(form.ltv),
-        churn: Number(form.churnPct) / 100,
-      }),
+  const bulkMutation = useMutation({
+    mutationFn: () => {
+      const items: MetricUpsert[] = bulkRows.map((r, i) => ({
+        period: `${addMonths(bulkStartMonth, i)}-01`,
+        type: bulkType,
+        new_units: Number(r.newUnits) || 0,
+        arpu: Number(r.arpu) || 0,
+        revenue: Number(r.revenue) || 0,
+        marketing_spend: Number(r.marketingSpend) || 0,
+        retention_rate: (Number(r.retentionPct) || 0) / 100,
+      }))
+      return companiesApi.upsertMetricBulk(id, { items })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company-metrics', id] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       setShowForm(false)
-      setForm({ period: '', type: 'fact', mrr: '', cac: '', ltv: '', churnPct: '' })
     },
   })
+
+  const grossMarginMutation = useMutation({
+    mutationFn: (value: number) => companiesApi.update(id, { grossMargin: value / 100 }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company', id] })
+    },
+  })
+
+  const handleCountChange = (n: number) => {
+    setBulkCount(n)
+    setBulkRows((prev) => Array.from({ length: n }, (_, i) => prev[i] ?? emptyBulkRow()))
+  }
+
+  const updateRow = (i: number, field: keyof BulkRow, value: string) => {
+    setBulkRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)))
+  }
+
+  const handleGrossMarginSave = () => {
+    const v = Number(grossMarginPct)
+    if (Number.isFinite(v) && v >= 0 && v <= 100) grossMarginMutation.mutate(v)
+  }
+
+  const bulkValid = bulkStartMonth !== '' && bulkCount >= 1 && bulkCount <= 12
 
   const cohortUpsert = useMutation({
     mutationFn: (d: CohortUpsert) => companiesApi.upsertCohort(id, d),
@@ -285,7 +356,10 @@ export const CompanyDetail = () => {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{company?.name}</h1>
           <div className="flex items-center gap-3 mt-1">
             <p className="text-muted-foreground">
-              {company?.industry || 'Сфера не указана'} · {company?.geography || 'География не указана'}
+              {company?.industry
+                ? INDUSTRY_LABELS[company.industry] ?? company.industry
+                : 'Сфера не указана'}{' '}
+              · {company?.geography || 'Место нахождение не указано'}
             </p>
           </div>
         </div>
@@ -338,40 +412,184 @@ export const CompanyDetail = () => {
         <TabsContent value="metrics">
           <Card className="border bg-card/50">
             <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                 <h3 className="font-semibold text-foreground">Метрики — План vs Факт</h3>
-                {canEdit && (
-                  <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Добавить метрику
-                  </Button>
-                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  {canEdit && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-muted-foreground whitespace-nowrap">
+                        Валовая маржа (Gross Margin, %)
+                      </label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        className="w-20"
+                        aria-label="Валовая маржа (Gross Margin, %)"
+                        value={grossMarginPct}
+                        onChange={(e) => setGrossMarginPct(e.target.value)}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleGrossMarginSave}
+                        disabled={grossMarginMutation.isPending}
+                      >
+                        {grossMarginMutation.isPending ? 'Сохранение...' : 'Сохранить'}
+                      </Button>
+                    </div>
+                  )}
+                  {canEdit && (
+                    <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Добавить метрику
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {showForm && canEdit && (
                 <div className="mb-6 p-4 border border-border rounded-lg bg-muted/30">
-                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-                    <Input type="month" value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })} />
-                    <select
-                      value={form.type}
-                      onChange={(e) => setForm({ ...form, type: e.target.value as 'plan' | 'fact' })}
-                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="plan">План</option>
-                      <option value="fact">Факт</option>
-                    </select>
-                    <Input type="number" placeholder="MRR (₽)" value={form.mrr} onChange={(e) => setForm({ ...form, mrr: e.target.value })} />
-                    <Input type="number" placeholder="CAC (₽)" value={form.cac} onChange={(e) => setForm({ ...form, cac: e.target.value })} />
-                    <Input type="number" placeholder="LTV (₽)" value={form.ltv} onChange={(e) => setForm({ ...form, ltv: e.target.value })} />
-                    <Input type="number" step="0.1" placeholder="Churn (%)" value={form.churnPct} onChange={(e) => setForm({ ...form, churnPct: e.target.value })} />
+                  <div className="flex flex-wrap items-end gap-3 mb-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Тип</span>
+                      <div className="flex rounded-md border border-input overflow-hidden">
+                        {(['plan', 'fact'] as const).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setBulkType(t)}
+                            className={`h-10 px-4 text-sm font-medium transition-colors ${
+                              bulkType === t
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-background text-muted-foreground hover:bg-muted'
+                            }`}
+                          >
+                            {t === 'plan' ? 'План' : 'Факт'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Стартовый месяц</span>
+                      <Input
+                        type="month"
+                        aria-label="Стартовый месяц"
+                        value={bulkStartMonth}
+                        onChange={(e) => setBulkStartMonth(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Месяцев</span>
+                      <select
+                        aria-label="Месяцев"
+                        value={bulkCount}
+                        onChange={(e) => handleCountChange(Number(e.target.value))}
+                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-muted-foreground">
+                          <th className="text-left font-medium px-2 py-2">Месяц</th>
+                          <th className="text-left font-medium px-2 py-2">Новые юниты</th>
+                          <th className="text-left font-medium px-2 py-2">ARPU (₽)</th>
+                          <th className="text-left font-medium px-2 py-2">Выручка (₽)</th>
+                          <th className="text-left font-medium px-2 py-2">Маркетинг (₽)</th>
+                          <th className="text-left font-medium px-2 py-2">Retention %</th>
+                          <th className="text-left font-medium px-2 py-2">LTV (₽)</th>
+                          <th className="text-left font-medium px-2 py-2">CAC (₽)</th>
+                          <th className="text-left font-medium px-2 py-2">Churn %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkRows.map((r, i) => {
+                          const d = deriveMetric(r)
+                          return (
+                            <tr key={i} className="border-b border-border/50 last:border-0">
+                              <td className="px-2 py-2 font-medium text-foreground whitespace-nowrap">
+                                {addMonths(bulkStartMonth, i) || '—'}
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  aria-label={`Новые юниты ${i + 1}`}
+                                  value={r.newUnits}
+                                  onChange={(e) => updateRow(i, 'newUnits', e.target.value)}
+                                />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  aria-label={`ARPU ${i + 1}`}
+                                  value={r.arpu}
+                                  onChange={(e) => updateRow(i, 'arpu', e.target.value)}
+                                />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  aria-label={`Выручка ${i + 1}`}
+                                  value={r.revenue}
+                                  onChange={(e) => updateRow(i, 'revenue', e.target.value)}
+                                />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  aria-label={`Маркетинг ${i + 1}`}
+                                  value={r.marketingSpend}
+                                  onChange={(e) => updateRow(i, 'marketingSpend', e.target.value)}
+                                />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.1"
+                                  aria-label={`Retention % ${i + 1}`}
+                                  value={r.retentionPct}
+                                  onChange={(e) => updateRow(i, 'retentionPct', e.target.value)}
+                                />
+                              </td>
+                              <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
+                                {fmtRub(d.ltv)}
+                              </td>
+                              <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
+                                {fmtRub(d.cac)}
+                              </td>
+                              <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
+                                {fmtPct(d.churn)}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
                   <div className="mt-3 flex gap-2">
                     <Button
                       size="sm"
-                      disabled={!form.period || !form.mrr || !form.cac || !form.ltv || form.churnPct === '' || upsertMutation.isPending}
-                      onClick={() => upsertMutation.mutate()}
+                      disabled={!bulkValid || bulkMutation.isPending}
+                      onClick={() => bulkMutation.mutate()}
                     >
-                      {upsertMutation.isPending ? 'Сохранение...' : 'Сохранить'}
+                      {bulkMutation.isPending ? 'Сохранение...' : 'Сохранить метрики'}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
                       Отмена
@@ -384,37 +602,66 @@ export const CompanyDetail = () => {
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="text-left font-medium px-4 py-3">Период</th>
-                    <th className="text-left font-medium px-4 py-3">MRR план</th>
-                    <th className="text-left font-medium px-4 py-3">MRR факт</th>
+                    <th className="text-left font-medium px-4 py-3">Выручка план</th>
+                    <th className="text-left font-medium px-4 py-3">Выручка факт</th>
                     <th className="text-left font-medium px-4 py-3">Отклонение</th>
-                    <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">CAC факт</th>
-                    <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">Churn факт</th>
+                    <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">
+                      Новые юниты факт
+                    </th>
+                    <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">
+                      Retention факт
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map(([period, entry]) => {
-                    const planMrr = entry.plan?.mrr
-                    const factMrr = entry.fact?.mrr
-                    const dev = planMrr != null && factMrr != null ? factMrr - planMrr : null
-                    const devPct = dev != null && planMrr ? (dev / planMrr) * 100 : null
+                    const planRevenue = entry.plan?.revenue
+                    const factRevenue = entry.fact?.revenue
+                    const dev =
+                      planRevenue != null && factRevenue != null
+                        ? factRevenue - planRevenue
+                        : null
+                    const devPct =
+                      dev != null && planRevenue ? (dev / planRevenue) * 100 : null
                     const positive = dev != null && dev >= 0
                     return (
-                      <tr key={period} className="border-b border-border/50 last:border-0 hover:bg-muted/40 transition-colors">
-                        <td className="px-4 py-3 font-medium text-foreground">{fmtPeriod(period)}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{fmtRub(planMrr)}</td>
-                        <td className="px-4 py-3 text-foreground">{fmtRub(factMrr)}</td>
+                      <tr
+                        key={period}
+                        className="border-b border-border/50 last:border-0 hover:bg-muted/40 transition-colors"
+                      >
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          {fmtPeriod(period)}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {fmtRub(planRevenue)}
+                        </td>
+                        <td className="px-4 py-3 text-foreground">{fmtRub(factRevenue)}</td>
                         <td className="px-4 py-3">
                           {dev == null ? (
                             <span className="text-muted-foreground">—</span>
                           ) : (
-                            <span className={`inline-flex items-center gap-1 font-medium ${positive ? 'text-emerald-500' : 'text-destructive'}`}>
-                              {positive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                              {devPct != null ? `${devPct >= 0 ? '+' : ''}${devPct.toFixed(1)}%` : ''}
+                            <span
+                              className={`inline-flex items-center gap-1 font-medium ${
+                                positive ? 'text-emerald-500' : 'text-destructive'
+                              }`}
+                            >
+                              {positive ? (
+                                <ArrowUpRight className="w-4 h-4" />
+                              ) : (
+                                <ArrowDownRight className="w-4 h-4" />
+                              )}
+                              {devPct != null
+                                ? `${devPct >= 0 ? '+' : ''}${devPct.toFixed(1)}%`
+                                : ''}
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{fmtRub(entry.fact?.cac)}</td>
-                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{fmtPct(entry.fact?.churn)}</td>
+                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                          {entry.fact?.newUnits ?? '—'}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                          {fmtPct(entry.fact?.retentionRate)}
+                        </td>
                       </tr>
                     )
                   })}

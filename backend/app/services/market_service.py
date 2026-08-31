@@ -11,6 +11,26 @@ GEOGRAPHIES = {
     "global": {"label": "Глобальный рынок", "gdp_growth": 3.0, "inflation": 4.5, "key_rate": 4.0, "scale": 25.0},
 }
 
+
+def normalize_geography(value: str) -> str:
+    """Normalize a free-text geography to a key-rate bucket (RU/KZ/global).
+
+    "RU"  ← Россия / Москва / Санкт-Петербург / RU
+    "KZ"  ← Казахстан / Алматы / Астана / Нур-Султан / KZ
+    "global" ← Глобальный рынок / global
+    Anything else (incl. empty/None) → "RU" (fallback).
+    """
+    if not value:
+        return "RU"
+    v = value.strip().lower()
+    if v in {"ru", "россия", "москва", "санкт-петербург"}:
+        return "RU"
+    if v in {"kz", "казахстан", "алматы", "астана", "нур-султан"}:
+        return "KZ"
+    if v in {"global", "глобальный рынок"}:
+        return "global"
+    return "RU"
+
 INDUSTRIES = {
     "saas": {
         "label": "SaaS",

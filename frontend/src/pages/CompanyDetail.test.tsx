@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
     cohorts: vi.fn(),
     budgets: vi.fn(),
     upsertMetric: vi.fn(),
+    upsertMetricBulk: vi.fn(),
+    update: vi.fn(),
     upsertCohort: vi.fn(),
     upsertBudget: vi.fn(),
     unitEconomics: vi.fn(),
@@ -92,8 +94,9 @@ const company = {
   id: 'comp1',
   organizationId: 'org1',
   name: 'Test Startup',
-  industry: 'SaaS',
+  industry: 'saas',
   geography: 'RU',
+  grossMargin: 0.75,
   createdAt: '',
 }
 
@@ -102,13 +105,16 @@ const metric = {
   companyId: 'comp1',
   period: '2025-03-01',
   type: 'plan',
-  mrr: 100000,
-  cac: 50000,
-  ltv: 300000,
+  newUnits: 45,
+  arpu: 950,
+  revenue: 100000,
+  marketingSpend: 14400,
+  retentionRate: 0.95,
   churn: 0.05,
-  arpu: null,
-  runwayMonths: null,
-  stage: null,
+  ltv: 19000,
+  cac: 320,
+  activeUnits: 180,
+  comment: null,
   createdAt: '',
   updatedAt: '',
 }
@@ -118,10 +124,20 @@ const cohort = {
   companyId: 'comp1',
   period: '2025-03-01',
   type: 'plan',
+  size: 100,
   retentionM1: 0.8,
+  retentionM2: 0.72,
   retentionM3: 0.6,
+  retentionM4: 0.55,
+  retentionM5: 0.52,
   retentionM6: 0.5,
+  retentionM7: 0.48,
+  retentionM8: 0.46,
+  retentionM9: 0.44,
+  retentionM10: 0.42,
+  retentionM11: 0.41,
   retentionM12: 0.4,
+  marketingSpend: 50000,
   createdAt: '',
   updatedAt: '',
 }
@@ -141,12 +157,14 @@ const budget = {
 
 const unitEconomicsData = {
   companyId: 'comp1',
-  mrr: 120000,
+  revenue: 120000,
   cac: 1000,
   ltv: 5000,
   churn: 0.03,
   ltvCac: 5.0,
   runwayMonths: 15.0,
+  paybackPeriod: 4.2,
+  romi: 3.0,
   cash: 300000,
   monthlyBurn: 20000,
   magicNumber: 3.5,
@@ -200,7 +218,7 @@ const hiringPlanData = {
   companyId: 'comp1',
   industry: 'saas',
   industryLabel: 'SaaS',
-  baseMrr: 100000,
+  baseRevenue: 100000,
   fotShare: 0.35,
   avgSalary: 150000,
   monthlyGrowth: 0.05,
@@ -215,7 +233,7 @@ const hiringPlanData = {
     {
       month: 1,
       period: '2026-09-01',
-      mrr: 105000,
+      revenue: 105000,
       fot: 36750,
       socialPayments: 15876,
       totalCost: 52626,
@@ -334,7 +352,7 @@ const sensitivityData = {
 const recalculateData = {
   companyId: 'comp1',
   recalculatedAt: '2026-08-23T00:00:00Z',
-  mrr: 120000,
+  revenue: 120000,
   runwayMonths: 15.0,
   ltvCac: 5.0,
   ebitda: 22040,
@@ -348,10 +366,24 @@ const recalculateData = {
 const planGenerateData = {
   companyId: 'comp1',
   provider: 'demo',
-  summary: 'Демо-план: рост MRR 5% в месяц.',
+  summary: 'Демо-план: рост выручки 5% в месяц.',
   metrics: [
-    { period: '2026-03-01', mrr: 126000, cac: 4500, ltv: 22000, churn: 0.04 },
-    { period: '2026-04-01', mrr: 132300, cac: 4500, ltv: 22000, churn: 0.04 },
+    {
+      period: '2026-03-01',
+      newUnits: 50,
+      arpu: 950,
+      revenue: 126000,
+      marketingSpend: 15750,
+      retentionRate: 0.96,
+    },
+    {
+      period: '2026-04-01',
+      newUnits: 52,
+      arpu: 960,
+      revenue: 132300,
+      marketingSpend: 16200,
+      retentionRate: 0.96,
+    },
   ],
 }
 
@@ -418,7 +450,7 @@ describe('CompanyDetail', () => {
   it('switches to cohorts tab on click', async () => {
     renderCompanyDetail()
     fireEvent.click(await screen.findByRole('tab', { name: 'Когорты' }))
-    expect(await screen.findByText('Когортный анализ — План vs Факт')).toBeInTheDocument()
+    expect(await screen.findByText('Когортный анализ — матрица удержания M1–M12')).toBeInTheDocument()
   })
 
   it('switches to budget tab on click', async () => {
@@ -526,5 +558,62 @@ describe('CompanyDetail', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Бюджет' }))
     expect(screen.queryByRole('button', { name: /Добавить бюджет/ })).not.toBeInTheDocument()
+  })
+
+  it('bulk-saves metrics with snake_case payload', async () => {
+    mocks.companiesApi.upsertMetricBulk.mockResolvedValue([])
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
+
+    fireEvent.change(screen.getByLabelText('Стартовый месяц'), {
+      target: { value: '2026-01' },
+    })
+    fireEvent.change(screen.getByLabelText('Месяцев'), { target: { value: '2' } })
+
+    fireEvent.change(screen.getByLabelText('Выручка 1'), { target: { value: '5000' } })
+    fireEvent.change(screen.getByLabelText('Новые юниты 1'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('ARPU 1'), { target: { value: '500' } })
+    fireEvent.change(screen.getByLabelText('Маркетинг 1'), { target: { value: '1000' } })
+    fireEvent.change(screen.getByLabelText('Retention % 1'), { target: { value: '90' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить метрики' }))
+
+    await waitFor(() =>
+      expect(mocks.companiesApi.upsertMetricBulk).toHaveBeenCalledWith('comp1', {
+        items: [
+          {
+            period: '2026-01-01',
+            type: 'fact',
+            new_units: 10,
+            arpu: 500,
+            revenue: 5000,
+            marketing_spend: 1000,
+            retention_rate: 0.9,
+          },
+          {
+            period: '2026-02-01',
+            type: 'fact',
+            new_units: 0,
+            arpu: 0,
+            revenue: 0,
+            marketing_spend: 0,
+            retention_rate: 0,
+          },
+        ],
+      }),
+    )
+  })
+
+  it('saves gross margin via update', async () => {
+    mocks.companiesApi.update.mockResolvedValue(company)
+    renderCompanyDetail()
+    const input = await screen.findByLabelText('Валовая маржа (Gross Margin, %)')
+    fireEvent.change(input, { target: { value: '80' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() =>
+      expect(mocks.companiesApi.update).toHaveBeenCalledWith('comp1', {
+        grossMargin: 0.8,
+      }),
+    )
   })
 })

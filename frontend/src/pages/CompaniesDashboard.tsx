@@ -16,6 +16,27 @@ const statusMap: Record<string, { label: string; className: string }> = {
   no_data: { label: 'Нет данных', className: 'bg-muted text-muted-foreground border-border' },
 }
 
+const INDUSTRY_LABELS: Record<string, string> = {
+  saas: 'SaaS',
+  fintech: 'Fintech',
+  ecommerce: 'E-commerce',
+  edtech: 'EdTech',
+  healthtech: 'HealthTech',
+  ai: 'AI/ML',
+  other: 'Другое',
+}
+
+const INDUSTRY_OPTIONS = Object.entries(INDUSTRY_LABELS)
+
+const LOCATION_SUGGESTIONS = [
+  'Россия',
+  'Казахстан',
+  'Глобальный рынок',
+  'Москва',
+  'Санкт-Петербург',
+  'Алматы',
+]
+
 const fmtRub = (v: number | null) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
 
 export const CompaniesDashboard = () => {
@@ -82,7 +103,7 @@ export const CompaniesDashboard = () => {
 
   const cards = [
     { title: 'Компании в портфеле', value: String(total), icon: Building2 },
-    { title: 'Средний MRR', value: fmtRub(data?.avgMrr ?? null), icon: TrendingUp },
+    { title: 'Средняя выручка', value: fmtRub(data?.avgRevenue ?? null), icon: TrendingUp },
     { title: 'Выполняют план', value: `${onTrackPct}%`, icon: CircleCheck },
     { title: 'Отстают', value: String(behind), icon: AlertTriangle },
   ]
@@ -115,16 +136,32 @@ export const CompaniesDashboard = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-              <Input
-                placeholder="Сфера деятельности"
+              <select
+                aria-label="Сфера деятельности"
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-              />
-              <Input
-                placeholder="География"
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Выберите сферу</option>
+                {INDUSTRY_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <input
+                list="locations"
+                aria-label="Место нахождение"
+                placeholder="Место нахождение"
                 value={geography}
                 onChange={(e) => setGeography(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               />
+              <datalist id="locations">
+                {LOCATION_SUGGESTIONS.map((l) => (
+                  <option key={l} value={l} />
+                ))}
+              </datalist>
             </div>
             <div className="mt-4 flex gap-2">
               <Button
@@ -167,8 +204,8 @@ export const CompaniesDashboard = () => {
               <tr className="border-b border-border text-muted-foreground">
                 <th className="text-left font-medium px-5 py-3">Компания</th>
                 <th className="text-left font-medium px-5 py-3 hidden sm:table-cell">Сфера</th>
-                <th className="text-left font-medium px-5 py-3">MRR (факт)</th>
-                <th className="text-left font-medium px-5 py-3 hidden md:table-cell">MRR (план)</th>
+                <th className="text-left font-medium px-5 py-3">Выручка (факт)</th>
+                <th className="text-left font-medium px-5 py-3 hidden md:table-cell">Выручка (план)</th>
                 <th className="text-left font-medium px-5 py-3">Прогресс задач</th>
                 <th className="text-left font-medium px-5 py-3">Статус</th>
               </tr>
@@ -183,9 +220,11 @@ export const CompaniesDashboard = () => {
                     onClick={() => navigate(`/companies/${c.id}`)}
                   >
                     <td className="px-5 py-3 font-medium text-foreground">{c.name}</td>
-                    <td className="px-5 py-3 text-muted-foreground hidden sm:table-cell">{c.industry || '—'}</td>
-                    <td className="px-5 py-3 text-foreground">{fmtRub(c.latestMrr)}</td>
-                    <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{fmtRub(c.latestPlanMrr)}</td>
+                    <td className="px-5 py-3 text-muted-foreground hidden sm:table-cell">
+                      {c.industry ? INDUSTRY_LABELS[c.industry] ?? c.industry : '—'}
+                    </td>
+                    <td className="px-5 py-3 text-foreground">{fmtRub(c.latestRevenue)}</td>
+                    <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{fmtRub(c.latestPlanRevenue)}</td>
                     <td className="px-5 py-3 text-foreground">
                       {c.taskProgress != null ? `${c.taskProgress}%` : '—'}
                     </td>

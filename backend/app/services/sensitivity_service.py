@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.company import Company
 from app.models.metric import Metric
 from app.schemas.sensitivity import Scenario, SensitivityResponse
-from app.services.market_service import GEOGRAPHIES
+from app.services.market_service import GEOGRAPHIES, normalize_geography
 from app.services.pnl_service import PnLService
 from app.services.valuation_service import ValuationService
 
@@ -16,7 +16,6 @@ SALES_STRESS = 0.9
 CAC_STRESS = 1.1
 LTV_STRESS = 0.95
 CHURN_STRESS = 1.1
-DEFAULT_GEOGRAPHY = "RU"
 
 
 class SensitivityService:
@@ -33,7 +32,7 @@ class SensitivityService:
                 detail="Компания не найдена",
             )
 
-        geography = self._normalize_geography(company.geography)
+        geography = normalize_geography(company.geography)
         key_rate = GEOGRAPHIES[geography]["key_rate"]
         discount_rate = round(key_rate + 10.0, 2)
 
@@ -145,11 +144,6 @@ class SensitivityService:
             if metric is not None:
                 return metric
         return None
-
-    @staticmethod
-    def _normalize_geography(geography: Optional[str]) -> str:
-        key = (geography or DEFAULT_GEOGRAPHY).strip().upper()
-        return key if key in GEOGRAPHIES else DEFAULT_GEOGRAPHY
 
     @staticmethod
     def _f(value) -> Optional[float]:
