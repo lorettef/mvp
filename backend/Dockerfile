@@ -6,8 +6,7 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt || \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Копирование кода
 COPY . .

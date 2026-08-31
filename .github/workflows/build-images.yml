@@ -37,8 +37,6 @@ jobs:
           context: ./backend
           push: true
           tags: ${{ env.BACKEND_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build & push frontend
         uses: docker/build-push-action@v6
@@ -47,5 +45,3 @@ jobs:
           file: frontend/Dockerfile.prod
           push: true
           tags: ${{ env.FRONTEND_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
