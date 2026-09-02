@@ -1,9 +1,17 @@
 from datetime import date
 
 import pytest
+from sqlalchemy import select, func
 
 from .conftest import auth_headers
+from app.models.hiring_plan import HiringPlan
 from app.models.metric import Metric
+from app.services.hiring_service import HiringService
+
+
+async def _count_hiring_rows(db) -> int:
+    result = await db.execute(select(func.count()).select_from(HiringPlan))
+    return result.scalar_one()
 
 
 async def _seed_metric(db, company_id, revenue=100000, type_="plan"):
@@ -81,6 +89,15 @@ async def test_hiring_plan_uses_fact_when_no_plan(
     assert res.json()["base_revenue"] == 80000
 
 
+async def test_hiring_prefers_plan_over_fact(db_session, seeded_company):
+    """Characterization: базовая выручка берётся из Плана, даже если есть свежий Факт."""
+    await _seed_metric(db_session, seeded_company.id, revenue=100000, type_="plan")
+    await _seed_metric(db_session, seeded_company.id, revenue=50000, type_="fact")
+
+    plan = await HiringService(db_session).build_plan(seeded_company.id)
+    assert plan.base_revenue == 100000.0
+
+
 async def test_hiring_settings_defaults(client, seeded_company, seeded_admin):
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/hiring/settings",
@@ -132,3 +149,49 @@ async def test_hiring_settings_forbidden_observer(client, seeded_company, seeded
 async def test_hiring_unauthenticated(client, seeded_company):
     res = await client.get(f"/api/v1/companies/{seeded_company.id}/hiring")
     assert res.status_code == 401
+
+
+async def test_get_hiring_does_not_persist(
+    client, seeded_company, seeded_admin, db_session
+):
+    await _seed_metric(db_session, seeded_company.id, revenue=100000)
+    before = await _count_hiring_rows(db_session)
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/hiring",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    assert len(res.json()["months"]) == 12
+
+    after = await _count_hiring_rows(db_session)
+    # GET /hiring — read-only: в БД не должно появиться строк hiring_plans.
+    assert after == before
+
+
+async def test_post_hiring_generate_persists_and_requires_role(
+    client, seeded_company, seeded_observer, seeded_company_user, db_session
+):
+    await _seed_metric(db_session, seeded_company.id, revenue=100000)
+    before = await _count_hiring_rows(db_session)
+
+    # observer не может генерировать (записывать) план.
+    res = await client.post(
+        f"/api/v1/companies/{seeded_company.id}/hiring/generate",
+        headers=auth_headers(seeded_observer),
+    )
+    assert res.status_code == 403
+
+    # роль company может генерировать план.
+    res = await client.post(
+        f"/api/v1/companies/{seeded_company.id}/hiring/generate",
+        headers=auth_headers(seeded_company_user),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body["months"]) == 12
+
+    after = await _count_hiring_rows(db_session)
+    # POST /hiring/generate — персистит 12 строк плана в hiring_plans.
+    assert after > before
+    assert after - before == len(body["months"])

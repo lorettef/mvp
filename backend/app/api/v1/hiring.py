@@ -53,6 +53,22 @@ async def get_hiring_plan(
     user: dict = Depends(require_company_access()),
     db: AsyncSession = Depends(get_db),
 ):
-    """Прогноз найма на 12 месяцев (пересчитывается при каждом запросе)."""
+    """Прогноз найма на 12 месяцев (рассчитывается без сохранения в БД)."""
+    service = HiringService(db)
+    return await service.build_plan(company_id)
+
+
+@router.post("/{company_id}/hiring/generate", response_model=HiringPlanResponse)
+async def generate_hiring_plan(
+    company_id: uuid.UUID,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    """Пересчитать и сохранить прогноз найма на 12 месяцев (admin или company)."""
+    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав",
+        )
     service = HiringService(db)
     return await service.generate_plan(company_id)

@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.company import Company
 from app.models.hiring_plan import HiringPlan
 from app.models.hiring_settings import HiringSettings
-from app.models.metric import Metric
 from app.schemas.hiring import (
     HiringMonthRow,
     HiringPlanResponse,
@@ -19,6 +18,7 @@ from app.schemas.hiring import (
     DEFAULT_INSURANCE_RATE,
     DEFAULT_INJURY_RATE,
 )
+from app.services.common import latest_metrics, period_for_month
 
 # Отраслевые коэффициенты распределения штата (доля от общего числа сотрудников).
 INDUSTRY_STAFF_MIX = {
@@ -103,8 +103,8 @@ class HiringService:
             ),
         )
 
-    async def generate_plan(self, company_id: UUID) -> HiringPlanResponse:
-        """Рассчитать целевой штат на 12 месяцев и сохранить в hiring_plans."""
+    async def build_plan(self, company_id: UUID) -> HiringPlanResponse:
+        """Рассчитать целевой штат на 12 месяцев (без сохранения в БД)."""
         company = await self.db.get(Company, company_id)
         if not company:
             raise HTTPException(
@@ -115,7 +115,10 @@ class HiringService:
         industry = self._normalize_industry(company.industry)
         mix = INDUSTRY_STAFF_MIX[industry]
         settings = await self.get_settings(company_id)
-        base_revenue = await self._latest_revenue(company_id)
+        rows = await latest_metrics(
+            self.db, company_id, prefer="plan", fallback=True, limit=1
+        )
+        base_revenue = float(rows[0].revenue) if rows else None
 
         if base_revenue is None:
             return HiringPlanResponse(
@@ -137,7 +140,7 @@ class HiringService:
 
         months: List[HiringMonthRow] = []
         for m in range(1, HORIZON_MONTHS + 1):
-            period = self._period_for_month(m)
+            period = period_for_month(m)
             revenue = round(base_revenue * (1 + MONTHLY_GROWTH) ** m, 2)
             fot = round(revenue * FOT_SHARE, 2)
             social = round(fot * settings.total_rate, 2)
@@ -159,9 +162,6 @@ class HiringService:
                     sales_count=sales,
                     marketing_count=marketing,
                 )
-            )
-            await self._upsert_plan_row(
-                company_id, period, dev, sales, marketing, fot, social
             )
 
         final = months[-1]
@@ -185,28 +185,20 @@ class HiringService:
             summary=summary,
         )
 
-    async def _latest_revenue(self, company_id: UUID) -> Optional[float]:
-        # План имеет приоритет, иначе — последний факт.
-        for type_ in ("plan", "fact"):
-            result = await self.db.execute(
-                select(Metric)
-                .where(Metric.company_id == company_id, Metric.type == type_)
-                .order_by(Metric.period.desc())
-                .limit(1)
+    async def generate_plan(self, company_id: UUID) -> HiringPlanResponse:
+        """Рассчитать целевой штат и сохранить его в hiring_plans."""
+        plan = await self.build_plan(company_id)
+        for m in plan.months:
+            await self._upsert_plan_row(
+                company_id,
+                m.period,
+                m.dev_count,
+                m.sales_count,
+                m.marketing_count,
+                m.fot,
+                m.social_payments,
             )
-            metric = result.scalar_one_or_none()
-            if metric is not None:
-                return float(metric.revenue)
-        return None
-
-    @staticmethod
-    def _period_for_month(m: int) -> date:
-        """Первый день месяца через m месяцев от текущего (m=1 — следующий месяц)."""
-        today = date.today()
-        zero_month = today.month - 1 + m
-        year = today.year + zero_month // 12
-        month = zero_month % 12 + 1
-        return date(year, month, 1)
+        return plan
 
     async def _upsert_plan_row(
         self,

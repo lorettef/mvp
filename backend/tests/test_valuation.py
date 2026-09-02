@@ -1,11 +1,20 @@
 from datetime import date
 
 import pytest
+from sqlalchemy import select, func
 
 from .conftest import auth_headers
-from app.models.metric import Metric
 from app.models.budget import Budget
 from app.models.financing import Financing
+from app.models.hiring_plan import HiringPlan
+from app.models.metric import Metric
+from app.services.pnl_service import PnLService
+from app.services.valuation_service import ValuationService
+
+
+async def _count_hiring_rows(db) -> int:
+    result = await db.execute(select(func.count()).select_from(HiringPlan))
+    return result.scalar_one()
 
 
 async def _seed_valuation(db, company_id, mrr=100000):
@@ -76,6 +85,27 @@ async def test_valuation_happy(client, seeded_company, seeded_admin, db_session)
     )
 
 
+async def test_valuation_financing_sums_match_legacy(
+    client, seeded_company, seeded_admin, db_session
+):
+    db_session.add(
+        Financing(company_id=seeded_company.id, type="credit", amount=100, rate=0.15)
+    )
+    db_session.add(
+        Financing(company_id=seeded_company.id, type="investment", amount=200)
+    )
+    await db_session.flush()
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/valuation",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["debt"] == 100.0
+    assert body["cash"] == 200.0
+
+
 async def test_valuation_loss_unapplicable(
     client, seeded_company, seeded_admin, db_session
 ):
@@ -118,3 +148,61 @@ async def test_valuation_observer_read(client, seeded_company, seeded_observer):
 async def test_valuation_unauthenticated(client, seeded_company):
     res = await client.get(f"/api/v1/companies/{seeded_company.id}/valuation")
     assert res.status_code == 401
+
+
+async def test_valuation_result_unchanged_after_memoization(
+    client, seeded_company, seeded_admin, db_session
+):
+    await _seed_valuation(db_session, seeded_company.id)
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/valuation",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+
+    # Полный снимок JSON, снятый до дедупликации вычислений PnL: ответ обязан не измениться.
+    expected = {
+        "cash": 200000.0,
+        "company_id": str(seeded_company.id),
+        "debt": 100000.0,
+        "discount_rate": 31.0,
+        "equity_value": 133948.44,
+        "fcf": 7040.0,
+        "geography": "RU",
+        "growth_rate": 8.5,
+        "headcount": 1,
+        "key_rate": 21.0,
+        "net_debt": -100000.0,
+        "ps_ratio": 0.1116,
+        "revenue_annual": 1200000.0,
+        "summary": "Оценка (Equity Value) = 133,948 ₽ (TV = 33,948 ₽). P/S = 0.11×. На сотрудника = 133,948 ₽.",
+        "terminal_value": 33948.44,
+        "value_per_employee": 133948.44,
+    }
+    assert body == expected
+
+    # Путь с заранее вычисленным PnL даёт тот же ответ, что и самостоятельный расчёт.
+    pnl = await PnLService(db_session).get_pnl(seeded_company.id)
+    memoized = await ValuationService(db_session).get_valuation(
+        seeded_company.id, pnl=pnl
+    )
+    assert memoized.model_dump(mode="json") == body
+
+
+async def test_get_valuation_does_not_write_hiring_rows(
+    client, seeded_company, seeded_admin, db_session
+):
+    await _seed_valuation(db_session, seeded_company.id)
+    before = await _count_hiring_rows(db_session)
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/valuation",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+
+    after = await _count_hiring_rows(db_session)
+    # GET /valuation — read-only: строки hiring_plans не должны создаваться.
+    assert after == before
