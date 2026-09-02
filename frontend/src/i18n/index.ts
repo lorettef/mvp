@@ -17,6 +17,12 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 })
 
+// Keep the <html lang> attribute in sync with the active locale.
+document.documentElement.lang = i18n.language
+i18n.on('languageChanged', (lng) => {
+  document.documentElement.lang = lng
+})
+
 export function switchLanguage(next: 'ru' | 'en') {
   i18n.changeLanguage(next)
   localStorage.setItem(LANG_KEY, next)
