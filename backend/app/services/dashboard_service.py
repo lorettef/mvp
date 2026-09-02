@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import and_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company import Company
@@ -24,6 +24,44 @@ class DashboardService:
             .order_by(Company.name)
         )
         companies = list(result.scalars().all())
+        company_ids = [company.id for company in companies]
+
+        # Latest fact + plan metric per company in one batched query (SQLite-safe,
+        # no DISTINCT ON): join against max(period) per (company_id, type).
+        latest_periods = (
+            select(Metric.company_id, Metric.type, func.max(Metric.period).label("max_period"))
+            .where(Metric.company_id.in_(company_ids))
+            .group_by(Metric.company_id, Metric.type)
+            .subquery()
+        )
+        metrics_rows = await self.db.execute(
+            select(Metric).join(
+                latest_periods,
+                and_(
+                    Metric.company_id == latest_periods.c.company_id,
+                    Metric.type == latest_periods.c.type,
+                    Metric.period == latest_periods.c.max_period,
+                ),
+            )
+        )
+        latest: dict[tuple[UUID, str], Metric] = {
+            (metric.company_id, metric.type): metric
+            for metric in metrics_rows.scalars().all()
+        }
+
+        progress_rows = await self.db.execute(
+            select(
+                Task.company_id,
+                func.count().label("total"),
+                func.count().filter(Task.status == "done").label("done"),
+            )
+            .where(Task.company_id.in_(company_ids))
+            .group_by(Task.company_id)
+        )
+        progress: dict[UUID, Optional[int]] = {
+            row.company_id: None if row.total == 0 else round(row.done / row.total * 100)
+            for row in progress_rows.all()
+        }
 
         items: list[CompanyStatusItem] = []
         counts = {"on_track": 0, "behind": 0, "no_plan": 0, "no_data": 0}
@@ -34,8 +72,8 @@ class DashboardService:
         churn_values: list[float] = []
 
         for company in companies:
-            fact = await self._latest_metric(company.id, "fact")
-            plan = await self._latest_metric(company.id, "plan")
+            fact = latest.get((company.id, "fact"))
+            plan = latest.get((company.id, "plan"))
 
             if fact is None:
                 status = "no_data"
@@ -69,7 +107,7 @@ class DashboardService:
                     status=status,
                     latest_revenue=latest_revenue,
                     latest_plan_revenue=latest_plan_revenue,
-                    task_progress=await self._task_progress(company.id),
+                    task_progress=progress.get(company.id),
                 )
             )
 
@@ -85,34 +123,6 @@ class DashboardService:
             no_data=counts["no_data"],
             companies=items,
         )
-
-    async def _latest_metric(self, company_id: UUID, type_: str) -> Optional[Metric]:
-        """Последняя метрика компании заданного типа (plan/fact)."""
-        result = await self.db.execute(
-            select(Metric)
-            .where(Metric.company_id == company_id, Metric.type == type_)
-            .order_by(Metric.period.desc())
-            .limit(1)
-        )
-        return result.scalar_one_or_none()
-
-    async def _task_progress(self, company_id: UUID) -> Optional[int]:
-        """Процент выполненных задач компании (None, если задач нет)."""
-        total_result = await self.db.execute(
-            select(func.count())
-            .select_from(Task)
-            .where(Task.company_id == company_id)
-        )
-        total = total_result.scalar_one()
-        if total == 0:
-            return None
-        done_result = await self.db.execute(
-            select(func.count())
-            .select_from(Task)
-            .where(Task.company_id == company_id, Task.status == "done")
-        )
-        done = done_result.scalar_one()
-        return round(done / total * 100)
 
     @staticmethod
     def _mean(values: list[float]) -> Optional[float]:
