@@ -1,9 +1,14 @@
+// Wire-contract convention (see src/api/client.ts):
+// REQUEST DTOs are snake_case and sent as-is (the client does NOT transform request bodies;
+// the backend is Pydantic with snake_case fields). RESPONSE types are camelCase — the
+// response interceptor deep-camelizes every backend payload before it reaches app code.
+
 // Auth
 export interface RegisterRequest {
   email: string
   password: string
-  fullName?: string
-  companyName?: string
+  full_name?: string
+  company_name?: string
 }
 
 export interface LoginRequest {
@@ -12,8 +17,8 @@ export interface LoginRequest {
 }
 
 export interface TokenResponse {
-  token_type: string
-  expires_in: number
+  tokenType: string
+  expiresIn: number
 }
 
 export interface UserResponse {
@@ -34,7 +39,7 @@ export interface SeedResponse {
   email: string
 }
 
-// Metrics
+// Metrics (request DTO for the recommendations endpoint)
 export interface MetricsRequest {
   mrr: number
   cac: number
@@ -46,18 +51,6 @@ export interface MetricsRequest {
   active_users?: number
 }
 
-export interface MetricsResponse {
-  mrr: number
-  cac: number
-  ltv: number
-  churn: number
-  arpu: number
-  runway_months: number
-  ltv_cac_ratio: number
-  healthy: boolean
-  alerts: string[]
-}
-
 // Forecast
 export interface ForecastRequest {
   history: number[]
@@ -67,7 +60,7 @@ export interface ForecastRequest {
 
 export interface ForecastResponse {
   predictions: number[]
-  confidence_interval?: { lower: number[]; upper: number[] }
+  confidenceInterval?: { lower: number[]; upper: number[] }
   method: string
 }
 
@@ -82,7 +75,7 @@ export interface RecommendationAction {
 export interface RecommendationResponse {
   summary: string
   recommendations: RecommendationAction[]
-  raw_response: string | null
+  rawResponse: string | null
   provider: string
 }
 
@@ -112,14 +105,14 @@ export interface CompanyCreate {
   name: string
   industry?: string
   geography?: string
-  grossMargin?: number
+  gross_margin?: number
 }
 
 export interface CompanyUpdate {
   name?: string
   industry?: string
   geography?: string
-  grossMargin?: number
+  gross_margin?: number
 }
 
 // Stored metrics (server-side)

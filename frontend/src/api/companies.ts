@@ -23,48 +23,48 @@ import type {
 import { api } from './client'
 
 export const companiesApi = {
-  list: (): Promise<Company[]> => api.get('/companies').then((res) => res.data),
-  get: (id: string): Promise<Company> => api.get(`/companies/${id}`).then((res) => res.data),
-  create: (data: CompanyCreate): Promise<Company> =>
-    api.post('/companies', data).then((res) => res.data),
-  update: (id: string, data: CompanyUpdate): Promise<Company> =>
-    api.patch(`/companies/${id}`, data).then((res) => res.data),
-  remove: (id: string): Promise<void> =>
-    api.delete(`/companies/${id}`).then((res) => res.data),
-  metrics: (id: string, period?: string): Promise<Metric[]> =>
-    api.get(`/companies/${id}/metrics`, { params: period ? { period } : {} }).then((res) => res.data),
-  upsertMetric: (id: string, data: MetricUpsert): Promise<Metric> =>
-    api.put(`/companies/${id}/metrics`, data).then((res) => res.data),
-  upsertMetricBulk: (id: string, data: MetricBulkUpsert): Promise<Metric[]> =>
-    api.put(`/companies/${id}/metrics/bulk`, data).then((res) => res.data),
-  cohorts: (id: string, period?: string): Promise<Cohort[]> =>
-    api.get(`/companies/${id}/cohorts`, { params: period ? { period } : {} }).then((res) => res.data),
-  upsertCohort: (id: string, data: CohortUpsert): Promise<Cohort> =>
-    api.put(`/companies/${id}/cohorts`, data).then((res) => res.data),
-  budgets: (id: string, period?: string): Promise<Budget[]> =>
-    api.get(`/companies/${id}/budgets`, { params: period ? { period } : {} }).then((res) => res.data),
-  upsertBudget: (id: string, data: BudgetUpsert): Promise<Budget> =>
-    api.put(`/companies/${id}/budgets`, data).then((res) => res.data),
-  unitEconomics: (id: string): Promise<UnitEconomicsResponse> =>
-    api.get(`/companies/${id}/unit-economics`).then((res) => res.data),
-  tasks: (id: string): Promise<Task[]> =>
-    api.get(`/companies/${id}/tasks`).then((res) => res.data),
-  createTask: (id: string, data: TaskCreate): Promise<Task> =>
-    api.post(`/companies/${id}/tasks`, data).then((res) => res.data),
-  updateTask: (id: string, taskId: string, data: TaskUpdate): Promise<Task> =>
-    api.patch(`/companies/${id}/tasks/${taskId}`, data).then((res) => res.data),
-  deleteTask: (id: string, taskId: string): Promise<void> =>
-    api.delete(`/companies/${id}/tasks/${taskId}`).then((res) => res.data),
-  readiness: (id: string): Promise<ReadinessResponse> =>
-    api.get(`/companies/${id}/readiness`).then((res) => res.data),
-  recalculate: (id: string): Promise<RecalculateResponse> =>
-    api.post(`/companies/${id}/recalculate`).then((res) => res.data),
-  generatePlan: (id: string, months = 6): Promise<PlanGenerateResponse> =>
-    api.post(`/companies/${id}/generate-plan`, null, { params: { months } }).then((res) => res.data),
-  insight: (id: string, scenario: InsightScenario): Promise<InsightResponse> =>
-    api.post(`/companies/${id}/insights/${scenario}`).then((res) => res.data),
+  list: ({ signal }: { signal?: AbortSignal } = {}): Promise<Company[]> => api.get('/companies', { signal }).then((res) => res.data),
+  get: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<Company> => api.get(`/companies/${id}`, { signal }).then((res) => res.data),
+  create: (data: CompanyCreate, { signal }: { signal?: AbortSignal } = {}): Promise<Company> =>
+    api.post('/companies', data, { signal }).then((res) => res.data),
+  update: (id: string, data: CompanyUpdate, { signal }: { signal?: AbortSignal } = {}): Promise<Company> =>
+    api.patch(`/companies/${id}`, data, { signal }).then((res) => res.data),
+  remove: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<void> =>
+    api.delete(`/companies/${id}`, { signal }).then((res) => res.data),
+  metrics: (id: string, period?: string, { signal }: { signal?: AbortSignal } = {}): Promise<Metric[]> =>
+    api.get(`/companies/${id}/metrics`, { params: period ? { period } : {}, signal }).then((res) => res.data),
+  upsertMetric: (id: string, data: MetricUpsert, { signal }: { signal?: AbortSignal } = {}): Promise<Metric> =>
+    api.put(`/companies/${id}/metrics`, data, { signal }).then((res) => res.data),
+  upsertMetricBulk: (id: string, data: MetricBulkUpsert, { signal }: { signal?: AbortSignal } = {}): Promise<Metric[]> =>
+    api.put(`/companies/${id}/metrics/bulk`, data, { signal }).then((res) => res.data),
+  cohorts: (id: string, period?: string, { signal }: { signal?: AbortSignal } = {}): Promise<Cohort[]> =>
+    api.get(`/companies/${id}/cohorts`, { params: period ? { period } : {}, signal }).then((res) => res.data),
+  upsertCohort: (id: string, data: CohortUpsert, { signal }: { signal?: AbortSignal } = {}): Promise<Cohort> =>
+    api.put(`/companies/${id}/cohorts`, data, { signal }).then((res) => res.data),
+  budgets: (id: string, period?: string, { signal }: { signal?: AbortSignal } = {}): Promise<Budget[]> =>
+    api.get(`/companies/${id}/budgets`, { params: period ? { period } : {}, signal }).then((res) => res.data),
+  upsertBudget: (id: string, data: BudgetUpsert, { signal }: { signal?: AbortSignal } = {}): Promise<Budget> =>
+    api.put(`/companies/${id}/budgets`, data, { signal }).then((res) => res.data),
+  unitEconomics: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<UnitEconomicsResponse> =>
+    api.get(`/companies/${id}/unit-economics`, { signal }).then((res) => res.data),
+  tasks: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<Task[]> =>
+    api.get(`/companies/${id}/tasks`, { signal }).then((res) => res.data),
+  createTask: (id: string, data: TaskCreate, { signal }: { signal?: AbortSignal } = {}): Promise<Task> =>
+    api.post(`/companies/${id}/tasks`, data, { signal }).then((res) => res.data),
+  updateTask: (id: string, taskId: string, data: TaskUpdate, { signal }: { signal?: AbortSignal } = {}): Promise<Task> =>
+    api.patch(`/companies/${id}/tasks/${taskId}`, data, { signal }).then((res) => res.data),
+  deleteTask: (id: string, taskId: string, { signal }: { signal?: AbortSignal } = {}): Promise<void> =>
+    api.delete(`/companies/${id}/tasks/${taskId}`, { signal }).then((res) => res.data),
+  readiness: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<ReadinessResponse> =>
+    api.get(`/companies/${id}/readiness`, { signal }).then((res) => res.data),
+  recalculate: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<RecalculateResponse> =>
+    api.post(`/companies/${id}/recalculate`, undefined, { signal }).then((res) => res.data),
+  generatePlan: (id: string, months = 6, { signal }: { signal?: AbortSignal } = {}): Promise<PlanGenerateResponse> =>
+    api.post(`/companies/${id}/generate-plan`, null, { params: { months }, signal }).then((res) => res.data),
+  insight: (id: string, scenario: InsightScenario, { signal }: { signal?: AbortSignal } = {}): Promise<InsightResponse> =>
+    api.post(`/companies/${id}/insights/${scenario}`, undefined, { signal }).then((res) => res.data),
 }
 
 export const dashboardApi = {
-  get: (): Promise<DashboardResponse> => api.get('/dashboard').then((res) => res.data),
+  get: ({ signal }: { signal?: AbortSignal } = {}): Promise<DashboardResponse> => api.get('/dashboard', { signal }).then((res) => res.data),
 }

@@ -6,13 +6,14 @@ import type {
 import { api } from './client'
 
 export const hiringApi = {
-  plan: (id: string): Promise<HiringPlanResponse> =>
-    api.get(`/companies/${id}/hiring`).then((res) => res.data),
-  settings: (id: string): Promise<HiringSettingsResponse> =>
-    api.get(`/companies/${id}/hiring/settings`).then((res) => res.data),
+  plan: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<HiringPlanResponse> =>
+    api.get(`/companies/${id}/hiring`, { signal }).then((res) => res.data),
+  settings: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<HiringSettingsResponse> =>
+    api.get(`/companies/${id}/hiring/settings`, { signal }).then((res) => res.data),
   upsertSettings: (
     id: string,
     data: HiringSettingsUpsert,
+    { signal }: { signal?: AbortSignal } = {},
   ): Promise<HiringSettingsResponse> =>
-    api.put(`/companies/${id}/hiring/settings`, data).then((res) => res.data),
+    api.put(`/companies/${id}/hiring/settings`, data, { signal }).then((res) => res.data),
 }
