@@ -73,6 +73,32 @@ async def test_sensitivity_happy(client, seeded_company, seeded_admin, db_sessio
     )
 
 
+async def test_sensitivity_uses_plan_when_no_fact(
+    client, seeded_company, seeded_admin, db_session
+):
+    """Характеризация: только план-метрика — base.mrr считается из плана (fallback)."""
+    db_session.add(
+        Metric(
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="plan",
+            revenue=150000,
+            cac=1000,
+            ltv=5000,
+            churn=0.035,
+        )
+    )
+    await db_session.flush()
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/sensitivity",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["base"]["mrr"] is not None
+
+
 async def test_sensitivity_conservative_unprofitable(
     client, seeded_company, seeded_admin, db_session
 ):

@@ -2,12 +2,12 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company import Company
-from app.models.metric import Metric
+from app.schemas.pnl import PnLResponse
 from app.schemas.sensitivity import Scenario, SensitivityResponse
+from app.services.common import div, f, latest_metrics
 from app.services.market_service import GEOGRAPHIES, normalize_geography
 from app.services.pnl_service import PnLService
 from app.services.valuation_service import ValuationService
@@ -24,7 +24,9 @@ class SensitivityService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def analyze(self, company_id: UUID) -> SensitivityResponse:
+    async def analyze(
+        self, company_id: UUID, pnl: Optional[PnLResponse] = None
+    ) -> SensitivityResponse:
         company = await self.db.get(Company, company_id)
         if not company:
             raise HTTPException(
@@ -36,9 +38,13 @@ class SensitivityService:
         key_rate = GEOGRAPHIES[geography]["key_rate"]
         discount_rate = round(key_rate + 10.0, 2)
 
-        valuation = await ValuationService(self.db).get_valuation(company_id)
-        pnl = await PnLService(self.db).get_pnl(company_id)
-        metric = await self._latest_metric(company_id)
+        valuation = await ValuationService(self.db).get_valuation(company_id, pnl=pnl)
+        if pnl is None:
+            pnl = await PnLService(self.db).get_pnl(company_id)
+        rows = await latest_metrics(
+            self.db, company_id, prefer="fact", fallback=True, limit=1
+        )
+        metric = rows[0] if rows else None
 
         mrr = pnl.mrr
         marketing = pnl.marketing or 0.0
@@ -48,8 +54,8 @@ class SensitivityService:
         social = pnl.social_payments or 0.0
         financial_expenses = pnl.financial_expenses
 
-        cac = self._f(metric.cac) if metric else None
-        ltv = self._f(metric.ltv) if metric else None
+        cac = f(metric.cac, None) if metric else None
+        ltv = f(metric.ltv, None) if metric else None
         churn = float(metric.churn) if metric and metric.churn is not None else None
 
         if mrr is None:
@@ -72,7 +78,7 @@ class SensitivityService:
             cac=cac,
             ltv=ltv,
             churn=churn,
-            ltv_cac=self._div(ltv, cac),
+            ltv_cac=div(ltv, cac, None, round_to=4),
         )
 
         stressed_mrr = round(mrr * SALES_STRESS, 2)
@@ -113,7 +119,7 @@ class SensitivityService:
             cac=stressed_cac,
             ltv=stressed_ltv,
             churn=stressed_churn,
-            ltv_cac=self._div(stressed_ltv, stressed_cac),
+            ltv_cac=div(stressed_ltv, stressed_cac, None, round_to=4),
         )
 
         equity_delta, equity_delta_pct = self._delta(
@@ -131,29 +137,6 @@ class SensitivityService:
             equity_delta_pct=equity_delta_pct,
             summary=self._summary(base.equity_value, stressed_equity, equity_delta, equity_delta_pct),
         )
-
-    async def _latest_metric(self, company_id: UUID) -> Optional[Metric]:
-        for type_ in ("fact", "plan"):
-            result = await self.db.execute(
-                select(Metric)
-                .where(Metric.company_id == company_id, Metric.type == type_)
-                .order_by(Metric.period.desc())
-                .limit(1)
-            )
-            metric = result.scalar_one_or_none()
-            if metric is not None:
-                return metric
-        return None
-
-    @staticmethod
-    def _f(value) -> Optional[float]:
-        return float(value) if value is not None else None
-
-    @staticmethod
-    def _div(numerator, denominator, round_to: int = 4) -> Optional[float]:
-        if numerator is None or denominator is None or denominator == 0:
-            return None
-        return round(numerator / denominator, round_to)
 
     @staticmethod
     def _delta(base, stressed):

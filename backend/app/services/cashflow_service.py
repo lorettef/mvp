@@ -1,11 +1,11 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.financing import Financing
 from app.schemas.cashflow import CashFlowResponse
+from app.schemas.pnl import PnLResponse
+from app.services.common import financing_sums
 from app.services.pnl_service import PnLService
 
 AMORTIZATION = 0.0
@@ -21,9 +21,12 @@ class CashFlowService:
 
     async def get_cashflow(self, company_id: UUID) -> CashFlowResponse:
         pnl = await PnLService(self.db).get_pnl(company_id)
+        return await self.compute(pnl, company_id)
 
-        investments = await self._financing_sum(company_id, "investment")
-        credits = await self._financing_sum(company_id, "credit")
+    async def compute(self, pnl: PnLResponse, company_id: UUID) -> CashFlowResponse:
+        sums = await financing_sums(self.db, company_id)
+        investments = sums.cash
+        credits = sums.debt
         financing_cf = round(investments + credits, 2)
 
         net_profit = pnl.net_profit
@@ -56,16 +59,6 @@ class CashFlowService:
             closing_balance=closing,
             summary=self._summary(operating_cf, financing_cf, closing),
         )
-
-    async def _financing_sum(self, company_id: UUID, type_: str) -> float:
-        result = await self.db.execute(
-            select(func.sum(Financing.amount)).where(
-                Financing.company_id == company_id,
-                Financing.type == type_,
-            )
-        )
-        total = result.scalar_one_or_none()
-        return round(float(total), 2) if total is not None else 0.0
 
     @staticmethod
     def _summary(

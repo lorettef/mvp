@@ -88,6 +88,28 @@ async def test_cashflow_investment_only(client, seeded_company, seeded_admin, db
     assert body["credits"] == 0
 
 
+async def test_cashflow_financing_sums_match(
+    client, seeded_company, seeded_admin, db_session
+):
+    """Characterization: инвестиции и кредиты суммируются по своим типам."""
+    db_session.add(
+        Financing(company_id=seeded_company.id, type="investment", amount=200)
+    )
+    db_session.add(
+        Financing(company_id=seeded_company.id, type="credit", amount=100, rate=0.15)
+    )
+    await db_session.flush()
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/cashflow",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["investments"] == 200.0
+    assert body["credits"] == 100.0
+
+
 async def test_cashflow_observer_read(client, seeded_company, seeded_observer):
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/cashflow",

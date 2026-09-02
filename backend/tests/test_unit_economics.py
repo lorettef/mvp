@@ -68,6 +68,31 @@ async def test_unit_economics_happy(client, seeded_company, seeded_admin, db_ses
     assert any("Runway" in a for a in body["alerts"])
 
 
+async def test_unit_economics_uses_plan_fallback_when_fact_missing(
+    client, seeded_company, seeded_admin, db_session
+):
+    """D1: при отсутствии факт-метрик юнит-экономика считает из плана (fallback)."""
+    db_session.add(
+        Metric(
+            company_id=seeded_company.id, period=date(2026, 2, 1), type="plan",
+            revenue=90000, arpu=90, cac=1200, ltv=4000, churn=0.04,
+        )
+    )
+    await db_session.flush()
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/unit-economics",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+
+    # revenue (и остальные метрики) посчитаны из plan-метрики
+    assert body["revenue"] == 90000
+    assert body["ltv"] == 4000
+    assert body["cac"] == 1200
+
+
 async def test_unit_economics_empty(client, seeded_company, seeded_admin):
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/unit-economics",

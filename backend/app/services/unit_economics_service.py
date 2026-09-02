@@ -1,15 +1,20 @@
-from typing import List, Optional, Type
+from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.metric import Metric
 from app.models.cohort import Cohort
 from app.models.budget import Budget
-from app.models.financing import Financing
 from app.models.company import Company
 from app.schemas.unit_economics import UnitEconomicsResponse, RetentionBreakdown
+from app.services.common import (
+    div,
+    f,
+    financing_sums,
+    latest_budget,
+    latest_metrics,
+)
 
 
 class UnitEconomicsService:
@@ -18,44 +23,76 @@ class UnitEconomicsService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_unit_economics(self, company_id: UUID) -> UnitEconomicsResponse:
-        # Факт-метрики: последняя и предыдущая (для ΔMRR)
-        fact_metrics = await self._latest_metrics(company_id, "fact", limit=2)
+    async def get_unit_economics(
+        self,
+        company_id: UUID,
+        prefetched_metrics: Optional[dict] = None,
+        prefetched_aux: Optional[dict] = None,
+    ) -> UnitEconomicsResponse:
+        """Расчёт юнит-экономики компании.
+
+        Optional prefetch (used by batch callers, e.g. WeeklyReportService):
+        - prefetched_metrics: dict {(company_id, type): [Metric rows ordered
+          period desc]}. When provided, fact_metrics are derived from it
+          (latest 2 of "fact", falling back to "plan" if no fact rows) instead
+          of querying via latest_metrics.
+        - prefetched_aux: dict {company_id: {"cohort": Cohort|None,
+          "budget": Budget|None, "cash_total": float}}. When provided, the
+          latest cohort / budget / financing total are read from it instead of
+          querying.
+        When either is None, the exact legacy per-company query behavior is kept.
+        """
+        if prefetched_metrics is not None:
+            fact_metrics = list(prefetched_metrics.get((company_id, "fact"), ()))[:2]
+            if not fact_metrics:
+                fact_metrics = list(prefetched_metrics.get((company_id, "plan"), ()))[:2]
+        else:
+            # Факт-метрики: последняя и предыдущая (для ΔMRR); fallback на план (D1)
+            fact_metrics = await latest_metrics(
+                self.db, company_id, prefer="fact", fallback=True, limit=2
+            )
         latest_metric = fact_metrics[0] if fact_metrics else None
         previous_metric = fact_metrics[1] if len(fact_metrics) > 1 else None
 
-        latest_cohort = await self._latest(Cohort, company_id, "fact")
-        latest_budget = await self._latest(Budget, company_id, "fact")
-        cash = await self._financing_total(company_id)
+        if prefetched_aux is not None:
+            aux = prefetched_aux.get(company_id) or {}
+            latest_cohort = aux.get("cohort")
+            budget = aux.get("budget")
+            cash_total = aux.get("cash_total", 0.0)
+        else:
+            latest_cohort = await self._latest_cohort(company_id)
+            budget = await latest_budget(self.db, company_id, limit=1)
+            cash_total = (await financing_sums(self.db, company_id)).total
+        cash = cash_total if cash_total != 0.0 else None
         company = await self.db.get(Company, company_id)
 
-        revenue = self._f(latest_metric.revenue) if latest_metric else None
-        arpu = self._f(latest_metric.arpu) if latest_metric else None
-        cac = self._f(latest_metric.cac) if latest_metric else None
-        ltv = self._f(latest_metric.ltv) if latest_metric else None
+        revenue = f(latest_metric.revenue, None) if latest_metric else None
+        arpu = f(latest_metric.arpu, None) if latest_metric else None
+        cac = f(latest_metric.cac, None) if latest_metric else None
+        ltv = f(latest_metric.ltv, None) if latest_metric else None
         churn = float(latest_metric.churn) if latest_metric else None
         gross_margin = float(company.gross_margin) if company else None
 
         # LTV / CAC
-        ltv_cac = self._div(ltv, cac)
+        ltv_cac = div(ltv, cac, None, round_to=2)
 
         # Retention из последней факт-когорты
         retention = RetentionBreakdown(
-            m1=self._f(latest_cohort.retention_m1) if latest_cohort else None,
-            m3=self._f(latest_cohort.retention_m3) if latest_cohort else None,
-            m6=self._f(latest_cohort.retention_m6) if latest_cohort else None,
-            m12=self._f(latest_cohort.retention_m12) if latest_cohort else None,
+            m1=f(latest_cohort.retention_m1, None) if latest_cohort else None,
+            m3=f(latest_cohort.retention_m3, None) if latest_cohort else None,
+            m6=f(latest_cohort.retention_m6, None) if latest_cohort else None,
+            m12=f(latest_cohort.retention_m12, None) if latest_cohort else None,
         )
 
         # Runway = деньги / ежемесячный расход
-        monthly_burn = self._monthly_burn(latest_budget)
-        runway = self._div(cash, monthly_burn, round_to=1)
+        monthly_burn = self._monthly_burn(budget)
+        runway = div(cash, monthly_burn, None, round_to=1)
 
         # Magic Number = ΔRevenue / затраты на маркетинг
-        prev_revenue = self._f(previous_metric.revenue) if previous_metric else None
+        prev_revenue = f(previous_metric.revenue, None) if previous_metric else None
         revenue_growth = (revenue - prev_revenue) if (revenue is not None and prev_revenue is not None) else None
-        marketing_spend = self._f(latest_budget.marketing) if latest_budget else None
-        magic_number = self._div(revenue_growth, marketing_spend)
+        marketing_spend = f(budget.marketing, None) if budget else None
+        magic_number = div(revenue_growth, marketing_spend, None)
 
         # Payback = CAC / (ARPU × gross_margin); ROMI = (LTV − CAC) / CAC
         payback_period = round(cac / (arpu * gross_margin), 2) if (arpu and gross_margin) else None
@@ -82,34 +119,14 @@ class UnitEconomicsService:
             alerts=alerts,
         )
 
-    async def _latest_metrics(
-        self, company_id: UUID, type_: str, limit: int
-    ) -> List[Metric]:
+    async def _latest_cohort(self, company_id: UUID) -> Optional[Cohort]:
         result = await self.db.execute(
-            select(Metric)
-            .where(Metric.company_id == company_id, Metric.type == type_)
-            .order_by(Metric.period.desc())
-            .limit(limit)
-        )
-        return list(result.scalars().all())
-
-    async def _latest(self, model: Type, company_id: UUID, type_: str):
-        result = await self.db.execute(
-            select(model)
-            .where(model.company_id == company_id, model.type == type_)
-            .order_by(model.period.desc())
+            select(Cohort)
+            .where(Cohort.company_id == company_id, Cohort.type == "fact")
+            .order_by(Cohort.period.desc())
             .limit(1)
         )
         return result.scalar_one_or_none()
-
-    async def _financing_total(self, company_id: UUID) -> Optional[float]:
-        result = await self.db.execute(
-            select(func.sum(Financing.amount)).where(
-                Financing.company_id == company_id
-            )
-        )
-        total = result.scalar_one_or_none()
-        return float(total) if total is not None else None
 
     @staticmethod
     def _monthly_burn(budget: Optional[Budget]) -> Optional[float]:
@@ -121,21 +138,6 @@ class UnitEconomicsService:
             + float(budget.fot)
             + float(budget.gna)
         )
-
-    @staticmethod
-    def _f(value) -> Optional[float]:
-        return float(value) if value is not None else None
-
-    @staticmethod
-    def _div(
-        numerator: Optional[float],
-        denominator: Optional[float],
-        round_to: int = 2,
-    ) -> Optional[float]:
-        """Деление с защитой от деления на ноль; None, если аргументов нет."""
-        if numerator is None or denominator is None or denominator == 0:
-            return None
-        return round(numerator / denominator, round_to)
 
     @staticmethod
     def _build_alerts(

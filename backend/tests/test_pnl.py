@@ -6,6 +6,7 @@ from .conftest import auth_headers
 from app.models.metric import Metric
 from app.models.budget import Budget
 from app.models.financing import Financing
+from app.services.pnl_service import PnLService
 
 
 async def _seed_pnl(db, company_id):
@@ -121,3 +122,46 @@ async def test_pnl_observer_read(client, seeded_company, seeded_observer):
 async def test_pnl_unauthenticated(client, seeded_company):
     res = await client.get(f"/api/v1/companies/{seeded_company.id}/pnl")
     assert res.status_code == 401
+
+
+async def test_pnl_falls_back_to_plan_when_no_fact(db_session, seeded_company):
+    """Characterization: with ONLY plan data, P&L falls back fact→plan.
+
+    Seeding no `type="fact"` rows proves `get_pnl` still computes values
+    from the latest plan Metric / plan Budget instead of returning None.
+    """
+    db_session.add(
+        Metric(
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="plan",
+            revenue=100000,
+            cac=1000,
+            ltv=5000,
+            churn=0.03,
+        )
+    )
+    db_session.add(
+        Budget(
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="plan",
+            marketing=10000,
+            development=20000,
+            fot=30000,
+            gna=5000,
+        )
+    )
+    await db_session.flush()
+
+    pnl = await PnLService(db_session).get_pnl(seeded_company.id)
+
+    assert pnl.mrr is not None
+    assert pnl.revenue is not None
+    assert pnl.fot is not None
+    assert pnl.total_opex is not None
+    assert pnl.ebitda is not None
+    assert pnl.net_profit is not None
+    assert pnl.ebitda_margin is not None
+    assert pnl.net_margin is not None
+    assert pnl.period == date(2026, 2, 1)

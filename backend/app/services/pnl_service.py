@@ -5,11 +5,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.budget import Budget
 from app.models.company import Company
 from app.models.financing import Financing
-from app.models.metric import Metric
 from app.schemas.pnl import PnLResponse
+from app.services.common import div, f, latest_budget, latest_metrics
 from app.services.hiring_service import HiringService
 
 
@@ -20,6 +19,9 @@ class PnLService:
         self.db = db
 
     async def get_pnl(self, company_id: UUID) -> PnLResponse:
+        return await self.compute(company_id)
+
+    async def compute(self, company_id: UUID) -> PnLResponse:
         company = await self.db.get(Company, company_id)
         if not company:
             raise HTTPException(
@@ -27,19 +29,22 @@ class PnLService:
                 detail="Компания не найдена",
             )
 
-        metric = await self._latest(Metric, company_id)
-        budget = await self._latest(Budget, company_id)
+        metric_rows = await latest_metrics(
+            self.db, company_id, prefer="fact", fallback=True, limit=1
+        )
+        metric = metric_rows[0] if metric_rows else None
+        budget = await latest_budget(self.db, company_id, limit=1)
         settings = await HiringService(self.db).get_settings(company_id)
         credit_interest = await self._financial_expenses(company_id)
 
-        mrr = self._f(metric.revenue) if metric else None
+        mrr = f(metric.revenue, default=None) if metric else None
         one_time = 0.0
         revenue = round(mrr + one_time, 2) if mrr is not None else None
 
-        fot = self._f(budget.fot) if budget else None
-        marketing = self._f(budget.marketing) if budget else None
-        development = self._f(budget.development) if budget else None
-        gna = self._f(budget.gna) if budget else None
+        fot = f(budget.fot, default=None) if budget else None
+        marketing = f(budget.marketing, default=None) if budget else None
+        development = f(budget.development, default=None) if budget else None
+        gna = f(budget.gna, default=None) if budget else None
         social = round(fot * settings.total_rate, 2) if fot is not None else None
 
         parts = [v for v in (fot, social, marketing, development, gna) if v is not None]
@@ -52,8 +57,8 @@ class PnLService:
         )
         net_profit = round(ebitda - credit_interest, 2) if ebitda is not None else None
 
-        ebitda_margin = self._div(ebitda, revenue)
-        net_margin = self._div(net_profit, revenue)
+        ebitda_margin = div(ebitda, revenue, default=None, round_to=4)
+        net_margin = div(net_profit, revenue, default=None, round_to=4)
 
         period = metric.period if metric else (budget.period if budget else None)
 
@@ -77,19 +82,6 @@ class PnLService:
             summary=self._summary(ebitda, net_profit, ebitda_margin),
         )
 
-    async def _latest(self, model, company_id: UUID):
-        for type_ in ("fact", "plan"):
-            result = await self.db.execute(
-                select(model)
-                .where(model.company_id == company_id, model.type == type_)
-                .order_by(model.period.desc())
-                .limit(1)
-            )
-            row = result.scalar_one_or_none()
-            if row is not None:
-                return row
-        return None
-
     async def _financial_expenses(self, company_id: UUID) -> float:
         result = await self.db.execute(
             select(Financing).where(
@@ -103,16 +95,6 @@ class PnLService:
             for c in credits
         )
         return round(total, 2)
-
-    @staticmethod
-    def _f(value) -> Optional[float]:
-        return float(value) if value is not None else None
-
-    @staticmethod
-    def _div(numerator, denominator, round_to: int = 4) -> Optional[float]:
-        if numerator is None or denominator is None or denominator == 0:
-            return None
-        return round(numerator / denominator, round_to)
 
     @staticmethod
     def _summary(
