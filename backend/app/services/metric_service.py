@@ -1,10 +1,11 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.metric import Metric
 from app.schemas.metric import MetricUpsert
 
@@ -51,7 +52,7 @@ class MetricService:
             metric.ltv = ltv
             metric.cac = cac
             metric.comment = data.comment
-            metric.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            metric.updated_at = utcnow()
             await self.db.flush()
         else:
             metric = Metric(
@@ -106,7 +107,7 @@ class MetricService:
                     metric.ltv = ltv
                     metric.cac = cac
                     metric.comment = data.comment
-                    metric.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    metric.updated_at = utcnow()
                 else:
                     metric = Metric(
                         company_id=company_id,

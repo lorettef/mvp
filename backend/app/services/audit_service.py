@@ -1,8 +1,8 @@
 import logging
-from datetime import datetime, timezone
 from uuid import UUID
 from app.models.audit_log import AuditLog
 from app.core.security import decode_access_token
+from app.core.time import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ async def write_audit_log(db, request, user_id: UUID, action: str) -> None:
             action=action,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
-            created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            created_at=utcnow(),
         )
         db.add(entry)
         await db.flush()

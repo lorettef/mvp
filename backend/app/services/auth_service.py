@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException, status
@@ -8,6 +7,7 @@ from app.models.organization import Organization
 from app.models.company import Company
 from app.schemas.auth import UserCreate
 from app.core.security import hash_password, verify_password, create_access_token
+from app.core.time import utcnow
 
 class AuthService:
     """Сервис аутентификации."""
@@ -100,7 +100,7 @@ class AuthService:
                 detail="Неверный email или пароль"
             )
 
-        user.last_login = datetime.now(timezone.utc).replace(tzinfo=None)
+        user.last_login = utcnow()
         await self.db.flush()
 
         access_token = create_access_token({"sub": str(user.id)})

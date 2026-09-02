@@ -1,10 +1,11 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.budget import Budget
 from app.schemas.budget import BudgetUpsert
 
@@ -28,7 +29,7 @@ class BudgetService:
             budget.development = data.development
             budget.fot = data.fot
             budget.gna = data.gna
-            budget.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            budget.updated_at = utcnow()
             await self.db.flush()
         else:
             budget = Budget(

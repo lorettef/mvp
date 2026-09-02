@@ -7,9 +7,10 @@ from app.models.organization import Organization
 from app.models.company import Company
 from app.models.metric import Metric
 from app.core.security import hash_password
-from app.schemas.metrics import MetricsRequest
+from app.schemas.ai_metrics import MetricsRequest
 from app.services.ai_service import AIService
-from datetime import datetime, timezone, timedelta, date
+from app.core.time import utcnow
+from datetime import timedelta, date
 import json
 import hashlib
 from uuid import UUID
@@ -59,7 +60,7 @@ async def seed_demo_account(db: AsyncSession) -> dict:
     if not user:
         user = User(
             email=settings.DEMO_ACCOUNT_EMAIL,
-            password_hash=hash_password(settings.DEMO_ACCOUNT_PASSWORD),
+            password_hash=hash_password(settings.DEMO_ACCOUNT_PASSWORD.get_secret_value()),
             full_name="Demo Investor",
             company_name="SaaSify Inc.",
         )
@@ -121,7 +122,7 @@ async def seed_demo_account(db: AsyncSession) -> dict:
             user_id=user.id,
             metrics_hash=metrics_hash,
             response=json.dumps(recommendations.model_dump()),
-            expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=24),
+            expires_at=utcnow() + timedelta(hours=24),
         )
         db.add(cache_entry)
         await db.flush()

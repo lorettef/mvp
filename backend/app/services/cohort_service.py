@@ -1,10 +1,11 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.cohort import Cohort
 from app.schemas.cohort import CohortUpsert
 
@@ -38,7 +39,7 @@ class CohortService:
             cohort.retention_m11 = data.retention_m11
             cohort.retention_m12 = data.retention_m12
             cohort.marketing_spend = data.marketing_spend
-            cohort.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            cohort.updated_at = utcnow()
             await self.db.flush()
         else:
             cohort = Cohort(
