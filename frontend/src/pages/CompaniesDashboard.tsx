@@ -51,9 +51,10 @@ export const CompaniesDashboard = () => {
 
   const INDUSTRY_OPTIONS = Object.entries(INDUSTRY_LABELS)
 
-  const REGIONS = [{ label: t('common.geo.ru'), rate: '21', icon: '🇷🇺' },
-    { label: t('common.geo.kz'), rate: '16', icon: '🇰🇿' },
-    { label: t('common.geo.global'), rate: '4', icon: '🌍' },
+  const REGIONS = [
+    { label: t('common.geo.ru'), rate: '21' },
+    { label: t('common.geo.kz'), rate: '16' },
+    { label: t('common.geo.global'), rate: '4' },
   ]
 
   const tenantKey = getTenantKey()
@@ -164,10 +165,7 @@ export const CompaniesDashboard = () => {
                             : 'border-input bg-card hover:border-primary/50 hover:bg-accent'
                         }`}
                       >
-                        <span className="flex items-center gap-2 text-sm font-medium">
-                          <span aria-hidden="true" className="text-lg leading-none">{region.icon}</span>
-                          {region.label}
-                        </span>
+                        <span className="text-sm font-medium">{region.label}</span>
                         <span className="mt-2 block text-xs text-muted-foreground">
                           {t('common.keyRateHint', { rate: region.rate })}
                         </span>
