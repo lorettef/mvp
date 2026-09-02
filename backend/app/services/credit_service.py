@@ -1,18 +1,17 @@
-from datetime import date
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company import Company
-from app.models.financing import Financing
 from app.schemas.credit import (
     CashProjectionMonth,
     CreditForecastResponse,
     CreditGap,
 )
+from app.schemas.pnl import PnLResponse
+from app.services.common import financing_sums, period_for_month
 from app.services.market_service import GEOGRAPHIES, normalize_geography
 from app.services.pnl_service import PnLService
 
@@ -29,7 +28,9 @@ class CreditService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def forecast(self, company_id: UUID) -> CreditForecastResponse:
+    async def forecast(
+        self, company_id: UUID, pnl: Optional[PnLResponse] = None
+    ) -> CreditForecastResponse:
         company = await self.db.get(Company, company_id)
         if not company:
             raise HTTPException(
@@ -37,12 +38,13 @@ class CreditService:
                 detail="Компания не найдена",
             )
 
-        pnl = await PnLService(self.db).get_pnl(company_id)
+        if pnl is None:
+            pnl = await PnLService(self.db).get_pnl(company_id)
         geography = normalize_geography(company.geography)
         key_rate = GEOGRAPHIES[geography]["key_rate"]
         credit_rate = round(key_rate + RATE_PREMIUM, 2)
 
-        opening_cash = await self._financing_total(company_id)
+        opening_cash = (await financing_sums(self.db, company_id)).total
         base_revenue = pnl.mrr
         base_opex = pnl.total_opex if pnl.total_opex is not None else 0.0
 
@@ -107,7 +109,7 @@ class CreditService:
         months: List[CashProjectionMonth] = []
         gaps: List[CreditGap] = []
         for m in range(1, HORIZON_MONTHS + 1):
-            period = self._period_for_month(m)
+            period = period_for_month(m)
             revenue = round(base_revenue * (1 + MONTHLY_REVENUE_GROWTH) ** m, 2)
             opex = round(base_opex * (1 + OPEX_GROWTH) ** m, 2)
             net_cf = round(revenue - opex, 2)
@@ -140,20 +142,3 @@ class CreditService:
             )
             balance = balance_after
         return months, gaps
-
-    async def _financing_total(self, company_id: UUID) -> float:
-        result = await self.db.execute(
-            select(func.sum(Financing.amount)).where(
-                Financing.company_id == company_id
-            )
-        )
-        total = result.scalar_one_or_none()
-        return round(float(total), 2) if total is not None else 0.0
-
-    @staticmethod
-    def _period_for_month(m: int) -> date:
-        today = date.today()
-        zero_month = today.month - 1 + m
-        year = today.year + zero_month // 12
-        month = zero_month % 12 + 1
-        return date(year, month, 1)

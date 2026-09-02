@@ -2,13 +2,13 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company import Company
-from app.models.financing import Financing
+from app.schemas.pnl import PnLResponse
 from app.schemas.valuation import ValuationResponse
 from app.services.cashflow_service import CashFlowService
+from app.services.common import div, financing_sums
 from app.services.hiring_service import HiringService
 from app.services.market_service import GEOGRAPHIES, normalize_geography
 from app.services.pnl_service import PnLService
@@ -23,7 +23,9 @@ class ValuationService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_valuation(self, company_id: UUID) -> ValuationResponse:
+    async def get_valuation(
+        self, company_id: UUID, pnl: Optional[PnLResponse] = None
+    ) -> ValuationResponse:
         company = await self.db.get(Company, company_id)
         if not company:
             raise HTTPException(
@@ -36,25 +38,27 @@ class ValuationService:
         discount_rate = round(key_rate + RISK_PREMIUM, 2)
         growth_rate = round(GEOGRAPHIES[geography]["inflation"], 2)
 
-        cashflow = await CashFlowService(self.db).get_cashflow(company_id)
+        if pnl is None:
+            pnl = await PnLService(self.db).get_pnl(company_id)
+        cashflow = await CashFlowService(self.db).compute(pnl, company_id)
         fcf = cashflow.operating_cf
 
-        debt, cash = await self._debt_and_cash(company_id)
+        sums = await financing_sums(self.db, company_id)
+        debt, cash = sums.debt, sums.cash
         net_debt = round(debt - cash, 2)
 
-        pnl = await PnLService(self.db).get_pnl(company_id)
         revenue_annual = round(pnl.mrr * MONTHS_IN_YEAR, 2) if pnl.mrr is not None else None
 
-        hiring = await HiringService(self.db).generate_plan(company_id)
+        hiring = await HiringService(self.db).build_plan(company_id)
         headcount = hiring.final_headcount
 
         terminal_value, equity_value = self._gordon(
             fcf, discount_rate, growth_rate, net_debt
         )
 
-        ps_ratio = self._div(equity_value, revenue_annual)
+        ps_ratio = div(equity_value, revenue_annual, default=None)
         value_per_employee = (
-            self._div(equity_value, float(headcount), round_to=2)
+            div(equity_value, float(headcount), default=None, round_to=2)
             if headcount > 0
             else None
         )
@@ -94,29 +98,6 @@ class ValuationService:
         tv = round(fcf * (1 + g) / (r - g), 2)
         equity = round(tv - net_debt, 2)
         return tv, equity
-
-    async def _debt_and_cash(self, company_id: UUID):
-        result = await self.db.execute(
-            select(Financing.type, func.sum(Financing.amount))
-            .where(Financing.company_id == company_id)
-            .group_by(Financing.type)
-        )
-        debt = 0.0
-        cash = 0.0
-        for type_, total in result.all():
-            if total is None:
-                continue
-            if type_ == "credit":
-                debt += float(total)
-            else:
-                cash += float(total)
-        return round(debt, 2), round(cash, 2)
-
-    @staticmethod
-    def _div(numerator, denominator, round_to: int = 4) -> Optional[float]:
-        if numerator is None or denominator is None or denominator == 0:
-            return None
-        return round(numerator / denominator, round_to)
 
     @staticmethod
     def _summary(fcf, tv, equity, ps, vpe) -> str:

@@ -1,8 +1,8 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.schemas.recalculate import RecalculateResponse
 from app.services.cashflow_service import CashFlowService
 from app.services.credit_service import CreditService
@@ -27,10 +27,10 @@ class RecalculateService:
         """
         unit = await UnitEconomicsService(self.db).get_unit_economics(company_id)
         pnl = await PnLService(self.db).get_pnl(company_id)
-        cashflow = await CashFlowService(self.db).get_cashflow(company_id)
-        credit = await CreditService(self.db).forecast(company_id)
-        valuation = await ValuationService(self.db).get_valuation(company_id)
-        sensitivity = await SensitivityService(self.db).analyze(company_id)
+        cashflow = await CashFlowService(self.db).compute(pnl, company_id)
+        credit = await CreditService(self.db).forecast(company_id, pnl=pnl)
+        valuation = await ValuationService(self.db).get_valuation(company_id, pnl=pnl)
+        sensitivity = await SensitivityService(self.db).analyze(company_id, pnl=pnl)
 
         parts = [
             p for p in (credit.summary, valuation.summary, sensitivity.summary) if p
@@ -39,7 +39,7 @@ class RecalculateService:
 
         return RecalculateResponse(
             company_id=company_id,
-            recalculated_at=datetime.now(timezone.utc),
+            recalculated_at=utcnow(),
             revenue=unit.revenue,
             runway_months=unit.runway_months,
             ltv_cac=unit.ltv_cac,
