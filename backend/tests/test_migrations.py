@@ -32,6 +32,7 @@ EXPECTED_TABLES = {
     "tasks",
     "hiring_settings",
     "analytics_events",
+    "invites",
 }
 
 
@@ -67,7 +68,7 @@ def test_alembic_upgrade_head_on_sqlite(tmp_path, monkeypatch):
 
     command.upgrade(_make_config(), "head")
 
-    assert _alembic_version(db_path) == "009_cohorts_matrix"
+    assert _alembic_version(db_path) == "010_org_type_and_invites"
     assert EXPECTED_TABLES <= _table_names(db_path)
 
 

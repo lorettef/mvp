@@ -4,6 +4,7 @@ from app.models.subscription import Subscription
 from app.models.ai_cache import AICache
 from app.models.audit_log import AuditLog
 from app.models.organization import Organization
+from app.models.invite import Invite
 from app.models.company import Company
 from app.models.metric import Metric
 from app.models.hiring_plan import HiringPlan
@@ -15,4 +16,4 @@ from app.models.budget import Budget
 from app.models.task import Task
 from app.models.analytics_event import AnalyticsEvent
 
-__all__ = ["Base", "User", "Subscription", "AICache", "AuditLog", "Organization", "Company", "Metric", "HiringPlan", "HiringSettings", "Financing", "Valuation", "Cohort", "Budget", "Task", "AnalyticsEvent"]
+__all__ = ["Base", "User", "Subscription", "AICache", "AuditLog", "Organization", "Invite", "Company", "Metric", "HiringPlan", "HiringSettings", "Financing", "Valuation", "Cohort", "Budget", "Task", "AnalyticsEvent"]
