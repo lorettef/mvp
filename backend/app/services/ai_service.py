@@ -1,14 +1,15 @@
 import json
 import logging
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import httpx
 from app.core.config import settings
+from app.core.time import utcnow
 from app.models.ai_cache import AICache
-from app.schemas.metrics import MetricsRequest
+from app.schemas.ai_metrics import MetricsRequest
 from uuid import UUID
 from app.schemas.recommendations import RecommendationResponse, RecommendationAction
 
@@ -27,7 +28,7 @@ class AIService:
         """Получить AI-рекомендации на основе метрик."""
         
         metrics_hash = self._hash_metrics(metrics)
-        cached = await self._get_cached(metrics_hash)
+        cached = await self._get_cached(metrics_hash, user_id)
         if cached:
             return cached
         
@@ -67,16 +68,19 @@ class AIService:
         }
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
     
-    async def _get_cached(self, metrics_hash: str) -> Optional[RecommendationResponse]:
-        """Получает ответ из кэша."""
+    async def _get_cached(self, metrics_hash: str, user_id: str) -> Optional[RecommendationResponse]:
+        """Получает ответ из кэша (скоуп по пользователю)."""
         try:
             result = await self.db.execute(
-                select(AICache).where(
+                select(AICache)
+                .where(
                     AICache.metrics_hash == metrics_hash,
-                    AICache.expires_at > datetime.now(timezone.utc).replace(tzinfo=None)
+                    AICache.user_id == UUID(user_id),
+                    AICache.expires_at > utcnow()
                 )
+                .order_by(AICache.created_at.desc())
             )
-            cached = result.scalar_one_or_none()
+            cached = result.scalars().first()
             if cached:
                 data = json.loads(cached.response)
                 return RecommendationResponse(**data)
@@ -91,7 +95,7 @@ class AIService:
                 user_id=UUID(user_id),
                 metrics_hash=metrics_hash,
                 response=json.dumps(response.model_dump()),
-                expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=self.cache_ttl_hours)
+                expires_at=utcnow() + timedelta(hours=self.cache_ttl_hours)
             )
             self.db.add(cache_entry)
             await self.db.flush()

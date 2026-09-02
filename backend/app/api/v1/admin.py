@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +17,15 @@ async def send_weekly_reports(
     db: AsyncSession = Depends(get_db),
 ):
     """Рассылка еженедельных отчётов всем администраторам (ручной/тестовый триггер)."""
-    result = await db.execute(select(User).where(User.role == ROLE_ADMIN))
+    if user["organization_id"] is None:
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
+
+    result = await db.execute(
+        select(User).where(
+            User.role == ROLE_ADMIN,
+            User.organization_id == user["organization_id"],
+        )
+    )
     admins = list(result.scalars().all())
 
     sent = 0
