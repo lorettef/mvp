@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.database import engine
-from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin
+from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin, invites
 
 # Настройка логирования
 logging.basicConfig(
@@ -64,6 +64,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # Регистрация роутов
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(invites.router, prefix="/api/v1/invites", tags=["invites"])
 app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["metrics"])
 app.include_router(
     recommendations.router,

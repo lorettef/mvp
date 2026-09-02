@@ -8,6 +8,7 @@ from app.models.company import Company
 from app.schemas.auth import UserCreate
 from app.core.security import hash_password, verify_password, create_access_token
 from app.core.time import utcnow
+from app.services.invite_service import InviteService
 
 class AuthService:
     """Сервис аутентификации."""
@@ -16,7 +17,15 @@ class AuthService:
         self.db = db
     
     async def register(self, data: UserCreate) -> dict:
-        """Регистрация нового пользователя."""
+        """Регистрация нового пользователя.
+
+        Три пути входа:
+        - приглашение (invite_token): пользователь присоединяется к существующей
+          организации с ролью company и получает свою компанию;
+        - самостоятельный стартап (account_type="startup"): создаётся организация
+          типа startup, пользователь — admin и владелец своей компании;
+        - фонд (по умолчанию): организация типа fund, пользователь — admin.
+        """
         # Проверка на существующего пользователя
         existing = await self.db.execute(
             select(User).where(User.email == data.email)
@@ -45,18 +54,35 @@ class AuthService:
         self.db.add(subscription)
         await self.db.flush()
         
-        # Создание организации (акселератора) и назначение владельца
-        organization = Organization(
-            name=data.company_name or data.full_name or "Мой акселератор"
-        )
-        self.db.add(organization)
-        await self.db.flush()
-        
-        user.role = "admin"
-        user.organization_id = organization.id
-        
-        # Создание компании, если указано название компании
-        if data.company_name:
+        if data.invite_token:
+            invite_service = InviteService(self.db)
+            invite = await invite_service.get_valid_invite(data.invite_token)
+
+            user.role = "company"
+            user.organization_id = invite.organization_id
+
+            company = Company(
+                organization_id=invite.organization_id,
+                name=data.company_name,
+                industry=None,
+                geography=None
+            )
+            self.db.add(company)
+            await self.db.flush()
+            user.company_id = company.id
+
+            invite.used_at = utcnow()
+        elif data.account_type == "startup":
+            organization = Organization(
+                name=data.company_name or data.full_name,
+                organization_type="startup"
+            )
+            self.db.add(organization)
+            await self.db.flush()
+
+            user.role = "admin"
+            user.organization_id = organization.id
+
             company = Company(
                 organization_id=organization.id,
                 name=data.company_name,
@@ -66,8 +92,35 @@ class AuthService:
             self.db.add(company)
             await self.db.flush()
             user.company_id = company.id
+        else:
+            # Создание организации (акселератора) и назначение владельца
+            organization = Organization(
+                name=data.company_name or data.full_name or "Мой акселератор",
+                organization_type="fund"
+            )
+            self.db.add(organization)
+            await self.db.flush()
+            
+            user.role = "admin"
+            user.organization_id = organization.id
+            
+            # Создание компании, если указано название компании
+            if data.company_name:
+                company = Company(
+                    organization_id=organization.id,
+                    name=data.company_name,
+                    industry=None,
+                    geography=None
+                )
+                self.db.add(company)
+                await self.db.flush()
+                user.company_id = company.id
         
         await self.db.flush()
+
+        organization = None
+        if user.organization_id:
+            organization = await self.db.get(Organization, user.organization_id)
         
         return {
             "id": user.id,
@@ -77,6 +130,7 @@ class AuthService:
             "role": user.role,
             "organization_id": str(user.organization_id) if user.organization_id else None,
             "company_id": str(user.company_id) if user.company_id else None,
+            "organization_type": organization.organization_type if organization else None,
             "created_at": user.created_at.isoformat()
         }
     

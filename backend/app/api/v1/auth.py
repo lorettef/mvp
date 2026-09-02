@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.database import get_db
 from app.models.user import User
+from app.models.organization import Organization
 from app.schemas.auth import UserCreate, UserLogin, TokenResponse, UserResponse
 from app.services.auth_service import AuthService
 from app.services.subscription_service import SubscriptionService
@@ -39,7 +40,8 @@ async def register(
         created_at=user_data["created_at"],
         subscription_plan=sub_info["plan"],
         daily_limit=sub_info["daily_limit"],
-        used_today=sub_info["used_today"]
+        used_today=sub_info["used_today"],
+        organization_type=user_data["organization_type"]
     )
 
 @router.post("/login", response_model=TokenResponse)
@@ -86,6 +88,10 @@ async def get_me(
     sub_service = SubscriptionService(db)
     sub_info = await sub_service.get_user_subscription(user.id)
     
+    organization = None
+    if user.organization_id:
+        organization = await db.get(Organization, user.organization_id)
+    
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -97,7 +103,8 @@ async def get_me(
         created_at=user.created_at,
         subscription_plan=sub_info["plan"],
         daily_limit=sub_info["daily_limit"],
-        used_today=sub_info["used_today"]
+        used_today=sub_info["used_today"],
+        organization_type=organization.organization_type if organization else None
     )
 
 @router.post("/logout")
