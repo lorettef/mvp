@@ -68,7 +68,9 @@ class PlanGenerationService:
             ),
         )
 
-        summary, items = self._parse(text, demo_summary, demo_items)
+        summary, items, is_demo = self._parse(text, demo_summary, demo_items)
+        if is_demo:
+            provider = "demo"
 
         metric_service = MetricService(self.db)
         for item in items:
@@ -168,8 +170,8 @@ class PlanGenerationService:
         text: str,
         demo_summary: str,
         demo_items: List[PlanMetricItem],
-    ) -> Tuple[str, List[PlanMetricItem]]:
-        """Парсит JSON от LLM; при любой ошибке возвращает демо-план."""
+    ) -> Tuple[str, List[PlanMetricItem], bool]:
+        """Парсит JSON от LLM; при любой ошибке возвращает демо-план (is_demo=True)."""
         try:
             start = text.find("{")
             end = text.rfind("}") + 1
@@ -202,10 +204,10 @@ class PlanGenerationService:
                     )
                 )
             if not items:
-                return demo_summary, demo_items
-            return summary, items
+                return demo_summary, demo_items, True
+            return summary, items, False
         except Exception:
-            return demo_summary, demo_items
+            return demo_summary, demo_items, True
 
     @staticmethod
     def _positive(value) -> Optional[float]:

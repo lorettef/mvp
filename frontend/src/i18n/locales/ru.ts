@@ -105,7 +105,7 @@ export const ru = {
     companyName: 'Название компании',
     sphere: 'Сфера деятельности',
     selectSphere: 'Выберите сферу',
-    location: 'Место нахождение',
+      location: 'Местонахождение',
     create: 'Создать',
     creating: 'Создание...',
     cards: {
@@ -149,7 +149,7 @@ export const ru = {
     providerDemo: 'демо-режим',
     errorLoading: 'Ошибка загрузки компании',
     sphereNotSet: 'Сфера не указана',
-    locationNotSet: 'Место нахождение не указано',
+      locationNotSet: 'Местонахождение не указано',
     insufficientRights: 'Недостаточно прав',
     generatePlanTitle: 'Сгенерировать план метрик на основе фактов',
     generatePlan: 'Сгенерировать план AI',
@@ -432,7 +432,7 @@ export const ru = {
     provider: {
       deepseek: 'AI (DeepSeek)',
       gigachat: 'AI (GigaChat)',
-      demo: 'Базовая рекомендация',
+      demo: 'демо-режим',
     },
     techInfo: 'Техническая информация',
   },

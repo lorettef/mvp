@@ -432,7 +432,7 @@ export const en = {
     provider: {
       deepseek: 'AI (DeepSeek)',
       gigachat: 'AI (GigaChat)',
-      demo: 'Basic recommendation',
+      demo: 'demo mode',
     },
     techInfo: 'Technical details',
   },

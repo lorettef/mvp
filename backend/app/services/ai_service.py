@@ -45,7 +45,6 @@ class AIService:
                 response = await self._call_deepseek(metrics)
             else:
                 response = await self._call_gigachat(metrics)
-            response.provider = settings.AI_PROVIDER
             await self._cache_response(metrics_hash, response, user_id)
             return response
         except Exception:
@@ -146,7 +145,9 @@ class AIService:
             json_end = content.rfind('}') + 1
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(content[json_start:json_end])
-                return RecommendationResponse(**data)
+                result = RecommendationResponse(**data)
+                result.provider = settings.AI_PROVIDER
+                return result
             raise ValueError("JSON не найден в ответе")
         except (json.JSONDecodeError, KeyError, ValueError):
             return self._generate_demo_recommendations(metrics)

@@ -1,5 +1,7 @@
 import io
+import logging
 from datetime import date
+from pathlib import Path
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -27,18 +29,21 @@ from app.services.pnl_service import PnLService
 from app.services.unit_economics_service import UnitEconomicsService
 from app.services.valuation_service import ValuationService
 
-DEJAVU = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-DEJAVU_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+logger = logging.getLogger(__name__)
+
+# Шрифты бандлятся в репозиторий, т.к. python:3.12-slim не содержит системных TTF —
+# без них кириллица рендерится чёрными квадратами (fallback на Helvetica).
+_FONT_DIR = Path(__file__).parent.parent / "assets" / "fonts"
 
 _FONT = "Helvetica"
 _FONT_BOLD = "Helvetica-Bold"
 try:
-    pdfmetrics.registerFont(TTFont("DejaVu", DEJAVU))
-    pdfmetrics.registerFont(TTFont("DejaVu-Bold", DEJAVU_BOLD))
+    pdfmetrics.registerFont(TTFont("DejaVu", str(_FONT_DIR / "DejaVuSans.ttf")))
+    pdfmetrics.registerFont(TTFont("DejaVu-Bold", str(_FONT_DIR / "DejaVuSans-Bold.ttf")))
     _FONT = "DejaVu"
     _FONT_BOLD = "DejaVu-Bold"
-except Exception:
-    pass
+except Exception as exc:
+    logger.warning("DejaVu fonts not found; falling back to Helvetica (Cyrillic will break): %s", exc)
 
 
 def _money(v: Optional[float]) -> str:
