@@ -28,6 +28,14 @@ INDUSTRY_STAFF_MIX = {
     "edtech": {"dev": 0.40, "sales": 0.30, "marketing": 0.30},
     "healthtech": {"dev": 0.45, "sales": 0.25, "marketing": 0.30},
     "ai": {"dev": 0.60, "sales": 0.15, "marketing": 0.25},
+    "marketplaces": {"dev": 0.30, "sales": 0.25, "marketing": 0.45},
+    "foodtech": {"dev": 0.30, "sales": 0.35, "marketing": 0.35},
+    "logistics": {"dev": 0.35, "sales": 0.25, "marketing": 0.40},
+    "proptech": {"dev": 0.40, "sales": 0.30, "marketing": 0.30},
+    "media": {"dev": 0.35, "sales": 0.30, "marketing": 0.35},
+    "hardware": {"dev": 0.55, "sales": 0.20, "marketing": 0.25},
+    "biotech": {"dev": 0.55, "sales": 0.15, "marketing": 0.30},
+    "cleantech": {"dev": 0.50, "sales": 0.20, "marketing": 0.30},
     "other": {"dev": 0.40, "sales": 0.30, "marketing": 0.30},
 }
 

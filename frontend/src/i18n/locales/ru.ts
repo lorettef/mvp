@@ -43,6 +43,7 @@ export const ru = {
       kz: 'Казахстан',
       global: 'Глобальный рынок',
     },
+    keyRateHint: 'ставка {{rate}}%',
   },
   errors: {
     title: 'Что-то пошло не так',

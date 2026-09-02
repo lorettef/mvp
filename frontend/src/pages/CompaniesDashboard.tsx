@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { QueryState } from '@/components/common/QueryState'
 import { StartupInvite } from '@/components/common/StartupInvite'
 import { fmtRub } from '@/lib/format'
@@ -37,18 +38,22 @@ export const CompaniesDashboard = () => {
     edtech: 'EdTech',
     healthtech: 'HealthTech',
     ai: 'AI/ML',
+    marketplaces: 'Маркетплейсы',
+    foodtech: 'FoodTech',
+    logistics: 'Логистика',
+    proptech: 'PropTech',
+    media: 'Медиа и развлечения',
+    hardware: 'Hardware / IoT',
+    biotech: 'Biotech',
+    cleantech: 'CleanTech',
     other: t('common.other'),
   }
 
   const INDUSTRY_OPTIONS = Object.entries(INDUSTRY_LABELS)
 
-  const LOCATION_SUGGESTIONS = [
-    t('common.geo.ru'),
-    t('common.geo.kz'),
-    t('common.geo.global'),
-    t('dashboard.locations.moscow'),
-    t('dashboard.locations.spb'),
-    t('dashboard.locations.almaty'),
+  const REGIONS = [{ label: t('common.geo.ru'), rate: '21', icon: '🇷🇺' },
+    { label: t('common.geo.kz'), rate: '16', icon: '🇰🇿' },
+    { label: t('common.geo.global'), rate: '4', icon: '🌍' },
   ]
 
   const tenantKey = getTenantKey()
@@ -112,38 +117,65 @@ export const CompaniesDashboard = () => {
       {showForm && (
         <Card className="border bg-card/50">
           <CardContent className="p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Input
-                placeholder={t('dashboard.companyName')}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <select
-                aria-label={t('dashboard.sphere')}
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">{t('dashboard.selectSphere')}</option>
-                {INDUSTRY_OPTIONS.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <input
-                list="locations"
-                aria-label={t('dashboard.location')}
-                placeholder={t('dashboard.location')}
-                value={geography}
-                onChange={(e) => setGeography(e.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
-              <datalist id="locations">
-                {LOCATION_SUGGESTIONS.map((l) => (
-                  <option key={l} value={l} />
-                ))}
-              </datalist>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="company-name" className="text-xs font-medium text-muted-foreground">
+                  {t('dashboard.companyName')}
+                </label>
+                <Input
+                  id="company-name"
+                  placeholder={t('dashboard.companyName')}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="company-industry" className="text-xs font-medium text-muted-foreground">
+                  {t('dashboard.sphere')}
+                </label>
+                <Select value={industry} onValueChange={setIndustry}>
+                  <SelectTrigger id="company-industry" aria-label={t('dashboard.sphere')}>
+                    <SelectValue placeholder={t('dashboard.selectSphere')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDUSTRY_OPTIONS.map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <p className="text-xs font-medium text-muted-foreground">{t('dashboard.location')}</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" role="radiogroup" aria-label={t('dashboard.location')}>
+                  {REGIONS.map((region) => {
+                    const isSelected = geography === region.label
+                    return (
+                      <button
+                        key={region.label}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        onClick={() => setGeography(region.label)}
+                        className={`rounded-lg border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${
+                          isSelected
+                            ? 'border-primary bg-primary/10 text-foreground'
+                            : 'border-input bg-card hover:border-primary/50 hover:bg-accent'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          <span aria-hidden="true" className="text-lg leading-none">{region.icon}</span>
+                          {region.label}
+                        </span>
+                        <span className="mt-2 block text-xs text-muted-foreground">
+                          {t('common.keyRateHint', { rate: region.rate })}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
             <div className="mt-4 flex gap-2">
               <Button

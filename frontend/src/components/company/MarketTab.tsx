@@ -17,6 +17,14 @@ const INDUSTRIES: { value: MarketIndustry; label: string }[] = [
   { value: 'edtech', label: 'EdTech' },
   { value: 'healthtech', label: 'HealthTech' },
   { value: 'ai', label: 'AI/ML' },
+  { value: 'marketplaces', label: 'Маркетплейсы' },
+  { value: 'foodtech', label: 'FoodTech' },
+  { value: 'logistics', label: 'Логистика' },
+  { value: 'proptech', label: 'PropTech' },
+  { value: 'media', label: 'Медиа и развлечения' },
+  { value: 'hardware', label: 'Hardware / IoT' },
+  { value: 'biotech', label: 'Biotech' },
+  { value: 'cleantech', label: 'CleanTech' },
 ]
 
 const fmtFactor = (v: number) => `×${v.toFixed(3)}`

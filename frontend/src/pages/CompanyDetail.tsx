@@ -112,6 +112,14 @@ export const CompanyDetail = () => {
     edtech: 'EdTech',
     healthtech: 'HealthTech',
     ai: 'AI/ML',
+    marketplaces: 'Маркетплейсы',
+    foodtech: 'FoodTech',
+    logistics: 'Логистика',
+    proptech: 'PropTech',
+    media: 'Медиа и развлечения',
+    hardware: 'Hardware / IoT',
+    biotech: 'Biotech',
+    cleantech: 'CleanTech',
     other: t('common.other'),
   }
 

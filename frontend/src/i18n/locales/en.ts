@@ -43,6 +43,7 @@ export const en = {
       kz: 'Kazakhstan',
       global: 'Global market',
     },
+    keyRateHint: 'key rate {{rate}}%',
   },
   errors: {
     title: 'Something went wrong',

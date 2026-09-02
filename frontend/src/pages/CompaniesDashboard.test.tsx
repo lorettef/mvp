@@ -97,3 +97,41 @@ describe('CompaniesDashboard startup invites', () => {
     expect(await screen.findByText('Скопировано')).toBeInTheDocument()
   })
 })
+
+describe('CompaniesDashboard create form', () => {
+  beforeEach(() => {
+    companiesApiMock.create.mockReset()
+    dashboardApiMock.get.mockReset()
+    dashboardApiMock.get.mockResolvedValue({
+      totalCompanies: 0,
+      avgRevenue: null,
+      onTrack: 0,
+      behind: 0,
+      companies: [],
+    })
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    })
+  })
+
+  it.each(['Россия', 'Казахстан', 'Глобальный рынок'])('submits %s as the geography label with the selected industry slug', async (geography) => {
+    renderDashboard()
+    fireEvent.click(await screen.findByRole('button', { name: 'Добавить компанию' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Название компании' }), {
+      target: { value: 'Новая компания' },
+    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Сфера деятельности' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Маркетплейсы' }))
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(geography) }))
+    fireEvent.click(screen.getByRole('button', { name: 'Создать' }))
+
+    await waitFor(() =>
+      expect(companiesApiMock.create).toHaveBeenCalledWith({
+        name: 'Новая компания',
+        industry: 'marketplaces',
+        geography,
+      }),
+    )
+  })
+})

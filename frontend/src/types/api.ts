@@ -333,7 +333,22 @@ export interface ReadinessResponse {
 }
 
 // Market analysis
-export type MarketIndustry = 'saas' | 'fintech' | 'ecommerce' | 'edtech' | 'healthtech' | 'ai' | 'other'
+export type MarketIndustry =
+  | 'saas'
+  | 'fintech'
+  | 'ecommerce'
+  | 'edtech'
+  | 'healthtech'
+  | 'ai'
+  | 'marketplaces'
+  | 'foodtech'
+  | 'logistics'
+  | 'proptech'
+  | 'media'
+  | 'hardware'
+  | 'biotech'
+  | 'cleantech'
+  | 'other'
 export type MarketGeography = 'RU' | 'KZ' | 'global'
 
 export interface MarketAnalysisRequest {
