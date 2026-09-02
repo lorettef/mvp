@@ -12,6 +12,7 @@ export interface User {
   subscriptionPlan: string
   dailyLimit: number | null
   usedToday: number
+  organizationType?: string | null
 }
 
 interface AuthState {

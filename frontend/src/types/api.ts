@@ -9,6 +9,8 @@ export interface RegisterRequest {
   password: string
   full_name?: string
   company_name?: string
+  account_type?: 'fund' | 'startup'
+  invite_token?: string | null
 }
 
 export interface LoginRequest {
@@ -33,10 +35,23 @@ export interface UserResponse {
   subscriptionPlan: string
   dailyLimit: number | null
   usedToday: number
+  organizationType?: string | null
 }
 
 export interface SeedResponse {
   email: string
+}
+
+// Invites (invite-only registration for VCs and startups)
+export interface InviteResponse {
+  token: string
+  expiresAt: string
+  email: string | null
+}
+
+export interface InviteInfo {
+  organizationName: string
+  email: string | null
 }
 
 // Metrics (request DTO for the recommendations endpoint)

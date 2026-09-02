@@ -43,6 +43,7 @@ function mapUser(userData: UserResponse): User {
     subscriptionPlan: userData.subscriptionPlan,
     dailyLimit: userData.dailyLimit,
     usedToday: userData.usedToday,
+    organizationType: userData.organizationType ?? null,
   }
 }
 

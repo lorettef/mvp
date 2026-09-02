@@ -100,6 +100,7 @@ describe('authSession', () => {
       subscriptionPlan: 'pro',
       dailyLimit: null,
       usedToday: 0,
+      organizationType: null,
     })
   })
 
@@ -201,6 +202,7 @@ describe('authSession', () => {
       subscriptionPlan: 'business',
       dailyLimit: 100,
       usedToday: 7,
+      organizationType: null,
     })
   })
 
