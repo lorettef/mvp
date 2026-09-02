@@ -405,16 +405,16 @@ function renderCompanyDetail() {
   )
 }
 
-function chooseBulkStartMonth(label: string) {
+async function chooseBulkStartMonth(label: string) {
   fireEvent.click(screen.getByRole('button', { name: 'Стартовый месяц' }))
   const targetYear = Number(label.slice(-4))
   const currentYear = new Date().getFullYear()
   const direction = targetYear < currentYear ? 'Предыдущий год' : 'Следующий год'
   const steps = Math.abs(targetYear - currentYear)
   for (let step = 0; step < steps; step += 1) {
-    fireEvent.click(screen.getByRole('button', { name: direction }))
+    fireEvent.click(await screen.findByRole('button', { name: direction }))
   }
-  fireEvent.click(screen.getByRole('button', { name: label }))
+  fireEvent.click(await screen.findByRole('button', { name: label }))
 }
 
 describe('CompanyDetail', () => {
@@ -630,7 +630,7 @@ describe('CompanyDetail', () => {
     renderCompanyDetail()
     fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
 
-    chooseBulkStartMonth('Январь 2026')
+    await chooseBulkStartMonth('Январь 2026')
     fireEvent.change(screen.getByLabelText('Месяцев'), { target: { value: '2' } })
 
     fireEvent.change(screen.getByLabelText('Выручка 1'), { target: { value: '5000' } })
