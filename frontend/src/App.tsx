@@ -16,6 +16,7 @@ import { createQueryClient } from './lib/queryClient'
 const Landing = lazy(() => import('./pages/Landing').then((m) => ({ default: m.Landing })))
 const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })))
 const Register = lazy(() => import('./pages/Register').then((m) => ({ default: m.Register })))
+const InvitePage = lazy(() => import('./pages/InvitePage').then((m) => ({ default: m.InvitePage })))
 const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })))
 const CompanyDetail = lazy(() =>
   import('./pages/CompanyDetail').then((m) => ({ default: m.CompanyDetail })),
@@ -55,6 +56,7 @@ function App() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/invite/:token" element={<InvitePage />} />
 
                 <Route element={<ProtectedRoute />}>
                   <Route element={<Layout />}>
