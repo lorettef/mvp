@@ -24,6 +24,8 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?err}@db:5432/${POSTGRES_DB:-startup_engine}
+      - COOKIE_SECURE=false
+      - DEMO_ACCOUNT_PASSWORD=
     depends_on:
       db:
         condition: service_healthy

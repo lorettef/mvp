@@ -58,7 +58,7 @@ async def login(
         key="access_token",
         value=result["access_token"],
         httponly=True,
-        secure=False,  # Set True when HTTPS is configured
+        secure=settings.COOKIE_SECURE,
         samesite="lax",
         max_age=result["expires_in"],
         path="/",
@@ -114,6 +114,8 @@ async def seed_demo(
     """Create demo account and auto-login (DEMO_MODE only)."""
     if not settings.DEMO_MODE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo mode disabled")
+    if settings.DEMO_ACCOUNT_PASSWORD is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo account not configured")
     result = await seed_demo_account(db)
     # Auto-login: set JWT cookie so frontend doesn't need the password
     from app.core.security import create_access_token
@@ -122,9 +124,32 @@ async def seed_demo(
         key="access_token",
         value=token,
         httponly=True,
-        secure=False,
+        secure=settings.COOKIE_SECURE,
         samesite="lax",
         max_age=60 * 24 * 7,
         path="/",
     )
     return {"email": result["email"]}
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    """Sliding session (D5): issue a fresh token for the authenticated user."""
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": str(current_user["user_id"])})
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    return TokenResponse(
+        token_type="bearer",
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )

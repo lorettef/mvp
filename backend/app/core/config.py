@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     SECRET_KEY: SecretStr = Field(..., min_length=32)
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 дней
+    COOKIE_SECURE: bool = True  # dev ставит COOKIE_SECURE=false
     
     # База данных (PostgreSQL)
     DATABASE_URL: str = Field(..., description="postgresql://user:pass@host/db")
@@ -33,7 +34,7 @@ class Settings(BaseSettings):
     GIGACHAT_SCOPE: str = "GIGACHAT_API_PERS"
     DEMO_MODE: bool = False  # В production всегда False; в .env для dev — DEMO_MODE=true
     DEMO_ACCOUNT_EMAIL: str = "demo@startupengine.ru"
-    DEMO_ACCOUNT_PASSWORD: str = "demo123"  # Override in .env; only used when DEMO_MODE=true
+    DEMO_ACCOUNT_PASSWORD: Optional[SecretStr] = None  # Override in .env; only used when DEMO_MODE=true
     
     # Email (SMTP) — если SMTP_HOST пуст, отправка отключена (no-op)
     SMTP_HOST: str = ""
