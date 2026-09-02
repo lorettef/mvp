@@ -1,18 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { HiringPlanResponse, HiringSettingsUpsert } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { RefreshCw } from 'lucide-react'
-
-const fmtRub = (v: number | null | undefined) =>
-  v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`
-
-const fmtPct = (v: number | null | undefined) =>
-  v == null ? '—' : `${(v * 100).toFixed(1)}%`
-
-const fmtPeriod = (period: string) => (period ? period.slice(0, 7) : '—')
+import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
 
 interface HiringTabProps {
   data?: HiringPlanResponse
@@ -33,6 +27,7 @@ export function HiringTab({
   onGenerate,
   onSaveSettings,
 }: HiringTabProps) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     ndfl: '13',
     insurance: '30',
@@ -46,8 +41,10 @@ export function HiringTab({
         insurance: (data.settings.insuranceRate * 100).toFixed(1),
         injury: (data.settings.injuryRate * 100).toFixed(1),
       })
+    } else {
+      setForm({ ndfl: '13', insurance: '30', injury: '0.2' })
     }
-  }, [data?.settings])
+  }, [data?.settings, data?.companyId])
 
   if (isLoading) {
     return (
@@ -65,7 +62,7 @@ export function HiringTab({
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
-            Данные прогноза найма ещё не рассчитаны.
+            {t('company.hiring.empty')}
           </p>
         </CardContent>
       </Card>
@@ -88,7 +85,7 @@ export function HiringTab({
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">Прогноз найма</h3>
+            <h3 className="font-semibold text-foreground">{t('company.hiring.title')}</h3>
             <Button
               size="sm"
               variant="outline"
@@ -96,7 +93,7 @@ export function HiringTab({
               onClick={onGenerate}
             >
               <RefreshCw className="w-4 h-4 mr-2" />
-              {isRefetching ? 'Пересчёт...' : 'Пересчитать'}
+              {isRefetching ? t('common.recalculating') : t('common.recalc')}
             </Button>
           </div>
 
@@ -105,28 +102,28 @@ export function HiringTab({
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                База выручки
+                {t('company.hiring.baseRevenue')}
               </p>
               <p className="text-xl font-bold mt-1">{fmtRub(data.baseRevenue)}</p>
             </div>
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Отрасль
+                {t('company.hiring.industry')}
               </p>
               <p className="text-xl font-bold mt-1">{data.industryLabel}</p>
             </div>
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Штат через 12 мес
+                {t('company.hiring.headcount')}
               </p>
-              <p className="text-xl font-bold mt-1">{data.finalHeadcount} чел.</p>
+              <p className="text-xl font-bold mt-1">{t('common.people', { count: data.finalHeadcount })}</p>
             </div>
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Соц. платежи
+                {t('company.hiring.socialPayments')}
               </p>
               <p className="text-xl font-bold mt-1">
-                {fmtPct(data.settings.totalRate)}
+                {fmtPct(data.settings?.totalRate)}
               </p>
             </div>
           </div>
@@ -137,7 +134,7 @@ export function HiringTab({
         <Card className="border bg-card/50">
           <CardContent className="p-5">
             <h3 className="font-semibold text-foreground mb-4">
-              Настройки соц. платежей
+              {t('company.hiring.settingsTitle')}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
@@ -145,7 +142,7 @@ export function HiringTab({
                   htmlFor="ndfl"
                   className="block text-xs font-medium text-muted-foreground mb-1"
                 >
-                  НДФЛ (%)
+                  {t('company.hiring.ndfl')}
                 </label>
                 <Input
                   id="ndfl"
@@ -162,7 +159,7 @@ export function HiringTab({
                   htmlFor="insurance"
                   className="block text-xs font-medium text-muted-foreground mb-1"
                 >
-                  Страховые взносы (%)
+                  {t('company.hiring.insurance')}
                 </label>
                 <Input
                   id="insurance"
@@ -181,7 +178,7 @@ export function HiringTab({
                   htmlFor="injury"
                   className="block text-xs font-medium text-muted-foreground mb-1"
                 >
-                  Травматизм (%)
+                  {t('company.hiring.injury')}
                 </label>
                 <Input
                   id="injury"
@@ -195,7 +192,7 @@ export function HiringTab({
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-muted-foreground mb-1">
-                  Итого
+                  {t('company.hiring.total')}
                 </span>
                 <div className="flex items-center rounded-lg border border-border px-3 py-2 text-sm flex-1">
                   <span className="font-semibold">{totalRate.toFixed(1)}%</span>
@@ -204,7 +201,7 @@ export function HiringTab({
             </div>
             <div className="mt-3 flex gap-2">
               <Button size="sm" disabled={isSaving} onClick={handleSave}>
-                {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                {isSaving ? t('common.saving') : t('company.hiring.saveSettings')}
               </Button>
             </div>
           </CardContent>
@@ -213,19 +210,19 @@ export function HiringTab({
 
       <Card className="border bg-card/50">
         <CardContent className="p-5">
-          <h3 className="font-semibold text-foreground mb-4">План по месяцам</h3>
+          <h3 className="font-semibold text-foreground mb-4">{t('company.hiring.monthlyPlan')}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left font-medium px-4 py-3">Месяц</th>
-                  <th className="text-left font-medium px-4 py-3">Период</th>
-                  <th className="text-left font-medium px-4 py-3">Выручка</th>
-                  <th className="text-left font-medium px-4 py-3">ФОТ</th>
-                  <th className="text-left font-medium px-4 py-3">Соц. платежи</th>
-                  <th className="text-left font-medium px-4 py-3">Всего</th>
+                  <th className="text-left font-medium px-4 py-3">{t('common.month')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('common.period')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('company.hiring.revenue')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('company.hiring.fot')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('company.hiring.socialPayments')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('company.hiring.totalCost')}</th>
                   <th className="text-left font-medium px-4 py-3">
-                    Штат (dev/sales/mkt)
+                    {t('company.hiring.headcountCol')}
                   </th>
                 </tr>
               </thead>
@@ -263,8 +260,8 @@ export function HiringTab({
                       className="px-4 py-8 text-center text-muted-foreground"
                     >
                       {data.baseRevenue == null
-                        ? 'Добавьте метрики выручки, чтобы рассчитать прогноз найма.'
-                        : 'Прогноз ещё не рассчитан.'}
+                        ? t('company.hiring.emptyAddRevenue')
+                        : t('company.hiring.emptyNotCalculated')}
                     </td>
                   </tr>
                 )}

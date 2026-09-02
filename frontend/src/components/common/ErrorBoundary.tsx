@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { withTranslation, type WithTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AlertTriangle } from 'lucide-react'
@@ -13,8 +14,8 @@ interface ErrorBoundaryState {
   error: Error | null
 }
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+class ErrorBoundaryBase extends Component<ErrorBoundaryProps & WithTranslation, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps & WithTranslation) {
     super(props)
     this.state = { hasError: false, error: null }
   }
@@ -32,6 +33,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   render() {
+    const { t } = this.props
+
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback
 
@@ -40,9 +43,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <Card className="max-w-md w-full text-center">
             <CardContent className="p-8 space-y-4">
               <AlertTriangle className="w-12 h-12 text-destructive mx-auto" />
-              <h2 className="text-xl font-semibold text-foreground">Something went wrong</h2>
+              <h2 className="text-xl font-semibold text-foreground">{t('errors.title')}</h2>
               <p className="text-sm text-muted-foreground">
-                An unexpected error occurred. Please try reloading the page.
+                {t('errors.description')}
               </p>
               {import.meta.env.DEV && this.state.error && (
                 <pre className="text-xs text-left text-muted-foreground bg-muted p-3 rounded-lg overflow-auto max-h-32">
@@ -50,7 +53,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 </pre>
               )}
               <Button onClick={this.handleReload} className="w-full">
-                Reload page
+                {t('errors.reload')}
               </Button>
             </CardContent>
           </Card>
@@ -61,3 +64,5 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children
   }
 }
+
+export const ErrorBoundary = withTranslation()(ErrorBoundaryBase)

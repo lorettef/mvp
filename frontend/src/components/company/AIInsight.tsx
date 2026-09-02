@@ -1,13 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AxiosError } from 'axios'
+import { useTranslation } from 'react-i18next'
 import { companiesApi } from '@/api/companies'
 import type { InsightScenario, InsightResponse } from '@/types/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, Loader2 } from 'lucide-react'
-
-const providerLabel = (p: string) =>
-  p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : 'демо-режим'
 
 interface AIInsightProps {
   companyId: string
@@ -15,21 +13,38 @@ interface AIInsightProps {
 }
 
 export function AIInsight({ companyId, scenario }: AIInsightProps) {
+  const { t } = useTranslation()
   const [result, setResult] = useState<InsightResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // Stale-response guard: a response from a previous company/scenario must never populate state.
+  const requestSeq = useRef(0)
+
+  const providerLabel = (p: string) =>
+    p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : t('company.providerDemo')
+
+  useEffect(() => {
+    requestSeq.current += 1
+    setResult(null)
+    setError('')
+    setLoading(false)
+  }, [companyId, scenario])
 
   const handleAnalyze = async () => {
+    const seq = ++requestSeq.current
     setLoading(true)
     setError('')
     setResult(null)
     try {
-      setResult(await companiesApi.insight(companyId, scenario))
+      const insight = await companiesApi.insight(companyId, scenario)
+      if (seq !== requestSeq.current) return
+      setResult(insight)
     } catch (err: unknown) {
+      if (seq !== requestSeq.current) return
       const axiosErr = err as AxiosError<{ detail?: string }>
-      setError(axiosErr.response?.data?.detail || 'Ошибка AI-анализа')
+      setError(axiosErr.response?.data?.detail || t('company.ai.error'))
     } finally {
-      setLoading(false)
+      if (seq === requestSeq.current) setLoading(false)
     }
   }
 
@@ -42,7 +57,7 @@ export function AIInsight({ companyId, scenario }: AIInsightProps) {
           ) : (
             <Sparkles className="w-4 h-4 mr-2" />
           )}
-          {loading ? 'Анализ...' : 'AI-анализ модуля'}
+          {loading ? t('common.analyzing') : t('company.ai.analyze')}
         </Button>
         {result && <Badge variant="outline">{providerLabel(result.provider)}</Badge>}
       </div>

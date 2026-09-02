@@ -1,11 +1,8 @@
+import { useTranslation } from 'react-i18next'
 import type { CashFlowResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-
-const fmtRub = (v: number | null | undefined) =>
-  v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`
-
-const fmtPeriod = (period: string | null) => (period ? period.slice(0, 7) : '—')
+import { fmtPeriod, fmtRub } from '@/lib/format'
 
 interface CashFlowTabProps {
   data?: CashFlowResponse
@@ -46,6 +43,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function CashFlowTab({ data, isLoading }: CashFlowTabProps) {
+  const { t } = useTranslation()
+
   if (isLoading) {
     return (
       <Card className="border bg-card/50">
@@ -62,7 +61,7 @@ export function CashFlowTab({ data, isLoading }: CashFlowTabProps) {
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
-            Данные Cash Flow ещё не рассчитаны.
+            {t('company.cashflow.empty')}
           </p>
         </CardContent>
       </Card>
@@ -81,7 +80,7 @@ export function CashFlowTab({ data, isLoading }: CashFlowTabProps) {
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-foreground">
-            Cash Flow — Движение денежных средств
+            {t('company.cashflow.title')}
           </h3>
           <span className="text-sm text-muted-foreground">
             {fmtPeriod(data.period)}
@@ -91,32 +90,32 @@ export function CashFlowTab({ data, isLoading }: CashFlowTabProps) {
         <p className="text-sm text-muted-foreground mb-4">{data.summary}</p>
 
         <div className="space-y-4">
-          <Section title="Операционный CF">
-            <Row label="Чистая прибыль" value={fmtRub(data.netProfit)} />
-            <Row label="Амортизация" value={fmtRub(data.amortization)} />
-            <Row label="Итого операционный CF" value={fmtRub(data.operatingCf)} bold />
+          <Section title={t('company.cashflow.operating')}>
+            <Row label={t('company.cashflow.netProfit')} value={fmtRub(data.netProfit)} />
+            <Row label={t('company.cashflow.amortization')} value={fmtRub(data.amortization)} />
+            <Row label={t('company.cashflow.totalOperating')} value={fmtRub(data.operatingCf)} bold />
           </Section>
 
-          <Section title="Инвестиционный CF">
-            <Row label="CAPEX (покупка ОС)" value={fmtRub(data.capex)} />
+          <Section title={t('company.cashflow.investing')}>
+            <Row label={t('company.cashflow.capex')} value={fmtRub(data.capex)} />
             <Row
-              label="Итого инвестиционный CF"
+              label={t('company.cashflow.totalInvesting')}
               value={fmtRub(data.investingCf)}
               bold
             />
           </Section>
 
-          <Section title="Финансовый CF">
-            <Row label="Инвестиции" value={fmtRub(data.investments)} />
-            <Row label="Кредиты" value={fmtRub(data.credits)} />
-            <Row label="Итого финансовый CF" value={fmtRub(data.financingCf)} bold />
+          <Section title={t('company.cashflow.financing')}>
+            <Row label={t('company.cashflow.investments')} value={fmtRub(data.investments)} />
+            <Row label={t('company.cashflow.credits')} value={fmtRub(data.credits)} />
+            <Row label={t('company.cashflow.totalFinancing')} value={fmtRub(data.financingCf)} bold />
           </Section>
 
           <div className="rounded-lg border border-border p-4">
-            <Row label="Итого CF" value={fmtRub(data.totalCf)} bold />
-            <Row label="Остаток на начало" value={fmtRub(data.openingBalance)} />
+            <Row label={t('company.cashflow.totalCf')} value={fmtRub(data.totalCf)} bold />
+            <Row label={t('company.cashflow.opening')} value={fmtRub(data.openingBalance)} />
             <Row
-              label="Остаток на конец месяца"
+              label={t('company.cashflow.closing')}
               value={fmtRub(data.closingBalance)}
               bold
               accent={closingAccent}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type {
   MarketAnalysisRequest,
   MarketAnalysisResponse,
@@ -16,17 +17,7 @@ const INDUSTRIES: { value: MarketIndustry; label: string }[] = [
   { value: 'edtech', label: 'EdTech' },
   { value: 'healthtech', label: 'HealthTech' },
   { value: 'ai', label: 'AI/ML' },
-  { value: 'other', label: 'Другое' },
 ]
-
-const GEOGRAPHIES: { value: MarketGeography; label: string }[] = [
-  { value: 'RU', label: 'Россия' },
-  { value: 'KZ', label: 'Казахстан' },
-  { value: 'global', label: 'Глобальный рынок' },
-]
-
-const fmtMarket = (v: number | null | undefined) =>
-  v == null ? '—' : `₽${v.toLocaleString('ru-RU')} млрд`
 
 const fmtFactor = (v: number) => `×${v.toFixed(3)}`
 
@@ -37,11 +28,26 @@ interface MarketTabProps {
 }
 
 export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     industry: 'saas' as MarketIndustry,
     geography: 'RU' as MarketGeography,
     horizon: 3,
   })
+
+  const fmtMarket = (v: number | null | undefined) =>
+    v == null ? '—' : t('company.market.marketValue', { value: v.toLocaleString('ru-RU') })
+
+  const INDUSTRIES_FULL: { value: MarketIndustry; label: string }[] = [
+    ...INDUSTRIES,
+    { value: 'other', label: t('common.other') },
+  ]
+
+  const GEOGRAPHIES: { value: MarketGeography; label: string }[] = [
+    { value: 'RU', label: t('common.geo.ru') },
+    { value: 'KZ', label: t('common.geo.kz') },
+    { value: 'global', label: t('common.geo.global') },
+  ]
 
   const handleAnalyze = () => onAnalyze({ ...form })
 
@@ -49,17 +55,17 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
     <div className="space-y-6">
       <Card className="border bg-card/50">
         <CardContent className="p-5">
-          <h3 className="font-semibold text-foreground mb-4">Внешний анализ рынка</h3>
+          <h3 className="font-semibold text-foreground mb-4">{t('company.market.title')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">Сфера деятельности</label>
+              <label className="text-xs text-muted-foreground block mb-1">{t('company.market.sphere')}</label>
               <select
-                aria-label="Сфера деятельности"
+                aria-label={t('company.market.sphere')}
                 value={form.industry}
                 onChange={(e) => setForm({ ...form, industry: e.target.value as MarketIndustry })}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                {INDUSTRIES.map((i) => (
+                {INDUSTRIES_FULL.map((i) => (
                   <option key={i.value} value={i.value}>
                     {i.label}
                   </option>
@@ -67,9 +73,9 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">География</label>
+              <label className="text-xs text-muted-foreground block mb-1">{t('company.market.geography')}</label>
               <select
-                aria-label="География"
+                aria-label={t('company.market.geography')}
                 value={form.geography}
                 onChange={(e) => setForm({ ...form, geography: e.target.value as MarketGeography })}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -82,22 +88,22 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">Горизонт</label>
+              <label className="text-xs text-muted-foreground block mb-1">{t('company.market.horizon')}</label>
               <select
-                aria-label="Горизонт"
+                aria-label={t('company.market.horizon')}
                 value={form.horizon}
                 onChange={(e) => setForm({ ...form, horizon: Number(e.target.value) })}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 {[1, 2, 3].map((h) => (
                   <option key={h} value={h}>
-                    {h} год(а)
+                    {t('company.market.years', { count: h })}
                   </option>
                 ))}
               </select>
             </div>
             <Button size="sm" className="w-full" disabled={isLoading} onClick={handleAnalyze}>
-              {isLoading ? 'Анализ...' : 'Анализировать'}
+              {isLoading ? t('common.analyzing') : t('company.market.analyze')}
             </Button>
           </div>
         </CardContent>
@@ -117,18 +123,18 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="border bg-card/50">
               <CardContent className="p-5">
-                <h3 className="font-semibold text-foreground mb-4">Макроэкономика</h3>
+                <h3 className="font-semibold text-foreground mb-4">{t('company.market.macro')}</h3>
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Рост ВВП</dt>
+                    <dt className="text-muted-foreground">{t('company.market.gdpGrowth')}</dt>
                     <dd className="text-foreground">+{data.macro.gdpGrowth.toFixed(1)}%</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Инфляция</dt>
+                    <dt className="text-muted-foreground">{t('company.market.inflation')}</dt>
                     <dd className="text-foreground">{data.macro.inflation.toFixed(1)}%</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Ключевая ставка</dt>
+                    <dt className="text-muted-foreground">{t('company.market.keyRate')}</dt>
                     <dd className="text-foreground">{data.macro.keyRate.toFixed(1)}%</dd>
                   </div>
                 </dl>
@@ -137,19 +143,21 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
 
             <Card className="border bg-card/50">
               <CardContent className="p-5">
-                <h3 className="font-semibold text-foreground mb-4">Объём рынка ({data.industryLabel})</h3>
+                <h3 className="font-semibold text-foreground mb-4">
+                  {t('company.market.marketSize', { industry: data.industryLabel })}
+                </h3>
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Сейчас</dt>
+                    <dt className="text-muted-foreground">{t('company.market.now')}</dt>
                     <dd className="text-foreground">{fmtMarket(data.marketSize)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Через {data.horizon} г.</dt>
+                    <dt className="text-muted-foreground">{t('company.market.inYears', { count: data.horizon })}</dt>
                     <dd className="text-foreground">{fmtMarket(data.marketSizeProjected)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Рост</dt>
-                    <dd className="text-foreground">{data.marketGrowth.toFixed(0)}%/год</dd>
+                    <dt className="text-muted-foreground">{t('company.market.growth')}</dt>
+                    <dd className="text-foreground">{t('company.market.growthPerYear', { value: data.marketGrowth.toFixed(0) })}</dd>
                   </div>
                 </dl>
               </CardContent>
@@ -158,7 +166,7 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
 
           <Card className="border bg-card/50">
             <CardContent className="p-5">
-              <h3 className="font-semibold text-foreground mb-4">Влияние на метрики</h3>
+              <h3 className="font-semibold text-foreground mb-4">{t('company.market.impact')}</h3>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-lg border border-border p-3">
                   <p className="text-xs text-muted-foreground">MRR</p>
@@ -185,7 +193,7 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
 
           <Card className="border bg-card/50">
             <CardContent className="p-5">
-              <h3 className="font-semibold text-foreground mb-4">Тренды</h3>
+              <h3 className="font-semibold text-foreground mb-4">{t('company.market.trends')}</h3>
               <ul className="space-y-2 text-sm">
                 {data.trends.map((t) => (
                   <li key={t} className="text-foreground">

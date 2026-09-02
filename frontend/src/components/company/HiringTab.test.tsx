@@ -1,7 +1,11 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { HiringTab } from './HiringTab'
-import type { HiringMonthRow, HiringPlanResponse } from '@/types/api'
+import type {
+  HiringMonthRow,
+  HiringPlanResponse,
+  HiringSettingsResponse,
+} from '@/types/api'
 
 function makeMonth(over: Partial<HiringMonthRow> = {}): HiringMonthRow {
   return {
@@ -94,5 +98,72 @@ describe('HiringTab', () => {
     expect(
       screen.queryByRole('button', { name: 'Сохранить настройки' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('syncs the settings form to the new company when companyId changes', () => {
+    const { rerender } = render(<HiringTab data={makePlan()} canEdit />)
+    expect(screen.getByLabelText('НДФЛ (%)')).toHaveValue(13)
+
+    rerender(
+      <HiringTab
+        data={makePlan({
+          companyId: 'c2',
+          settings: {
+            companyId: 'c2',
+            ndflRate: 0.15,
+            insuranceRate: 0.25,
+            injuryRate: 0.01,
+            totalRate: 0.41,
+          },
+        })}
+        canEdit
+      />,
+    )
+
+    expect(screen.getByLabelText('НДФЛ (%)')).toHaveValue(15)
+    expect(screen.getByLabelText('Страховые взносы (%)')).toHaveValue(25)
+    expect(screen.getByLabelText('Травматизм (%)')).toHaveValue(1)
+  })
+
+  it('resets the settings form to defaults when the new company has no settings', () => {
+    const onSave = vi.fn()
+    const { rerender } = render(
+      <HiringTab
+        data={makePlan({
+          settings: {
+            companyId: 'c1',
+            ndflRate: 0.15,
+            insuranceRate: 0.25,
+            injuryRate: 0.01,
+            totalRate: 0.41,
+          },
+        })}
+        canEdit
+        onSaveSettings={onSave}
+      />,
+    )
+    expect(screen.getByLabelText('НДФЛ (%)')).toHaveValue(15)
+
+    rerender(
+      <HiringTab
+        data={makePlan({
+          companyId: 'c2',
+          settings: undefined as unknown as HiringSettingsResponse,
+        })}
+        canEdit
+        onSaveSettings={onSave}
+      />,
+    )
+
+    expect(screen.getByLabelText('НДФЛ (%)')).toHaveValue(13)
+    expect(screen.getByLabelText('Страховые взносы (%)')).toHaveValue(30)
+    expect(screen.getByLabelText('Травматизм (%)')).toHaveValue(0.2)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить настройки' }))
+    expect(onSave).toHaveBeenCalledWith({
+      ndfl_rate: 0.13,
+      insurance_rate: 0.3,
+      injury_rate: 0.002,
+    })
   })
 })

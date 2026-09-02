@@ -1,24 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Task, TaskCreate, TaskUpdate, TaskStage, ReadinessResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Trash2 } from 'lucide-react'
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'В ожидании',
-  in_progress: 'В работе',
-  done: 'Выполнено',
-  overdue: 'Просрочено',
-}
-
-const STAGE_LABELS: Record<string, string> = {
-  metrics: 'Подготовка метрик',
-  documents: 'Сбор документов',
-  negotiations: 'Переговоры',
-  presentation: 'Презентация',
-}
 
 const STAGES: TaskStage[] = ['metrics', 'documents', 'negotiations', 'presentation']
 
@@ -48,8 +35,23 @@ export function TasksTab({
   onDelete,
   isPending,
 }: TasksTabProps) {
+  const { t } = useTranslation()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ title: '', stage: 'metrics' as TaskStage, dueDate: '' })
+
+  const STATUS_LABELS: Record<string, string> = {
+    pending: t('company.tasks.status.pending'),
+    in_progress: t('company.tasks.status.inProgress'),
+    done: t('company.tasks.status.done'),
+    overdue: t('company.tasks.status.overdue'),
+  }
+
+  const STAGE_LABELS: Record<string, string> = {
+    metrics: t('company.tasks.stageLabel.metrics'),
+    documents: t('company.tasks.stageLabel.documents'),
+    negotiations: t('company.tasks.stageLabel.negotiations'),
+    presentation: t('company.tasks.stageLabel.presentation'),
+  }
 
   const handleCreate = () => {
     onCreate({
@@ -68,7 +70,7 @@ export function TasksTab({
         <Card className="border bg-card/50">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-foreground">Готовность к продаже</h3>
+              <h3 className="font-semibold text-foreground">{t('company.tasks.readiness')}</h3>
               <span className="text-3xl font-bold text-foreground">{readiness.readiness}%</span>
             </div>
             <p className="text-sm text-muted-foreground">{readiness.summary}</p>
@@ -88,11 +90,11 @@ export function TasksTab({
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="font-semibold text-foreground">Задачи</h3>
+            <h3 className="font-semibold text-foreground">{t('company.tasks.title')}</h3>
             {canEdit && (
               <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Добавить задачу
+                {t('company.tasks.add')}
               </Button>
             )}
           </div>
@@ -101,13 +103,13 @@ export function TasksTab({
             <div className="mb-6 p-4 border border-border rounded-lg bg-muted/30">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Input
-                  placeholder="Название задачи"
-                  aria-label="Название задачи"
+                  placeholder={t('company.tasks.name')}
+                  aria-label={t('company.tasks.name')}
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                 />
                 <select
-                  aria-label="Этап"
+                  aria-label={t('company.tasks.stage')}
                   value={form.stage}
                   onChange={(e) => setForm({ ...form, stage: e.target.value as TaskStage })}
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
@@ -120,17 +122,17 @@ export function TasksTab({
                 </select>
                 <Input
                   type="date"
-                  aria-label="Срок"
+                  aria-label={t('company.tasks.due')}
                   value={form.dueDate}
                   onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                 />
               </div>
               <div className="mt-3 flex gap-2">
                 <Button size="sm" disabled={!form.title.trim() || isPending} onClick={handleCreate}>
-                  {isPending ? 'Сохранение...' : 'Сохранить'}
+                  {isPending ? t('common.saving') : t('common.save')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
-                  Отмена
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>
@@ -153,7 +155,9 @@ export function TasksTab({
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
                         {task.dueDate && (
-                          <p className="text-xs text-muted-foreground">Срок: {task.dueDate}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t('company.tasks.dueLabel', { date: task.dueDate })}
+                          </p>
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -168,7 +172,7 @@ export function TasksTab({
                                 variant="ghost"
                                 onClick={() => onUpdate(task.id, { status: 'in_progress' })}
                               >
-                                В работу
+                                {t('company.tasks.toWork')}
                               </Button>
                             )}
                             <Button
@@ -176,7 +180,7 @@ export function TasksTab({
                               variant="ghost"
                               onClick={() => onUpdate(task.id, { status: 'done' })}
                             >
-                              Выполнено
+                              {t('company.tasks.done')}
                             </Button>
                           </>
                         )}
@@ -194,7 +198,7 @@ export function TasksTab({
           })}
 
           {tasks.length === 0 && (
-            <p className="text-center text-muted-foreground py-8">Задачи ещё не добавлены.</p>
+            <p className="text-center text-muted-foreground py-8">{t('company.tasks.empty')}</p>
           )}
         </CardContent>
       </Card>

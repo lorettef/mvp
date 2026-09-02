@@ -1,18 +1,11 @@
+import { useTranslation } from 'react-i18next'
 import type { UnitEconomicsResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-
-const fmtRub = (v: number | null | undefined) =>
-  v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`
-
-const fmtPct = (v: number | null | undefined) =>
-  v == null ? '—' : `${(v * 100).toFixed(1)}%`
+import { fmtPct, fmtRub } from '@/lib/format'
 
 const fmtNum = (v: number | null | undefined, digits = 2) =>
   v == null ? '—' : v.toFixed(digits)
-
-const fmtMonths = (v: number | null | undefined) =>
-  v == null ? '—' : `${v.toFixed(1)} мес.`
 
 interface UnitEconomicsTabProps {
   data?: UnitEconomicsResponse
@@ -20,6 +13,8 @@ interface UnitEconomicsTabProps {
 }
 
 export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
+  const { t } = useTranslation()
+
   if (isLoading) {
     return (
       <Card className="border bg-card/50">
@@ -40,12 +35,15 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
-            Данные юнит-экономики ещё не рассчитаны.
+            {t('company.unit.empty')}
           </p>
         </CardContent>
       </Card>
     )
   }
+
+  const fmtMonths = (v: number | null | undefined) =>
+    v == null ? '—' : t('company.unit.monthsShort', { value: v.toFixed(1) })
 
   const stats = [
     {
@@ -91,7 +89,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
     <div className="space-y-6">
       <Card className="border bg-card/50">
         <CardContent className="p-5">
-          <h3 className="font-semibold text-foreground mb-5">Юнит-экономика</h3>
+          <h3 className="font-semibold text-foreground mb-5">{t('company.unit.title')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.map((s) => (
               <div key={s.label} className="rounded-lg border border-border p-4">
@@ -118,10 +116,10 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border bg-card/50">
           <CardContent className="p-5">
-            <h3 className="font-semibold text-foreground mb-4">Базовые метрики (факт)</h3>
+            <h3 className="font-semibold text-foreground mb-4">{t('company.unit.basic')}</h3>
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Выручка</dt>
+                <dt className="text-muted-foreground">{t('company.unit.revenue')}</dt>
                 <dd className="text-foreground">{fmtRub(data.revenue)}</dd>
               </div>
               <div className="flex justify-between">
@@ -142,7 +140,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
 
         <Card className="border bg-card/50">
           <CardContent className="p-5">
-            <h3 className="font-semibold text-foreground mb-4">Удержание (Retention, факт)</h3>
+            <h3 className="font-semibold text-foreground mb-4">{t('company.unit.retention')}</h3>
             <div className="grid grid-cols-4 gap-2 text-center">
               {retention.map((r) => (
                 <div key={r.label} className="rounded-lg border border-border p-3">
@@ -160,7 +158,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
       {data.alerts.length > 0 && (
         <Card className="border bg-card/50">
           <CardContent className="p-5">
-            <h3 className="font-semibold text-foreground mb-4">Диагностика</h3>
+            <h3 className="font-semibold text-foreground mb-4">{t('company.unit.diagnostics')}</h3>
             <ul className="space-y-2 text-sm">
               {data.alerts.map((a, i) => (
                 <li key={i} className="text-foreground">

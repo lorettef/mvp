@@ -1,14 +1,8 @@
+import { useTranslation } from 'react-i18next'
 import type { PnLResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-
-const fmtRub = (v: number | null | undefined) =>
-  v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`
-
-const fmtPct = (v: number | null | undefined) =>
-  v == null ? '—' : `${(v * 100).toFixed(1)}%`
-
-const fmtPeriod = (period: string | null) => (period ? period.slice(0, 7) : '—')
+import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
 
 interface PnLTabProps {
   data?: PnLResponse
@@ -38,6 +32,8 @@ function Row({ label, value, bold, accent }: RowProps) {
 }
 
 export function PnLTab({ data, isLoading }: PnLTabProps) {
+  const { t } = useTranslation()
+
   if (isLoading) {
     return (
       <Card className="border bg-card/50">
@@ -54,7 +50,7 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
-            Данные P&amp;L ещё не рассчитаны.
+            {t('company.pnl.empty')}
           </p>
         </CardContent>
       </Card>
@@ -74,7 +70,7 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-foreground">
-              P&amp;L — Отчёт о прибылях и убытках
+              {t('company.pnl.title')}
             </h3>
             <span className="text-sm text-muted-foreground">
               {fmtPeriod(data.period)}
@@ -86,36 +82,36 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
           <div className="space-y-4">
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Выручка
+                {t('company.pnl.revenue')}
               </p>
-              <Row label="Выручка" value={fmtRub(data.mrr)} />
+              <Row label={t('company.pnl.revenue')} value={fmtRub(data.mrr)} />
               <Row
-                label="Единовременные доходы"
+                label={t('company.pnl.oneTime')}
                 value={fmtRub(data.oneTimeRevenue)}
               />
-              <Row label="Итого выручка" value={fmtRub(data.revenue)} bold />
+              <Row label={t('company.pnl.totalRevenue')} value={fmtRub(data.revenue)} bold />
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Операционные расходы
+                {t('company.pnl.opex')}
               </p>
-              <Row label="ФОТ" value={fmtRub(data.fot)} />
-              <Row label="Соц. платежи" value={fmtRub(data.socialPayments)} />
-              <Row label="Маркетинг" value={fmtRub(data.marketing)} />
-              <Row label="Разработка" value={fmtRub(data.development)} />
-              <Row label="G&A" value={fmtRub(data.gna)} />
-              <Row label="Итого OPEX" value={fmtRub(data.totalOpex)} bold />
+              <Row label={t('company.pnl.fot')} value={fmtRub(data.fot)} />
+              <Row label={t('company.pnl.socialPayments')} value={fmtRub(data.socialPayments)} />
+              <Row label={t('company.pnl.marketing')} value={fmtRub(data.marketing)} />
+              <Row label={t('company.pnl.development')} value={fmtRub(data.development)} />
+              <Row label={t('company.pnl.gna')} value={fmtRub(data.gna)} />
+              <Row label={t('company.pnl.totalOpex')} value={fmtRub(data.totalOpex)} bold />
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <Row label="EBITDA" value={fmtRub(data.ebitda)} bold />
               <Row
-                label="Финансовые расходы"
+                label={t('company.pnl.financial')}
                 value={fmtRub(data.financialExpenses)}
               />
               <Row
-                label="Чистая прибыль"
+                label={t('company.pnl.netProfit')}
                 value={fmtRub(data.netProfit)}
                 bold
                 accent={netAccent}
@@ -127,7 +123,7 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
 
       <Card className="border bg-card/50">
         <CardContent className="p-5">
-          <h3 className="font-semibold text-foreground mb-4">Маржа</h3>
+          <h3 className="font-semibold text-foreground mb-4">{t('company.pnl.margin')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">

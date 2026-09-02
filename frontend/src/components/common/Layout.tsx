@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../store/authStore'
+import { logout } from '../../auth/authSession'
 import { analytics } from '../../api/analytics'
 import {
   LayoutDashboard,
@@ -15,7 +17,8 @@ import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 
 export const Layout = () => {
-  const { user, logout } = useAuthStore()
+  const { t } = useTranslation()
+  const { user } = useAuthStore()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -24,10 +27,10 @@ export const Layout = () => {
   }, [])
 
   const navigation = [
-    { name: 'Дашборд', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Рекомендации', href: '/recommendations', icon: Sparkles },
-    { name: 'Прогноз', href: '/forecast', icon: TrendingUp },
-    { name: 'Настройки', href: '/settings', icon: Settings },
+    { name: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
+    { name: t('nav.recommendations'), href: '/recommendations', icon: Sparkles },
+    { name: t('nav.forecast'), href: '/forecast', icon: TrendingUp },
+    { name: t('nav.settings'), href: '/settings', icon: Settings },
   ]
 
   return (
@@ -45,7 +48,7 @@ export const Layout = () => {
             </div>
             <div>
               <h1 className="text-lg font-semibold text-foreground">Startup Engine</h1>
-              <p className="text-xs text-muted-foreground">{user?.companyName || 'Моя компания'}</p>
+              <p className="text-xs text-muted-foreground">{user?.companyName || t('nav.myCompany')}</p>
             </div>
           </div>
         </div>
@@ -80,7 +83,7 @@ export const Layout = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground/80 truncate">
-                {user?.fullName || 'Пользователь'}
+                {user?.fullName || t('nav.user')}
               </p>
               <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             </div>
@@ -92,7 +95,7 @@ export const Layout = () => {
             onClick={logout}
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Выйти
+            {t('common.logout')}
           </Button>
         </div>
       </aside>
@@ -103,7 +106,7 @@ export const Layout = () => {
           <button 
   className="md:hidden p-2 hover:bg-accent rounded-xl"
   onClick={() => setMobileOpen(!mobileOpen)}
-  aria-label="Toggle menu"
+  aria-label={t('common.toggleMenu')}
   aria-expanded={mobileOpen}
 >
   <Menu className="w-5 h-5" />

@@ -1,15 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import type { CreditForecastResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-
-const fmtRub = (v: number | null | undefined) =>
-  v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`
-
-const fmtPct = (v: number | null | undefined) =>
-  v == null ? '—' : `${v.toFixed(1)}%`
-
-const fmtPeriod = (period: string) => (period ? period.slice(0, 7) : '—')
+import { fmtPercent, fmtPeriod, fmtRub } from '@/lib/format'
 
 interface CreditTabProps {
   data?: CreditForecastResponse
@@ -17,6 +11,8 @@ interface CreditTabProps {
 }
 
 export function CreditTab({ data, isLoading }: CreditTabProps) {
+  const { t } = useTranslation()
+
   if (isLoading) {
     return (
       <Card className="border bg-card/50">
@@ -33,7 +29,7 @@ export function CreditTab({ data, isLoading }: CreditTabProps) {
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
-            Данные прогнозирования кредитов ещё не рассчитаны.
+            {t('company.credit.empty')}
           </p>
         </CardContent>
       </Card>
@@ -41,11 +37,11 @@ export function CreditTab({ data, isLoading }: CreditTabProps) {
   }
 
   const stats = [
-    { label: 'Ключевая ставка', value: fmtPct(data.keyRate) },
-    { label: 'Ставка кредита (КС + 5%)', value: fmtPct(data.creditRate) },
-    { label: 'Стартовый кэш', value: fmtRub(data.openingCash) },
+    { label: t('company.credit.keyRate'), value: fmtPercent(data.keyRate) },
+    { label: t('company.credit.creditRate'), value: fmtPercent(data.creditRate) },
+    { label: t('company.credit.openingCash'), value: fmtRub(data.openingCash) },
     {
-      label: 'Требуется кредит',
+      label: t('company.credit.needed'),
       value: fmtRub(data.totalCreditNeeded),
       accent: data.gaps.length > 0,
     },
@@ -56,7 +52,7 @@ export function CreditTab({ data, isLoading }: CreditTabProps) {
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-4">
-            Кредиты — умное прогнозирование
+            {t('company.credit.title')}
           </h3>
           <p className="text-sm text-muted-foreground mb-4">{data.summary}</p>
 
@@ -83,7 +79,7 @@ export function CreditTab({ data, isLoading }: CreditTabProps) {
         <Card className="border bg-card/50">
           <CardContent className="p-5">
             <h3 className="font-semibold text-foreground mb-4">
-              Кассовые разрывы
+              {t('company.credit.gaps')}
             </h3>
             <div className="space-y-3">
               {data.gaps.map((g) => (
@@ -96,14 +92,14 @@ export function CreditTab({ data, isLoading }: CreditTabProps) {
                       {fmtPeriod(g.period)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Разрыв {fmtRub(g.gap)}
+                      {t('company.credit.gap', { value: fmtRub(g.gap) })}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-foreground">
-                      Кредит {fmtRub(g.creditAmount)}
+                      {t('company.credit.credit', { value: fmtRub(g.creditAmount) })}
                     </p>
-                    <Badge variant="outline">{fmtPct(g.rate)}</Badge>
+                    <Badge variant="outline">{fmtPercent(g.rate)}</Badge>
                   </div>
                 </div>
               ))}
@@ -115,18 +111,18 @@ export function CreditTab({ data, isLoading }: CreditTabProps) {
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-4">
-            Прогноз по месяцам
+            {t('company.credit.monthly')}
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left font-medium px-4 py-3">Месяц</th>
-                  <th className="text-left font-medium px-4 py-3">Период</th>
-                  <th className="text-left font-medium px-4 py-3">Выручка</th>
-                  <th className="text-left font-medium px-4 py-3">OPEX</th>
-                  <th className="text-left font-medium px-4 py-3">Net CF</th>
-                  <th className="text-left font-medium px-4 py-3">Остаток</th>
+                  <th className="text-left font-medium px-4 py-3">{t('common.month')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('common.period')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('company.credit.revenue')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('company.credit.opex')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('company.credit.netCf')}</th>
+                  <th className="text-left font-medium px-4 py-3">{t('company.credit.balance')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -163,7 +159,7 @@ export function CreditTab({ data, isLoading }: CreditTabProps) {
                       colSpan={6}
                       className="px-4 py-8 text-center text-muted-foreground"
                     >
-                      Добавьте метрики MRR, чтобы построить прогноз.
+                      {t('company.credit.emptyAddMrr')}
                     </td>
                   </tr>
                 )}

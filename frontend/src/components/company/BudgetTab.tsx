@@ -1,14 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Budget, BudgetUpsert } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, ArrowUpRight, ArrowDownRight } from 'lucide-react'
-
-const fmtRub = (v: number | null | undefined) =>
-  v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`
-
-const fmtPeriod = (period: string) => (period ? period.slice(0, 7) : '—')
+import { fmtPeriod, fmtRub } from '@/lib/format'
 
 const fmtDevRub = (v: number) =>
   `${v >= 0 ? '+' : ''}${v.toLocaleString('ru-RU')} ₽`
@@ -16,13 +13,6 @@ const fmtDevRub = (v: number) =>
 const fmtDevPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
 
 type ArticleKey = 'marketing' | 'development' | 'fot' | 'gna'
-
-const ARTICLES: { key: ArticleKey; label: string }[] = [
-  { key: 'marketing', label: 'Маркетинг' },
-  { key: 'development', label: 'Разработка' },
-  { key: 'fot', label: 'ФОТ' },
-  { key: 'gna', label: 'G&A' },
-]
 
 interface BudgetTabProps {
   budgets: Budget[]
@@ -37,6 +27,7 @@ export function BudgetTab({
   onSubmit,
   isPending,
 }: BudgetTabProps) {
+  const { t } = useTranslation()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
     period: '',
@@ -46,6 +37,13 @@ export function BudgetTab({
     fot: '',
     gna: '',
   })
+
+  const ARTICLES: { key: ArticleKey; label: string }[] = [
+    { key: 'marketing', label: t('company.budget.marketing') },
+    { key: 'development', label: t('company.budget.development') },
+    { key: 'fot', label: t('company.budget.fot') },
+    { key: 'gna', label: t('company.budget.gna') },
+  ]
 
   const byPeriod = new Map<string, { plan?: Budget; fact?: Budget }>()
   for (const b of budgets) {
@@ -79,11 +77,11 @@ export function BudgetTab({
     <Card className="border bg-card/50">
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-foreground">Бюджет — План vs Факт</h3>
+          <h3 className="font-semibold text-foreground">{t('company.budget.title')}</h3>
           {canEdit && (
             <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
               <Plus className="w-4 h-4 mr-2" />
-              Добавить бюджет
+              {t('company.budget.add')}
             </Button>
           )}
         </div>
@@ -93,34 +91,34 @@ export function BudgetTab({
             <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
               <Input
                 type="month"
-                aria-label="Период"
+                aria-label={t('common.period')}
                 value={form.period}
                 onChange={(e) => setForm({ ...form, period: e.target.value })}
               />
               <select
-                aria-label="Тип"
+                aria-label={t('common.type')}
                 value={form.type}
                 onChange={(e) =>
                   setForm({ ...form, type: e.target.value as 'plan' | 'fact' })
                 }
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="plan">План</option>
-                <option value="fact">Факт</option>
+                <option value="plan">{t('common.plan')}</option>
+                <option value="fact">{t('common.fact')}</option>
               </select>
               <Input
                 type="number"
                 min="0"
-                placeholder="Маркетинг (₽)"
-                aria-label="Маркетинг (₽)"
+                placeholder={t('common.marketingRub')}
+                aria-label={t('common.marketingRub')}
                 value={form.marketing}
                 onChange={(e) => setForm({ ...form, marketing: e.target.value })}
               />
               <Input
                 type="number"
                 min="0"
-                placeholder="Разработка (₽)"
-                aria-label="Разработка (₽)"
+                placeholder={t('company.budget.developmentRub')}
+                aria-label={t('company.budget.developmentRub')}
                 value={form.development}
                 onChange={(e) =>
                   setForm({ ...form, development: e.target.value })
@@ -129,26 +127,26 @@ export function BudgetTab({
               <Input
                 type="number"
                 min="0"
-                placeholder="ФОТ (₽)"
-                aria-label="ФОТ (₽)"
+                placeholder={t('company.budget.fotRub')}
+                aria-label={t('company.budget.fotRub')}
                 value={form.fot}
                 onChange={(e) => setForm({ ...form, fot: e.target.value })}
               />
               <Input
                 type="number"
                 min="0"
-                placeholder="G&A (₽)"
-                aria-label="G&A (₽)"
+                placeholder={t('company.budget.gnaRub')}
+                aria-label={t('company.budget.gnaRub')}
                 value={form.gna}
                 onChange={(e) => setForm({ ...form, gna: e.target.value })}
               />
             </div>
             <div className="mt-3 flex gap-2">
               <Button size="sm" disabled={!valid || isPending} onClick={handleSubmit}>
-                {isPending ? 'Сохранение...' : 'Сохранить'}
+                {isPending ? t('common.saving') : t('common.save')}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
-                Отмена
+                {t('common.cancel')}
               </Button>
             </div>
           </div>
@@ -157,11 +155,11 @@ export function BudgetTab({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-muted-foreground">
-              <th className="text-left font-medium px-4 py-3">Период</th>
-              <th className="text-left font-medium px-4 py-3">Статья</th>
-              <th className="text-left font-medium px-4 py-3">План</th>
-              <th className="text-left font-medium px-4 py-3">Факт</th>
-              <th className="text-left font-medium px-4 py-3">Отклонение</th>
+              <th className="text-left font-medium px-4 py-3">{t('common.period')}</th>
+              <th className="text-left font-medium px-4 py-3">{t('company.budget.article')}</th>
+              <th className="text-left font-medium px-4 py-3">{t('common.plan')}</th>
+              <th className="text-left font-medium px-4 py-3">{t('common.fact')}</th>
+              <th className="text-left font-medium px-4 py-3">{t('company.budget.deviation')}</th>
             </tr>
           </thead>
           <tbody>
@@ -226,7 +224,7 @@ export function BudgetTab({
                   colSpan={5}
                   className="px-4 py-8 text-center text-muted-foreground"
                 >
-                  Бюджет ещё не добавлен.
+                  {t('company.budget.empty')}
                 </td>
               </tr>
             )}

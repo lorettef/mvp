@@ -1,18 +1,11 @@
+import { useTranslation } from 'react-i18next'
 import type { Scenario, SensitivityResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-
-const fmtRub = (v: number | null | undefined) =>
-  v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`
-
-const fmtPct = (v: number | null | undefined) =>
-  v == null ? '—' : `${(v * 100).toFixed(1)}%`
+import { fmtPct, fmtPercent, fmtRub } from '@/lib/format'
 
 const fmtX = (v: number | null | undefined) =>
   v == null ? '—' : `${v.toFixed(2)}×`
-
-const fmtGrowth = (v: number | null | undefined) =>
-  v == null ? '—' : `${v.toFixed(1)}%`
 
 interface SensitivityTabProps {
   data?: SensitivityResponse
@@ -26,6 +19,8 @@ interface Row {
 }
 
 export function SensitivityTab({ data, isLoading }: SensitivityTabProps) {
+  const { t } = useTranslation()
+
   if (isLoading) {
     return (
       <Card className="border bg-card/50">
@@ -42,7 +37,7 @@ export function SensitivityTab({ data, isLoading }: SensitivityTabProps) {
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
-            Данные анализа чувствительности ещё не рассчитаны.
+            {t('company.sensitivity.empty')}
           </p>
         </CardContent>
       </Card>
@@ -59,7 +54,7 @@ export function SensitivityTab({ data, isLoading }: SensitivityTabProps) {
     { label: 'Churn', base: fmtPct(b.churn), conservative: fmtPct(c.churn) },
     { label: 'LTV/CAC', base: fmtX(b.ltvCac), conservative: fmtX(c.ltvCac) },
     { label: 'FCF', base: fmtRub(b.fcf), conservative: fmtRub(c.fcf) },
-    { label: 'Темп роста g', base: fmtGrowth(b.growthRate), conservative: fmtGrowth(c.growthRate) },
+    { label: t('company.sensitivity.growthRate'), base: fmtPercent(b.growthRate), conservative: fmtPercent(c.growthRate) },
     { label: 'Terminal Value', base: fmtRub(b.terminalValue), conservative: fmtRub(c.terminalValue) },
     { label: 'Equity Value', base: fmtRub(b.equityValue), conservative: fmtRub(c.equityValue) },
   ]
@@ -71,14 +66,14 @@ export function SensitivityTab({ data, isLoading }: SensitivityTabProps) {
       <Card className="border bg-card/50">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-4">
-            Анализ чувствительности — консервативный сценарий
+            {t('company.sensitivity.title')}
           </h3>
           <p className="text-sm text-muted-foreground mb-4">{data.summary}</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Δ Equity Value
+                {t('company.sensitivity.deltaEquity')}
               </p>
               <p
                 className={`text-2xl font-bold mt-1 ${
@@ -94,7 +89,7 @@ export function SensitivityTab({ data, isLoading }: SensitivityTabProps) {
             </div>
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Δ (относительно)
+                {t('company.sensitivity.deltaRelative')}
               </p>
               <p
                 className={`text-2xl font-bold mt-1 ${
@@ -116,13 +111,13 @@ export function SensitivityTab({ data, isLoading }: SensitivityTabProps) {
 
       <Card className="border bg-card/50">
         <CardContent className="p-5">
-          <h3 className="font-semibold text-foreground mb-4">Сравнение сценариев</h3>
+          <h3 className="font-semibold text-foreground mb-4">{t('company.sensitivity.comparison')}</h3>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-muted-foreground">
-                <th className="text-left font-medium px-4 py-3">Показатель</th>
-                <th className="text-left font-medium px-4 py-3">Базовый</th>
-                <th className="text-left font-medium px-4 py-3">Консервативный</th>
+                <th className="text-left font-medium px-4 py-3">{t('company.sensitivity.indicator')}</th>
+                <th className="text-left font-medium px-4 py-3">{t('company.sensitivity.base')}</th>
+                <th className="text-left font-medium px-4 py-3">{t('company.sensitivity.conservative')}</th>
               </tr>
             </thead>
             <tbody>
