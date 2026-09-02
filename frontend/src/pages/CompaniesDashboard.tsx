@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { QueryState } from '@/components/common/QueryState'
+import { StartupInvite } from '@/components/common/StartupInvite'
 import { fmtRub } from '@/lib/format'
 import { Building2, TrendingUp, CircleCheck, AlertTriangle, Plus, RefreshCw } from 'lucide-react'
 
@@ -105,6 +106,8 @@ export const CompaniesDashboard = () => {
           </Button>
         </div>
       </div>
+
+      <StartupInvite />
 
       {showForm && (
         <Card className="border bg-card/50">
