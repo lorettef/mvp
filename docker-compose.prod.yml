@@ -74,7 +74,10 @@ services:
       - certbot_etc:/etc/letsencrypt
       - certbot_var:/var/lib/letsencrypt
       - certbot_www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+      # docker.sock нужен deploy-hook'у, чтобы перезапустить frontend после продления сертификата
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./scripts/certbot-deploy-hook.sh:/etc/certbot-hooks/deploy.sh:ro
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --deploy-hook /etc/certbot-hooks/deploy.sh; sleep 12h & wait $${!}; done;'"
     restart: unless-stopped
 
 volumes:
