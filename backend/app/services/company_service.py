@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 
 from app.models.company import Company
 from app.schemas.company import CompanyCreate, CompanyUpdate
-from app.api.dependencies import ROLE_ADMIN
+from app.core.roles import ROLE_ADMIN
 
 
 class CompanyService:

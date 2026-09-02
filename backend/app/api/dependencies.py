@@ -5,23 +5,32 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import decode_access_token
+from app.core.tenant_context import set_current_org, reset_current_org
 from app.models.user import User
 from app.models.company import Company
+from app.core.roles import ROLE_ADMIN, ROLE_COMPANY, ROLE_OBSERVER
 from app.services.subscription_service import SubscriptionService
 from app.services.audit_service import get_audit_action, write_audit_log
 
 security = HTTPBearer(auto_error=False)
-
-ROLE_ADMIN = "admin"
-ROLE_COMPANY = "company"
-ROLE_OBSERVER = "observer"
 
 async def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     access_token: Optional[str] = Cookie(None),
 ) -> dict:
-    """Получает текущего пользователя из httpOnly cookie или JWT заголовка."""
+    """Получает текущего пользователя из httpOnly cookie или JWT заголовка.
+
+    Двухканальный контракт аутентификации — оба канала равнозначны и
+    одинаково доверенны:
+
+    - Браузер: JWT передаётся в httpOnly cookie `access_token`
+      (параметр `access_token`, читается через `Cookie("access_token")`).
+    - API/CLI: JWT передаётся в заголовке `Authorization: Bearer <token>`
+      (параметр `credentials`, через HTTPBearer).
+
+    Приоритет отдаётся cookie; при её отсутствии используется Bearer-заголовок.
+    """
     token = None
 
     if access_token:
@@ -94,8 +103,13 @@ async def check_subscription_limit(
 async def get_current_user_full(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Загружает полную запись пользователя (role, organization_id, company_id)."""
+):
+    """Загружает полную запись пользователя (role, organization_id, company_id).
+
+    Yield-dependency: устанавливает tenant-контекст для глобального фильтра (S8)
+    на время обработки запроса и СБРАСЫВАЕТ его (по токену ContextVar) в finally,
+    чтобы контекст не протекал на следующий запрос в том же asyncio-таске.
+    """
     user = await db.get(User, current_user["user_id"])
     if not user:
         raise HTTPException(
@@ -103,12 +117,31 @@ async def get_current_user_full(
             detail="Пользователь не найден"
         )
 
-    return {
-        **current_user,
-        "role": user.role,
-        "organization_id": user.organization_id,
-        "company_id": user.company_id,
-    }
+    token = set_current_org(user.organization_id)
+    try:
+        yield {
+            **current_user,
+            "role": user.role,
+            "organization_id": user.organization_id,
+            "company_id": user.company_id,
+        }
+    finally:
+        reset_current_org(token)
+
+async def get_current_org(
+    current_user: dict = Depends(get_current_user_full),
+) -> uuid.UUID:
+    """Возвращает organization_id текущего пользователя.
+
+    Требует, чтобы пользователь был привязан к организации.
+    """
+    organization_id = current_user.get("organization_id")
+    if organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Пользователь не привязан к организации"
+        )
+    return organization_id
 
 def require_role(*allowed: str):
     """Фабрика зависимостей: допускает только указанные роли."""
@@ -130,7 +163,10 @@ def require_company_access():
         current_user: dict = Depends(get_current_user_full),
         db: AsyncSession = Depends(get_db),
     ) -> dict:
-        company = await db.get(Company, company_id)
+        # skip_tenant_filter: guard-запрос читает Company напрямую по id, чтобы
+        # вернуть 403 (а не 404) при кросс-org доступе — явная org-проверка ниже
+        # остаётся enforcement'ом.
+        company = await db.get(Company, company_id, execution_options={"skip_tenant_filter": True})
         if not company:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
