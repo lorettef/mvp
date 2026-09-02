@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtPct, fmtPercent, fmtPeriod, fmtRub } from './format'
+import { fmtPct, fmtPercent, fmtPeriod, fmtRub, formatMonthLabel } from './format'
 
 describe('fmtRub', () => {
   it('formats rubles with ru-RU grouping', () => {
@@ -45,5 +45,19 @@ describe('fmtPeriod', () => {
     expect(fmtPeriod(null)).toBe('—')
     expect(fmtPeriod(undefined)).toBe('—')
     expect(fmtPeriod('')).toBe('—')
+  })
+})
+
+describe('formatMonthLabel', () => {
+  it('formats a month in Russian with its localized month name', () => {
+    expect(formatMonthLabel('2026-09', 'ru')).toBe('Сентябрь 2026')
+  })
+
+  it('formats a month in English with its localized month name', () => {
+    expect(formatMonthLabel('2026-09', 'en')).toBe('September 2026')
+  })
+
+  it('renders an em dash for an empty month', () => {
+    expect(formatMonthLabel('')).toBe('—')
   })
 })

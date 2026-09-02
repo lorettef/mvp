@@ -4,6 +4,7 @@ import type { Cohort, CohortUpsert } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MonthPicker } from '@/components/ui/month-picker'
 import { Plus } from 'lucide-react'
 import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
 
@@ -128,11 +129,10 @@ export function CohortsTab({
         {showForm && canEdit && (
           <div className="mb-6 p-4 border border-border rounded-lg bg-muted/30">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              <Input
-                type="month"
+              <MonthPicker
                 aria-label={t('common.period')}
                 value={form.period}
-                onChange={(e) => setForm({ ...form, period: e.target.value })}
+                onChange={(period) => setForm({ ...form, period })}
               />
               <select
                 aria-label={t('common.type')}

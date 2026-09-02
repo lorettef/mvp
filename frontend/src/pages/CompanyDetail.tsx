@@ -17,6 +17,7 @@ import type { Metric, MetricUpsert, CohortUpsert, BudgetUpsert, TaskCreate, Task
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MonthPicker } from '@/components/ui/month-picker'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { CohortsTab } from '@/components/company/CohortsTab'
@@ -34,7 +35,7 @@ import { ReportsTab } from '@/components/company/ReportsTab'
 import { AIInsight } from '@/components/company/AIInsight'
 import { QueryState } from '@/components/common/QueryState'
 import { normalizeApiError } from '@/lib/apiError'
-import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
+import { fmtPct, fmtPeriod, fmtRub, formatMonthLabel } from '@/lib/format'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
 
 interface BulkRow {
@@ -63,6 +64,11 @@ const addMonths = (ym: string, n: number): string => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+const currentMonthValue = (): string => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
 const deriveMetric = (r: BulkRow) => {
   const retention = Math.min(1, Math.max(0, (Number(r.retentionPct) || 0) / 100))
   const churn = 1 - retention
@@ -89,14 +95,14 @@ const scenarioByTab: Record<string, InsightScenario> = {
 }
 
 export const CompanyDetail = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { companyId } = useParams<{ companyId: string }>()
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('metrics')
   const [showForm, setShowForm] = useState(false)
   const [bulkType, setBulkType] = useState<'plan' | 'fact'>('fact')
-  const [bulkStartMonth, setBulkStartMonth] = useState('')
+  const [bulkStartMonth, setBulkStartMonth] = useState(currentMonthValue)
   const [bulkCount, setBulkCount] = useState(3)
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyBulkRow(), emptyBulkRow(), emptyBulkRow()])
   const [bulkError, setBulkError] = useState<string | null>(null)
@@ -141,7 +147,7 @@ export const CompanyDetail = () => {
 
   useEffect(() => {
     const gm = companyQuery.data?.grossMargin
-    setGrossMarginPct(gm != null ? String(Math.round(gm * 100)) : '75')
+    setGrossMarginPct(gm != null ? String(Math.round(gm * 10000) / 100) : '75')
   }, [companyQuery.data?.grossMargin, id])
 
   const metricsQuery = useQuery({
@@ -457,20 +463,29 @@ export const CompanyDetail = () => {
                 <h3 className="font-semibold text-foreground">{t('company.metrics.title')}</h3>
                 <div className="flex flex-wrap items-center gap-3">
                   {canEdit && (
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm text-muted-foreground whitespace-nowrap">
-                        {t('company.metrics.grossMargin')}
-                      </label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.5"
-                        className="w-20"
-                        aria-label={t('company.metrics.grossMargin')}
-                        value={grossMarginPct}
-                        onChange={(e) => setGrossMarginPct(e.target.value)}
-                      />
+                    <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                      <div>
+                        <label
+                          htmlFor="gross-margin"
+                          className="block text-xs font-medium text-muted-foreground"
+                        >
+                          {t('company.metrics.grossMargin')}
+                        </label>
+                        <div className="mt-1 flex items-center gap-1">
+                          <Input
+                            id="gross-margin"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            className="h-8 w-24 border-0 bg-transparent px-0 py-0 text-lg font-semibold shadow-none [appearance:textfield] focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            aria-label={t('company.metrics.grossMargin')}
+                            value={grossMarginPct}
+                            onChange={(e) => setGrossMarginPct(e.target.value)}
+                          />
+                          <span className="text-lg font-semibold text-foreground">%</span>
+                        </div>
+                      </div>
                       <Button
                         size="sm"
                         variant="outline"
@@ -514,11 +529,10 @@ export const CompanyDetail = () => {
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-muted-foreground">{t('company.metrics.startMonth')}</span>
-                      <Input
-                        type="month"
+                      <MonthPicker
                         aria-label={t('company.metrics.startMonth')}
                         value={bulkStartMonth}
-                        onChange={(e) => setBulkStartMonth(e.target.value)}
+                        onChange={setBulkStartMonth}
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -559,7 +573,7 @@ export const CompanyDetail = () => {
                           return (
                             <tr key={i} className="border-b border-border/50 last:border-0">
                               <td className="px-2 py-2 font-medium text-foreground whitespace-nowrap">
-                                {addMonths(bulkStartMonth, i) || '—'}
+                                {formatMonthLabel(addMonths(bulkStartMonth, i), i18n.language)}
                               </td>
                               <td className="px-2 py-2">
                                 <Input

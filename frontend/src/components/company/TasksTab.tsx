@@ -4,6 +4,7 @@ import type { Task, TaskCreate, TaskUpdate, TaskStage, ReadinessResponse } from 
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Trash2 } from 'lucide-react'
 
@@ -120,11 +121,10 @@ export function TasksTab({
                     </option>
                   ))}
                 </select>
-                <Input
-                  type="date"
+                <DatePicker
                   aria-label={t('company.tasks.due')}
                   value={form.dueDate}
-                  onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                  onChange={(dueDate) => setForm({ ...form, dueDate })}
                 />
               </div>
               <div className="mt-3 flex gap-2">

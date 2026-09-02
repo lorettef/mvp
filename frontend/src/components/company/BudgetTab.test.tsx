@@ -3,6 +3,18 @@ import { describe, it, expect, vi } from 'vitest'
 import { BudgetTab } from './BudgetTab'
 import type { Budget } from '@/types/api'
 
+function chooseMonth(label: string) {
+  fireEvent.click(screen.getByRole('button', { name: 'Период' }))
+  const targetYear = Number(label.slice(-4))
+  const currentYear = new Date().getFullYear()
+  const direction = targetYear < currentYear ? 'Предыдущий год' : 'Следующий год'
+  const steps = Math.abs(targetYear - currentYear)
+  for (let step = 0; step < steps; step += 1) {
+    fireEvent.click(screen.getByRole('button', { name: direction }))
+  }
+  fireEvent.click(screen.getByRole('button', { name: label }))
+}
+
 function makeBudget(over: Partial<Budget> = {}): Budget {
   return {
     id: 'b1',
@@ -59,7 +71,7 @@ describe('BudgetTab', () => {
     const onSubmit = vi.fn()
     render(<BudgetTab budgets={[]} canEdit onSubmit={onSubmit} isPending={false} />)
     fireEvent.click(screen.getByRole('button', { name: /Добавить бюджет/ }))
-    fireEvent.change(screen.getByLabelText('Период'), { target: { value: '2025-01' } })
+    chooseMonth('Январь 2025')
     fireEvent.change(screen.getByLabelText('Маркетинг (₽)'), { target: { value: '100000' } })
     fireEvent.change(screen.getByLabelText('Разработка (₽)'), { target: { value: '200000' } })
     fireEvent.change(screen.getByLabelText('ФОТ (₽)'), { target: { value: '300000' } })

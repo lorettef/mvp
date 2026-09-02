@@ -3,6 +3,18 @@ import { describe, it, expect, vi } from 'vitest'
 import { CohortsTab } from './CohortsTab'
 import type { Cohort } from '@/types/api'
 
+function chooseMonth(label: string) {
+  fireEvent.click(screen.getByRole('button', { name: 'Период' }))
+  const targetYear = Number(label.slice(-4))
+  const currentYear = new Date().getFullYear()
+  const direction = targetYear < currentYear ? 'Предыдущий год' : 'Следующий год'
+  const steps = Math.abs(targetYear - currentYear)
+  for (let step = 0; step < steps; step += 1) {
+    fireEvent.click(screen.getByRole('button', { name: direction }))
+  }
+  fireEvent.click(screen.getByRole('button', { name: label }))
+}
+
 function makeCohort(over: Partial<Cohort> = {}): Cohort {
   return {
     id: 'c1',
@@ -92,7 +104,7 @@ describe('CohortsTab', () => {
     const onSubmit = vi.fn()
     render(<CohortsTab cohorts={[]} canEdit onSubmit={onSubmit} isPending={false} />)
     fireEvent.click(screen.getByRole('button', { name: /Добавить когорту/ }))
-    fireEvent.change(screen.getByLabelText('Период'), { target: { value: '2025-01' } })
+    chooseMonth('Январь 2025')
     fireEvent.change(screen.getByLabelText('Размер когорты'), { target: { value: '45' } })
     fireEvent.change(screen.getByLabelText('Маркетинг (₽)'), { target: { value: '14400' } })
     fireEvent.change(screen.getByLabelText('M1 (%)'), { target: { value: '80' } })

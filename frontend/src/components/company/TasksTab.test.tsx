@@ -92,7 +92,17 @@ describe('TasksTab', () => {
       target: { value: 'Новая задача' },
     })
     fireEvent.change(screen.getByLabelText('Этап'), { target: { value: 'documents' } })
-    fireEvent.change(screen.getByLabelText('Срок'), { target: { value: '2026-12-31' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Срок' }))
+    const targetMonth = new Date(2026, 11, 1)
+    const now = new Date()
+    const monthSteps =
+      (targetMonth.getFullYear() - now.getFullYear()) * 12 +
+      targetMonth.getMonth() - now.getMonth()
+    const monthDirection = monthSteps < 0 ? 'Предыдущий месяц' : 'Следующий месяц'
+    for (let step = 0; step < Math.abs(monthSteps); step += 1) {
+      fireEvent.click(screen.getByRole('button', { name: monthDirection }))
+    }
+    fireEvent.click(screen.getByRole('button', { name: /31 декабря 2026/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
     expect(onCreate).toHaveBeenCalledWith({
       title: 'Новая задача',
