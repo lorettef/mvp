@@ -59,6 +59,11 @@ htmlcov/
 TZ.md
 PROGRESS.md
 TODO_CHANGES.md
+kogor.md
+metriki.md
+pravki.md
+tz1.md
+tz2.md
 
 # Local packages (not project code)
 *.deb

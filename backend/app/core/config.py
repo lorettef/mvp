@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     GIGACHAT_CLIENT_ID: str = ""
     GIGACHAT_SCOPE: str = "GIGACHAT_API_PERS"
     DEMO_MODE: bool = False  # В production всегда False; в .env для dev — DEMO_MODE=true
-    DEMO_ACCOUNT_EMAIL: str = "demo@startupengine.ru"
+    DEMO_ACCOUNT_EMAIL: str = "demo@poicho.ru"
     DEMO_ACCOUNT_PASSWORD: Optional[SecretStr] = None  # Override in .env; only used when DEMO_MODE=true
     
     # Email (SMTP) — если SMTP_HOST пуст, отправка отключена (no-op)
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM: str = "Startup Engine <noreply@startupengine.ru>"
+    SMTP_FROM: str = "Startup Engine <noreply@poicho.ru>"
     SMTP_USE_TLS: bool = True
     
     model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)

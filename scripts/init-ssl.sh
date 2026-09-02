@@ -1,9 +1,9 @@
 #!/bin/bash
 # Первый запуск: получить SSL-сертификат Let's Encrypt
-# Замените startupengine.ru и admin@startupengine.ru на свои значения
+# Замените mvp.poicho.ru и admin@poicho.ru на свои значения при необходимости
 
-DOMAIN="startupengine.ru"
-EMAIL="admin@startupengine.ru"
+DOMAIN="mvp.poicho.ru"
+EMAIL="admin@poicho.ru"
 
 docker compose -f docker-compose.prod.yml run --rm certbot \
   certonly --webroot -w /var/www/certbot \
