@@ -13,33 +13,6 @@ from app.services.cohort_service import CohortService
 router = APIRouter()
 
 
-def _cohort_to_response(cohort) -> CohortResponse:
-    return CohortResponse(
-        id=cohort.id,
-        company_id=cohort.company_id,
-        period=cohort.period,
-        type=cohort.type,
-        size=cohort.size,
-        retention_m1=float(cohort.retention_m1),
-        retention_m2=float(cohort.retention_m2),
-        retention_m3=float(cohort.retention_m3),
-        retention_m4=float(cohort.retention_m4),
-        retention_m5=float(cohort.retention_m5),
-        retention_m6=float(cohort.retention_m6),
-        retention_m7=float(cohort.retention_m7),
-        retention_m8=float(cohort.retention_m8),
-        retention_m9=float(cohort.retention_m9),
-        retention_m10=float(cohort.retention_m10),
-        retention_m11=float(cohort.retention_m11),
-        retention_m12=float(cohort.retention_m12),
-        marketing_spend=(
-            float(cohort.marketing_spend) if cohort.marketing_spend is not None else None
-        ),
-        created_at=cohort.created_at,
-        updated_at=cohort.updated_at,
-    )
-
-
 @router.put("/{company_id}/cohorts", response_model=CohortResponse)
 async def upsert_cohort(
     company_id: uuid.UUID,
@@ -55,7 +28,7 @@ async def upsert_cohort(
 
     service = CohortService(db)
     cohort = await service.upsert_cohort(company_id, data)
-    return _cohort_to_response(cohort)
+    return CohortResponse.model_validate(cohort)
 
 
 @router.get("/{company_id}/cohorts", response_model=list[CohortResponse])
@@ -67,4 +40,4 @@ async def list_cohorts(
 ):
     service = CohortService(db)
     cohorts = await service.list_cohorts(company_id, period)
-    return [_cohort_to_response(c) for c in cohorts]
+    return [CohortResponse.model_validate(c) for c in cohorts]

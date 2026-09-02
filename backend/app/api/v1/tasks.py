@@ -1,5 +1,4 @@
 import uuid
-from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,29 +16,6 @@ from app.services.task_service import TaskService
 router = APIRouter()
 
 
-def _task_to_response(task) -> TaskResponse:
-    today = date.today()
-    effective_status = task.status
-    if (
-        task.status != "done"
-        and task.due_date is not None
-        and task.due_date < today
-    ):
-        effective_status = "overdue"
-    return TaskResponse(
-        id=task.id,
-        company_id=task.company_id,
-        title=task.title,
-        description=task.description,
-        stage=task.stage,
-        status=task.status,
-        effective_status=effective_status,
-        due_date=task.due_date,
-        created_at=task.created_at,
-        updated_at=task.updated_at,
-    )
-
-
 @router.get("/{company_id}/tasks", response_model=list[TaskResponse])
 async def list_tasks(
     company_id: uuid.UUID,
@@ -49,7 +25,7 @@ async def list_tasks(
     """Список задач подготовки к продаже компании."""
     service = TaskService(db)
     tasks = await service.list_tasks(company_id)
-    return [_task_to_response(t) for t in tasks]
+    return [TaskResponse.model_validate(t) for t in tasks]
 
 
 @router.post(
@@ -71,7 +47,7 @@ async def create_task(
         )
     service = TaskService(db)
     task = await service.create_task(company_id, data)
-    return _task_to_response(task)
+    return TaskResponse.model_validate(task)
 
 
 @router.patch("/{company_id}/tasks/{task_id}", response_model=TaskResponse)
@@ -96,7 +72,7 @@ async def update_task(
             detail="Задача не найдена",
         )
     task = await service.update_task(task, data)
-    return _task_to_response(task)
+    return TaskResponse.model_validate(task)
 
 
 @router.delete("/{company_id}/tasks/{task_id}")

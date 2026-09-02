@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -19,6 +19,7 @@ class CompanyUpdate(BaseModel):
 
 
 class CompanyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     organization_id: UUID
     name: str

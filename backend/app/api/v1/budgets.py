@@ -13,21 +13,6 @@ from app.services.budget_service import BudgetService
 router = APIRouter()
 
 
-def _budget_to_response(budget) -> BudgetResponse:
-    return BudgetResponse(
-        id=budget.id,
-        company_id=budget.company_id,
-        period=budget.period,
-        type=budget.type,
-        marketing=float(budget.marketing),
-        development=float(budget.development),
-        fot=float(budget.fot),
-        gna=float(budget.gna),
-        created_at=budget.created_at,
-        updated_at=budget.updated_at,
-    )
-
-
 @router.put("/{company_id}/budgets", response_model=BudgetResponse)
 async def upsert_budget(
     company_id: uuid.UUID,
@@ -43,7 +28,7 @@ async def upsert_budget(
 
     service = BudgetService(db)
     budget = await service.upsert_budget(company_id, data)
-    return _budget_to_response(budget)
+    return BudgetResponse.model_validate(budget)
 
 
 @router.get("/{company_id}/budgets", response_model=list[BudgetResponse])
@@ -55,4 +40,4 @@ async def list_budgets(
 ):
     service = BudgetService(db)
     budgets = await service.list_budgets(company_id, period)
-    return [_budget_to_response(b) for b in budgets]
+    return [BudgetResponse.model_validate(b) for b in budgets]

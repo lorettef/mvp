@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from uuid import UUID
 from datetime import date, datetime
 
@@ -20,6 +20,7 @@ class BudgetUpsert(BaseModel):
 
 
 class BudgetResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     company_id: UUID
     period: date

@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, computed_field
 
 STAGES = ["metrics", "documents", "negotiations", "presentation"]
 
@@ -58,16 +58,24 @@ class TaskUpdate(BaseModel):
 
 
 class TaskResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     company_id: UUID
     title: str
     description: Optional[str]
     stage: str
     status: str
-    effective_status: str  # pending | in_progress | done | overdue (derived from due_date)
     due_date: Optional[date]
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def effective_status(self) -> str:
+        today = date.today()
+        if self.status != "done" and self.due_date is not None and self.due_date < today:
+            return "overdue"
+        return self.status
 
 
 class StageProgress(BaseModel):

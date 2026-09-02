@@ -23,39 +23,6 @@ from app.core.plans import company_limit
 router = APIRouter()
 
 
-def _company_to_response(company) -> CompanyResponse:
-    return CompanyResponse(
-        id=company.id,
-        organization_id=company.organization_id,
-        name=company.name,
-        industry=company.industry,
-        geography=company.geography,
-        gross_margin=company.gross_margin,
-        created_at=company.created_at,
-    )
-
-
-def _metric_to_response(metric) -> MetricResponse:
-    return MetricResponse(
-        id=metric.id,
-        company_id=metric.company_id,
-        period=metric.period,
-        type=metric.type,
-        new_units=metric.new_units,
-        arpu=float(metric.arpu),
-        revenue=float(metric.revenue),
-        marketing_spend=float(metric.marketing_spend),
-        retention_rate=float(metric.retention_rate),
-        churn=float(metric.churn),
-        ltv=float(metric.ltv),
-        cac=float(metric.cac),
-        active_units=metric.active_units,
-        comment=metric.comment,
-        created_at=metric.created_at,
-        updated_at=metric.updated_at,
-    )
-
-
 @router.post("", response_model=CompanyResponse, status_code=status.HTTP_201_CREATED)
 async def create_company(
     data: CompanyCreate,
@@ -74,7 +41,7 @@ async def create_company(
                 detail=f"Превышен лимит компаний по тарифу (максимум {limit}).",
             )
     company = await service.create_company(user["organization_id"], data)
-    return _company_to_response(company)
+    return CompanyResponse.model_validate(company)
 
 
 @router.get("", response_model=list[CompanyResponse])
@@ -85,7 +52,7 @@ async def list_companies(
     """Список компаний, доступных пользователю."""
     service = CompanyService(db)
     companies = await service.list_companies(user)
-    return [_company_to_response(c) for c in companies]
+    return [CompanyResponse.model_validate(c) for c in companies]
 
 
 @router.get("/{company_id}", response_model=CompanyResponse)
@@ -97,7 +64,7 @@ async def get_company(
     """Получение компании по идентификатору."""
     service = CompanyService(db)
     company = await service.get_company(company_id)
-    return _company_to_response(company)
+    return CompanyResponse.model_validate(company)
 
 
 @router.patch("/{company_id}", response_model=CompanyResponse)
@@ -117,7 +84,7 @@ async def update_company(
     service = CompanyService(db)
     company = await service.get_company(company_id)
     company = await service.update_company(company, data)
-    return _company_to_response(company)
+    return CompanyResponse.model_validate(company)
 
 
 @router.delete("/{company_id}")
@@ -155,7 +122,7 @@ async def upsert_metric(
 
     service = MetricService(db)
     metric = await service.upsert_metric(company_id, data)
-    return _metric_to_response(metric)
+    return MetricResponse.model_validate(metric)
 
 
 @router.put("/{company_id}/metrics/bulk", response_model=list[MetricResponse])
@@ -174,7 +141,7 @@ async def upsert_metrics_bulk(
 
     service = MetricService(db)
     metrics = await service.bulk_upsert(company_id, data.items)
-    return [_metric_to_response(m) for m in metrics]
+    return [MetricResponse.model_validate(m) for m in metrics]
 
 
 @router.get("/{company_id}/metrics", response_model=list[MetricResponse])
@@ -187,4 +154,4 @@ async def list_metrics(
     """Список метрик компании."""
     service = MetricService(db)
     metrics = await service.list_metrics(company_id, period)
-    return [_metric_to_response(m) for m in metrics]
+    return [MetricResponse.model_validate(m) for m in metrics]

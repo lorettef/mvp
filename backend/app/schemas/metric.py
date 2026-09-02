@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from uuid import UUID
 from datetime import date, datetime
 from typing import Optional
@@ -23,6 +23,7 @@ class MetricUpsert(BaseModel):
 
 
 class MetricResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     company_id: UUID
     period: date
