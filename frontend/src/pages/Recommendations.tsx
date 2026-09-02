@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { AxiosError } from 'axios'
+import { useTranslation } from 'react-i18next'
 import { recommendationsApi } from '../api/recommendations'
 import { analytics } from '../api/analytics'
 import { RecommendationAction, RecommendationResponse } from '@/types/api'
@@ -7,8 +8,6 @@ import {
   Sparkles, 
   Loader2, 
   AlertCircle, 
-  CheckCircle2, 
-  Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +22,7 @@ import {
 } from '@/components/ui/select'
 
 export const Recommendations = () => {
+  const { t } = useTranslation()
   const [metrics, setMetrics] = useState({
     mrr: 50000,
     cac: 5000,
@@ -50,7 +50,7 @@ export const Recommendations = () => {
       analytics.track('recommendations_requested')
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ detail?: string }>
-      setError(axiosErr.response?.data?.detail || 'Ошибка получения рекомендаций')
+      setError(axiosErr.response?.data?.detail || t('recommendations.error'))
     } finally {
       setLoading(false)
     }
@@ -63,33 +63,33 @@ export const Recommendations = () => {
   }
 
   const priorityLabels = {
-    high: 'Высокий',
-    medium: 'Средний',
-    low: 'Низкий',
+    high: t('recommendations.priority.high'),
+    medium: t('recommendations.priority.medium'),
+    low: t('recommendations.priority.low'),
   }
 
   const providerLabels: Record<string, string> = {
-    deepseek: 'AI (DeepSeek)',
-    gigachat: 'AI (GigaChat)',
-    demo: 'Базовая рекомендация',
+    deepseek: t('recommendations.provider.deepseek'),
+    gigachat: t('recommendations.provider.gigachat'),
+    demo: t('recommendations.provider.demo'),
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Smart-рекомендации</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t('recommendations.title')}</h1>
         <p className="text-muted-foreground">
-          Персонализированные рекомендации на основе ваших метрик
+          {t('recommendations.subtitle')}
         </p>
       </div>
 
       {/* Форма ввода метрик */}
       <Card className="border">
         <CardContent className="p-6">
-          <h3 className="font-semibold text-foreground mb-4">Введите текущие метрики</h3>
+          <h3 className="font-semibold text-foreground mb-4">{t('recommendations.enterMetrics')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">MRR ($)</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">{t('recommendations.mrr')}</label>
               <Input
                 type="number"
                 value={metrics.mrr}
@@ -98,7 +98,7 @@ export const Recommendations = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">CAC ($)</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">{t('recommendations.cac')}</label>
               <Input
                 type="number"
                 value={metrics.cac}
@@ -107,7 +107,7 @@ export const Recommendations = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">LTV ($)</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">{t('recommendations.ltv')}</label>
               <Input
                 type="number"
                 value={metrics.ltv}
@@ -116,7 +116,7 @@ export const Recommendations = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">Churn (%)</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">{t('recommendations.churn')}</label>
               <Input
                 type="number"
                 step="0.01"
@@ -126,7 +126,7 @@ export const Recommendations = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">ARPU ($)</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">{t('recommendations.arpu')}</label>
               <Input
                 type="number"
                 value={metrics.arpu}
@@ -135,7 +135,7 @@ export const Recommendations = () => {
               />
             </div>
             <div>
-<label className="block text-sm font-medium text-muted-foreground mb-1">Runway (мес.)</label>
+<label className="block text-sm font-medium text-muted-foreground mb-1">{t('recommendations.runway')}</label>
               <Input
                 type="number"
                 value={metrics.runway_months}
@@ -144,13 +144,13 @@ export const Recommendations = () => {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-muted-foreground mb-1">Стадия</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">{t('recommendations.stage')}</label>
               <Select
                 value={metrics.stage}
                 onValueChange={(value) => setMetrics({ ...metrics, stage: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите стадию" />
+                  <SelectValue placeholder={t('recommendations.selectStage')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pre_seed">Pre-seed</SelectItem>
@@ -171,12 +171,12 @@ export const Recommendations = () => {
             {loading ? (
               <>
                 <Loader2 className="animate-spin" />
-                Получение рекомендаций...
+                {t('recommendations.getting')}
               </>
             ) : (
               <>
                 <Sparkles />
-                Получить рекомендации
+                {t('recommendations.get')}
               </>
             )}
           </Button>
@@ -200,9 +200,9 @@ export const Recommendations = () => {
                 <Sparkles className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-primary-800">Анализ</p>
+                    <p className="text-sm font-medium text-primary-800">{t('recommendations.analysis')}</p>
                     <Badge variant="outline">
-                      {providerLabels[result.provider] ?? 'Базовая рекомендация'}
+                      {providerLabels[result.provider] ?? t('recommendations.provider.demo')}
                     </Badge>
                   </div>
                   <p className="text-sm text-primary-700 mt-1">{result.summary}</p>
@@ -235,11 +235,11 @@ export const Recommendations = () => {
             ))}
           </div>
 
-          {result.raw_response && (
+          {result.rawResponse && (
             <div className="text-xs text-muted-foreground bg-card p-3 rounded-lg border border">
               <details>
-                <summary className="cursor-pointer">Техническая информация</summary>
-                <p className="mt-2 whitespace-pre-wrap">{result.raw_response}</p>
+                <summary className="cursor-pointer">{t('recommendations.techInfo')}</summary>
+                <p className="mt-2 whitespace-pre-wrap">{result.rawResponse}</p>
               </details>
             </div>
           )}

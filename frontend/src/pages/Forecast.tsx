@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { forecastApi } from '../api/forecast'
 import { analytics } from '../api/analytics'
 import {
-  LineChart,
+  ComposedChart,
   Line,
   Area,
   XAxis,
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/select'
 
 export const Forecast = () => {
+  const { t } = useTranslation()
   const [historyInput, setHistoryInput] = useState('50000, 52000, 54000, 58000, 60000, 65000')
   const [months, setMonths] = useState(6)
   const [method, setMethod] = useState<'linear' | 'polynomial' | 'prophet'>('polynomial')
@@ -41,14 +43,14 @@ export const Forecast = () => {
     try {
       const history = historyInput.split(',').map((s) => parseFloat(s.trim()))
       if (history.some(isNaN)) {
-        throw new Error('Некорректный формат истории')
+        throw new Error(t('forecast.invalidHistory'))
       }
 
       const response = await forecastApi.predict({ history, months, method })
       setResult(response)
       analytics.track('forecast_requested')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Ошибка прогнозирования')
+      setError(err instanceof Error ? err.message : t('forecast.error'))
     } finally {
       setLoading(false)
     }
@@ -58,7 +60,7 @@ export const Forecast = () => {
     if (!result) return []
 
     const history = historyInput.split(',').map((s) => parseFloat(s.trim()))
-    const ci = result.confidence_interval
+    const ci = result.confidenceInterval
 
     const data: {
       month: string
@@ -68,7 +70,7 @@ export const Forecast = () => {
       confidenceLower: number | null
       confidenceBand: number | null
     }[] = history.map((value, i) => ({
-      month: `Месяц ${i + 1}`,
+      month: t('forecast.month', { n: i + 1 }),
       historical: value,
       forecast: null,
       confidenceUpper: null,
@@ -80,7 +82,7 @@ export const Forecast = () => {
       const upper = ci ? ci.upper[i] : null
       const lower = ci ? ci.lower[i] : null
       data.push({
-        month: `Месяц ${history.length + i + 1}`,
+        month: t('forecast.month', { n: history.length + i + 1 }),
         historical: null,
         forecast: value,
         confidenceUpper: upper,
@@ -95,9 +97,9 @@ export const Forecast = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Прогнозирование</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t('forecast.title')}</h1>
         <p className="text-muted-foreground">
-          Спрогнозируйте рост MRR на основе исторических данных
+          {t('forecast.subtitle')}
         </p>
       </div>
 
@@ -106,7 +108,7 @@ export const Forecast = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1">
-                История MRR (через запятую)
+                {t('forecast.history')}
               </label>
               <Input
                 type="text"
@@ -116,14 +118,14 @@ export const Forecast = () => {
                 className="bg-card border-input"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Введите значения MRR за прошедшие месяцы
+                {t('forecast.historyHint')}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Месяцев прогноза
+                  {t('forecast.months')}
                 </label>
                 <Input
                   type="number"
@@ -136,19 +138,19 @@ export const Forecast = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Метод
+                  {t('forecast.method')}
                 </label>
                 <Select
                   value={method}
                   onValueChange={(value) => setMethod(value as 'linear' | 'polynomial' | 'prophet')}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите метод" />
+                    <SelectValue placeholder={t('forecast.selectMethod')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="polynomial">Квадратичная регрессия</SelectItem>
-                    <SelectItem value="linear">Линейная регрессия</SelectItem>
-                    <SelectItem value="prophet">Prophet (продвинутый)</SelectItem>
+                    <SelectItem value="polynomial">{t('forecast.polynomial')}</SelectItem>
+                    <SelectItem value="linear">{t('forecast.linear')}</SelectItem>
+                    <SelectItem value="prophet">{t('forecast.prophet')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -162,12 +164,12 @@ export const Forecast = () => {
               {loading ? (
                 <>
                   <Loader2 className="animate-spin" />
-                  Прогнозирование...
+                  {t('forecast.building')}
                 </>
               ) : (
                 <>
                   <TrendingUp />
-                  Построить прогноз
+                  {t('forecast.build')}
                 </>
               )}
             </Button>
@@ -185,14 +187,14 @@ export const Forecast = () => {
       {result && (
         <Card className="border">
           <CardContent className="p-6">
-            <h3 className="font-semibold text-foreground mb-4">Результат прогноза</h3>
+            <h3 className="font-semibold text-foreground mb-4">{t('forecast.result')}</h3>
 
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={prepareChartData()}>
+                <ComposedChart data={prepareChartData()}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                  <YAxis tickFormatter={(v) => `₽${(v / 1000).toFixed(0)}k`} />
                   <Tooltip />
                   <Legend />
                   <Line
@@ -200,7 +202,7 @@ export const Forecast = () => {
                     dataKey="historical"
                     stroke="#3b82f6"
                     strokeWidth={2}
-                    name="Исторические данные"
+                    name={t('forecast.historical')}
                     connectNulls
                   />
                   <Line
@@ -209,7 +211,7 @@ export const Forecast = () => {
                     stroke="#10b981"
                     strokeWidth={2}
                     strokeDasharray="5 5"
-                    name="Прогноз"
+                    name={t('forecast.forecast')}
                     connectNulls
                   />
                   <Area
@@ -227,25 +229,27 @@ export const Forecast = () => {
                     stroke="none"
                     fill="#10b981"
                     fillOpacity={0.12}
-                    name="Дов. интервал"
+                    name={t('forecast.confidence')}
                     isAnimationActive={false}
                   />
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
 
             <div className="mt-4 grid grid-cols-3 gap-4">
               <Card className="border bg-card/50">
                 <CardContent className="p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Последний месяц</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('forecast.firstForecastMonth', { n: historyInput.split(',').length + 1 })}
+                  </p>
                   <p className="text-lg font-bold text-foreground">
-                    ${result.predictions[0].toFixed(0)}
+                    {result.predictions?.length > 0 ? `₽${result.predictions[0].toFixed(0)}` : '—'}
                   </p>
                 </CardContent>
               </Card>
               <Card className="border bg-card/50">
                 <CardContent className="p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Средний рост/мес</p>
+                  <p className="text-xs text-muted-foreground">{t('forecast.avgGrowth')}</p>
                   <p className="text-lg font-bold text-green-400">
                     +{(Math.pow(result.predictions[result.predictions.length - 1] / parseFloat(historyInput.split(',').shift() || '1'), 1 / (historyInput.split(',').length + result.predictions.length - 1)) * 100 - 100).toFixed(1)}%
                   </p>
@@ -253,7 +257,7 @@ export const Forecast = () => {
               </Card>
               <Card className="border bg-card/50">
                 <CardContent className="p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Метод</p>
+                  <p className="text-xs text-muted-foreground">{t('forecast.method')}</p>
                   <p className="text-lg font-bold text-foreground capitalize">
                     {result.method}
                   </p>

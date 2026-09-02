@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AxiosError } from 'axios'
+import { useTranslation } from 'react-i18next'
 import { authApi } from '../api/auth'
 import { analytics } from '../api/analytics'
 import { Button } from "@/components/ui/button"
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 
 export const Register = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [form, setForm] = useState({
     email: '',
@@ -24,12 +26,17 @@ export const Register = () => {
     setError('')
 
     try {
-      await authApi.register(form)
+      await authApi.register({
+        email: form.email,
+        password: form.password,
+        full_name: form.fullName,
+        company_name: form.companyName,
+      })
       analytics.track('registered')
-      navigate('/login', { state: { message: 'Регистрация успешна! Войдите.' } })
+      navigate('/login', { state: { message: t('auth.register.success') } })
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ detail?: string }>
-      setError(axiosErr.response?.data?.detail || 'Ошибка регистрации')
+      setError(axiosErr.response?.data?.detail || t('auth.register.error'))
     } finally {
       setLoading(false)
     }
@@ -50,10 +57,10 @@ export const Register = () => {
               </div>
             </div>
             <h2 className="text-center text-2xl font-bold text-foreground">
-              Регистрация
+              {t('auth.register.title')}
             </h2>
             <p className="mt-1 text-center text-sm text-muted-foreground">
-              Начните управлять юнит-экономикой
+              {t('auth.register.subtitle')}
             </p>
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
@@ -65,7 +72,7 @@ export const Register = () => {
               <Input
                 type="email"
                 required
-                placeholder="Email"
+                placeholder={t('auth.register.email')}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="bg-card border-input"
@@ -74,34 +81,34 @@ export const Register = () => {
                 type="password"
                 required
                 minLength={8}
-                placeholder="Пароль (мин. 8 символов)"
+                placeholder={t('auth.register.password')}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="bg-card border-input"
               />
               <Input
                 type="text"
-                placeholder="Ваше имя"
+                placeholder={t('auth.register.name')}
                 value={form.fullName}
                 onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                 className="bg-card border-input"
               />
               <Input
                 type="text"
-                placeholder="Название компании"
+                placeholder={t('auth.register.company')}
                 value={form.companyName}
                 onChange={(e) => setForm({ ...form, companyName: e.target.value })}
                 className="bg-card border-input"
               />
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+                {loading ? t('auth.register.submitting') : t('auth.register.submit')}
               </Button>
 
               <div className="text-center text-sm">
                 <Button variant="link" asChild>
                   <Link to="/login">
-                    Уже есть аккаунт? Войти
+                    {t('auth.register.haveAccount')}
                   </Link>
                 </Button>
               </div>

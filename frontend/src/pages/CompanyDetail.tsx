@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { companiesApi } from '../api/companies'
 import { marketApi } from '../api/market'
 import { hiringApi } from '../api/hiring'
@@ -10,11 +11,12 @@ import { creditApi } from '../api/credit'
 import { valuationApi } from '../api/valuation'
 import { sensitivityApi } from '../api/sensitivity'
 import { useAuthStore } from '../store/authStore'
+import { getTenantKey } from '../auth/authSession'
+import { qk } from '../lib/queryKeys'
 import type { Metric, MetricUpsert, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, InsightScenario } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { CohortsTab } from '@/components/company/CohortsTab'
@@ -30,26 +32,10 @@ import { ValuationTab } from '@/components/company/ValuationTab'
 import { SensitivityTab } from '@/components/company/SensitivityTab'
 import { ReportsTab } from '@/components/company/ReportsTab'
 import { AIInsight } from '@/components/company/AIInsight'
+import { QueryState } from '@/components/common/QueryState'
+import { normalizeApiError } from '@/lib/apiError'
+import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
-
-const fmtRub = (v: number | null | undefined) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
-
-const fmtPeriod = (period: string) => (period ? period.slice(0, 7) : '—')
-
-const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${(v * 100).toFixed(1)}%`)
-
-const providerLabel = (p: string) =>
-  p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : 'демо-режим'
-
-const INDUSTRY_LABELS: Record<string, string> = {
-  saas: 'SaaS',
-  fintech: 'Fintech',
-  ecommerce: 'E-commerce',
-  edtech: 'EdTech',
-  healthtech: 'HealthTech',
-  ai: 'AI/ML',
-  other: 'Другое',
-}
 
 interface BulkRow {
   newUnits: string
@@ -66,6 +52,9 @@ const emptyBulkRow = (): BulkRow => ({
   marketingSpend: '',
   retentionPct: '',
 })
+
+// Required bulk-metrics fields: leaving one empty must NOT silently submit 0
+// (backend rejects arpu with gt=0 → 422). marketingSpend is optional.
 
 const addMonths = (ym: string, n: number): string => {
   if (!ym) return ''
@@ -100,6 +89,7 @@ const scenarioByTab: Record<string, InsightScenario> = {
 }
 
 export const CompanyDetail = () => {
+  const { t } = useTranslation()
   const { companyId } = useParams<{ companyId: string }>()
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
@@ -109,118 +99,136 @@ export const CompanyDetail = () => {
   const [bulkStartMonth, setBulkStartMonth] = useState('')
   const [bulkCount, setBulkCount] = useState(3)
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyBulkRow(), emptyBulkRow(), emptyBulkRow()])
+  const [bulkError, setBulkError] = useState<string | null>(null)
   const [grossMarginPct, setGrossMarginPct] = useState('75')
 
+  const providerLabel = (p: string) =>
+    p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : t('company.providerDemo')
+
+  const INDUSTRY_LABELS: Record<string, string> = {
+    saas: 'SaaS',
+    fintech: 'Fintech',
+    ecommerce: 'E-commerce',
+    edtech: 'EdTech',
+    healthtech: 'HealthTech',
+    ai: 'AI/ML',
+    other: t('common.other'),
+  }
+
+  const REQUIRED_BULK_FIELDS: Array<{ key: keyof BulkRow; label: string }> = [
+    { key: 'newUnits', label: t('company.metrics.newUnits') },
+    { key: 'arpu', label: t('company.metrics.arpu') },
+    { key: 'revenue', label: t('company.metrics.revenue') },
+    { key: 'retentionPct', label: t('company.metrics.retention') },
+  ]
+
   const id = companyId ?? ''
+  const tenantKey = getTenantKey()
 
   const companyQuery = useQuery({
-    queryKey: ['company', id],
-    queryFn: () => companiesApi.get(id),
+    queryKey: qk.company(tenantKey, id),
+    queryFn: ({ signal }) => companiesApi.get(id, { signal }),
     enabled: Boolean(id),
   })
 
   useEffect(() => {
     const gm = companyQuery.data?.grossMargin
-    if (gm != null) setGrossMarginPct(String(Math.round(gm * 100)))
-  }, [companyQuery.data?.grossMargin])
+    setGrossMarginPct(gm != null ? String(Math.round(gm * 100)) : '75')
+  }, [companyQuery.data?.grossMargin, id])
 
   const metricsQuery = useQuery({
-    queryKey: ['company-metrics', id],
-    queryFn: () => companiesApi.metrics(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyMetrics(tenantKey, id),
+    queryFn: ({ signal }) => companiesApi.metrics(id, undefined, { signal }),
+    enabled: Boolean(id) && tab === 'metrics',
   })
 
   const cohortsQuery = useQuery({
-    queryKey: ['company-cohorts', id],
-    queryFn: () => companiesApi.cohorts(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyCohorts(tenantKey, id),
+    queryFn: ({ signal }) => companiesApi.cohorts(id, undefined, { signal }),
+    enabled: Boolean(id) && tab === 'cohorts',
   })
 
   const budgetsQuery = useQuery({
-    queryKey: ['company-budgets', id],
-    queryFn: () => companiesApi.budgets(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyBudgets(tenantKey, id),
+    queryFn: ({ signal }) => companiesApi.budgets(id, undefined, { signal }),
+    enabled: Boolean(id) && tab === 'budget',
   })
 
   const unitEconomicsQuery = useQuery({
-    queryKey: ['company-unit-economics', id],
-    queryFn: () => companiesApi.unitEconomics(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyUnitEconomics(tenantKey, id),
+    queryFn: ({ signal }) => companiesApi.unitEconomics(id, { signal }),
+    enabled: Boolean(id) && tab === 'unit',
   })
 
   const tasksQuery = useQuery({
-    queryKey: ['company-tasks', id],
-    queryFn: () => companiesApi.tasks(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyTasks(tenantKey, id),
+    queryFn: ({ signal }) => companiesApi.tasks(id, { signal }),
+    enabled: Boolean(id) && tab === 'tasks',
   })
 
   const readinessQuery = useQuery({
-    queryKey: ['company-readiness', id],
-    queryFn: () => companiesApi.readiness(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyReadiness(tenantKey, id),
+    queryFn: ({ signal }) => companiesApi.readiness(id, { signal }),
+    enabled: Boolean(id) && tab === 'tasks',
   })
 
   const hiringQuery = useQuery({
-    queryKey: ['company-hiring', id],
-    queryFn: () => hiringApi.plan(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyHiring(tenantKey, id),
+    queryFn: ({ signal }) => hiringApi.plan(id, { signal }),
+    enabled: Boolean(id) && tab === 'hiring',
   })
 
   const hiringSettingsMutation = useMutation({
     mutationFn: (d: HiringSettingsUpsert) => hiringApi.upsertSettings(id, d),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-hiring', id] })
+      queryClient.invalidateQueries({ queryKey: qk.companyHiring(tenantKey, id) })
     },
   })
 
   const pnlQuery = useQuery({
-    queryKey: ['company-pnl', id],
-    queryFn: () => pnlApi.get(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyPnl(tenantKey, id),
+    queryFn: ({ signal }) => pnlApi.get(id, { signal }),
+    enabled: Boolean(id) && tab === 'pnl',
   })
 
   const cashflowQuery = useQuery({
-    queryKey: ['company-cashflow', id],
-    queryFn: () => cashflowApi.get(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyCashflow(tenantKey, id),
+    queryFn: ({ signal }) => cashflowApi.get(id, { signal }),
+    enabled: Boolean(id) && tab === 'cashflow',
   })
 
   const creditQuery = useQuery({
-    queryKey: ['company-credit', id],
-    queryFn: () => creditApi.forecast(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyCredit(tenantKey, id),
+    queryFn: ({ signal }) => creditApi.forecast(id, { signal }),
+    enabled: Boolean(id) && tab === 'credit',
   })
 
   const valuationQuery = useQuery({
-    queryKey: ['company-valuation', id],
-    queryFn: () => valuationApi.get(id),
-    enabled: Boolean(id),
+    queryKey: qk.companyValuation(tenantKey, id),
+    queryFn: ({ signal }) => valuationApi.get(id, { signal }),
+    enabled: Boolean(id) && tab === 'valuation',
   })
 
   const sensitivityQuery = useQuery({
-    queryKey: ['company-sensitivity', id],
-    queryFn: () => sensitivityApi.get(id),
-    enabled: Boolean(id),
+    queryKey: qk.companySensitivity(tenantKey, id),
+    queryFn: ({ signal }) => sensitivityApi.get(id, { signal }),
+    enabled: Boolean(id) && tab === 'sensitivity',
   })
 
   const recalculateMutation = useMutation({
     mutationFn: () => companiesApi.recalculate(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-unit-economics', id] })
-      queryClient.invalidateQueries({ queryKey: ['company-pnl', id] })
-      queryClient.invalidateQueries({ queryKey: ['company-cashflow', id] })
-      queryClient.invalidateQueries({ queryKey: ['company-credit', id] })
-      queryClient.invalidateQueries({ queryKey: ['company-valuation', id] })
-      queryClient.invalidateQueries({ queryKey: ['company-sensitivity', id] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      // Один префиксный вызов покрывает компанию и все её производные запросы.
+      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
+      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
     },
   })
 
   const generatePlanMutation = useMutation({
     mutationFn: () => companiesApi.generatePlan(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-metrics', id] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: qk.companyMetrics(tenantKey, id) })
+      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
     },
   })
 
@@ -238,16 +246,16 @@ export const CompanyDetail = () => {
       return companiesApi.upsertMetricBulk(id, { items })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-metrics', id] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: qk.companyMetrics(tenantKey, id) })
+      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
       setShowForm(false)
     },
   })
 
   const grossMarginMutation = useMutation({
-    mutationFn: (value: number) => companiesApi.update(id, { grossMargin: value / 100 }),
+    mutationFn: (value: number) => companiesApi.update(id, { gross_margin: value / 100 }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company', id] })
+      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
     },
   })
 
@@ -258,6 +266,22 @@ export const CompanyDetail = () => {
 
   const updateRow = (i: number, field: keyof BulkRow, value: string) => {
     setBulkRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)))
+    if (bulkError) setBulkError(null)
+  }
+
+  const handleBulkSave = () => {
+    for (let i = 0; i < bulkRows.length; i++) {
+      const row = bulkRows[i]
+      for (const field of REQUIRED_BULK_FIELDS) {
+        const raw = row[field.key].trim()
+        if (raw === '' || !Number.isFinite(Number(raw))) {
+          setBulkError(t('company.metrics.bulkError', { row: i + 1, field: field.label }))
+          return
+        }
+      }
+    }
+    setBulkError(null)
+    bulkMutation.mutate()
   }
 
   const handleGrossMarginSave = () => {
@@ -270,21 +294,21 @@ export const CompanyDetail = () => {
   const cohortUpsert = useMutation({
     mutationFn: (d: CohortUpsert) => companiesApi.upsertCohort(id, d),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-cohorts', id] })
+      queryClient.invalidateQueries({ queryKey: qk.companyCohorts(tenantKey, id) })
     },
   })
 
   const budgetUpsert = useMutation({
     mutationFn: (d: BudgetUpsert) => companiesApi.upsertBudget(id, d),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-budgets', id] })
+      queryClient.invalidateQueries({ queryKey: qk.companyBudgets(tenantKey, id) })
     },
   })
 
   const invalidateTasks = () => {
-    queryClient.invalidateQueries({ queryKey: ['company-tasks', id] })
-    queryClient.invalidateQueries({ queryKey: ['company-readiness', id] })
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    queryClient.invalidateQueries({ queryKey: qk.companyTasks(tenantKey, id) })
+    queryClient.invalidateQueries({ queryKey: qk.companyReadiness(tenantKey, id) })
+    queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
   }
 
   const createTaskMutation = useMutation({
@@ -322,7 +346,7 @@ export const CompanyDetail = () => {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
-          <p className="text-destructive font-medium">Ошибка загрузки компании</p>
+          <p className="text-destructive font-medium">{t('company.errorLoading')}</p>
           <p className="text-muted-foreground text-sm mt-1">{(companyQuery.error as Error).message}</p>
         </div>
       </div>
@@ -358,8 +382,8 @@ export const CompanyDetail = () => {
             <p className="text-muted-foreground">
               {company?.industry
                 ? INDUSTRY_LABELS[company.industry] ?? company.industry
-                : 'Сфера не указана'}{' '}
-              · {company?.geography || 'Место нахождение не указано'}
+                : t('company.sphereNotSet')}{' '}
+              · {company?.geography || t('company.locationNotSet')}
             </p>
           </div>
         </div>
@@ -371,54 +395,63 @@ export const CompanyDetail = () => {
             disabled={recalculateMutation.isPending}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${recalculateMutation.isPending ? 'animate-spin' : ''}`} />
-            {recalculateMutation.isPending ? 'Пересчёт...' : 'Принудительный пересчёт'}
+            {recalculateMutation.isPending ? t('common.recalculating') : t('common.forceRecalc')}
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => generatePlanMutation.mutate()}
             disabled={!canEdit || generatePlanMutation.isPending}
-            title={!canEdit ? 'Недостаточно прав' : 'Сгенерировать план метрик на основе фактов'}
+            title={!canEdit ? t('company.insufficientRights') : t('company.generatePlanTitle')}
           >
             <Sparkles className={`w-4 h-4 mr-2 ${generatePlanMutation.isPending ? 'animate-spin' : ''}`} />
-            {generatePlanMutation.isPending ? 'Генерация...' : 'Сгенерировать план AI'}
+            {generatePlanMutation.isPending ? t('company.generating') : t('company.generatePlan')}
           </Button>
         </div>
       </div>
 
       {generatePlanMutation.data && (
         <div className="text-sm text-muted-foreground bg-muted/40 border border-border rounded-lg px-4 py-2">
-          План на {generatePlanMutation.data.metrics.length} мес. сгенерирован ({providerLabel(generatePlanMutation.data.provider)}).
+          {t('company.planGenerated', {
+            count: generatePlanMutation.data.metrics.length,
+            provider: providerLabel(generatePlanMutation.data.provider),
+          })}
         </div>
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="metrics">Метрики</TabsTrigger>
-          <TabsTrigger value="cohorts">Когорты</TabsTrigger>
-          <TabsTrigger value="budget">Бюджет</TabsTrigger>
-          <TabsTrigger value="unit">Юнит-экономика</TabsTrigger>
-          <TabsTrigger value="tasks">Задачи</TabsTrigger>
-          <TabsTrigger value="market">Рынок</TabsTrigger>
-          <TabsTrigger value="hiring">Найм</TabsTrigger>
-          <TabsTrigger value="pnl">P&amp;L</TabsTrigger>
-          <TabsTrigger value="cashflow">Cash Flow</TabsTrigger>
-          <TabsTrigger value="credit">Кредиты</TabsTrigger>
-          <TabsTrigger value="valuation">Оценка</TabsTrigger>
-          <TabsTrigger value="sensitivity">Чувствительность</TabsTrigger>
-          <TabsTrigger value="reports">Отчёты</TabsTrigger>
+          <TabsTrigger value="metrics">{t('company.tabs.metrics')}</TabsTrigger>
+          <TabsTrigger value="cohorts">{t('company.tabs.cohorts')}</TabsTrigger>
+          <TabsTrigger value="budget">{t('company.tabs.budget')}</TabsTrigger>
+          <TabsTrigger value="unit">{t('company.tabs.unit')}</TabsTrigger>
+          <TabsTrigger value="tasks">{t('company.tabs.tasks')}</TabsTrigger>
+          <TabsTrigger value="market">{t('company.tabs.market')}</TabsTrigger>
+          <TabsTrigger value="hiring">{t('company.tabs.hiring')}</TabsTrigger>
+          <TabsTrigger value="pnl">{t('company.tabs.pnl')}</TabsTrigger>
+          <TabsTrigger value="cashflow">{t('company.tabs.cashflow')}</TabsTrigger>
+          <TabsTrigger value="credit">{t('company.tabs.credit')}</TabsTrigger>
+          <TabsTrigger value="valuation">{t('company.tabs.valuation')}</TabsTrigger>
+          <TabsTrigger value="sensitivity">{t('company.tabs.sensitivity')}</TabsTrigger>
+          <TabsTrigger value="reports">{t('company.tabs.reports')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
+          <QueryState
+            isLoading={metricsQuery.isLoading}
+            isError={metricsQuery.isError}
+            error={metricsQuery.error}
+            onRetry={() => metricsQuery.refetch()}
+          >
           <Card className="border bg-card/50">
             <CardContent className="p-5">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                <h3 className="font-semibold text-foreground">Метрики — План vs Факт</h3>
+                <h3 className="font-semibold text-foreground">{t('company.metrics.title')}</h3>
                 <div className="flex flex-wrap items-center gap-3">
                   {canEdit && (
                     <div className="flex items-center gap-2">
                       <label className="text-sm text-muted-foreground whitespace-nowrap">
-                        Валовая маржа (Gross Margin, %)
+                        {t('company.metrics.grossMargin')}
                       </label>
                       <Input
                         type="number"
@@ -426,7 +459,7 @@ export const CompanyDetail = () => {
                         max="100"
                         step="0.5"
                         className="w-20"
-                        aria-label="Валовая маржа (Gross Margin, %)"
+                        aria-label={t('company.metrics.grossMargin')}
                         value={grossMarginPct}
                         onChange={(e) => setGrossMarginPct(e.target.value)}
                       />
@@ -436,14 +469,14 @@ export const CompanyDetail = () => {
                         onClick={handleGrossMarginSave}
                         disabled={grossMarginMutation.isPending}
                       >
-                        {grossMarginMutation.isPending ? 'Сохранение...' : 'Сохранить'}
+                        {grossMarginMutation.isPending ? t('common.saving') : t('common.save')}
                       </Button>
                     </div>
                   )}
                   {canEdit && (
                     <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Добавить метрику
+                      {t('company.metrics.addMetric')}
                     </Button>
                   )}
                 </div>
@@ -453,37 +486,37 @@ export const CompanyDetail = () => {
                 <div className="mb-6 p-4 border border-border rounded-lg bg-muted/30">
                   <div className="flex flex-wrap items-end gap-3 mb-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Тип</span>
+                      <span className="text-xs text-muted-foreground">{t('common.type')}</span>
                       <div className="flex rounded-md border border-input overflow-hidden">
-                        {(['plan', 'fact'] as const).map((t) => (
+                        {(['plan', 'fact'] as const).map((t2) => (
                           <button
-                            key={t}
+                            key={t2}
                             type="button"
-                            onClick={() => setBulkType(t)}
+                            onClick={() => setBulkType(t2)}
                             className={`h-10 px-4 text-sm font-medium transition-colors ${
-                              bulkType === t
+                              bulkType === t2
                                 ? 'bg-primary text-primary-foreground'
                                 : 'bg-background text-muted-foreground hover:bg-muted'
                             }`}
                           >
-                            {t === 'plan' ? 'План' : 'Факт'}
+                            {t2 === 'plan' ? t('common.plan') : t('common.fact')}
                           </button>
                         ))}
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Стартовый месяц</span>
+                      <span className="text-xs text-muted-foreground">{t('company.metrics.startMonth')}</span>
                       <Input
                         type="month"
-                        aria-label="Стартовый месяц"
+                        aria-label={t('company.metrics.startMonth')}
                         value={bulkStartMonth}
                         onChange={(e) => setBulkStartMonth(e.target.value)}
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Месяцев</span>
+                      <span className="text-xs text-muted-foreground">{t('company.metrics.months')}</span>
                       <select
-                        aria-label="Месяцев"
+                        aria-label={t('company.metrics.months')}
                         value={bulkCount}
                         onChange={(e) => handleCountChange(Number(e.target.value))}
                         className="h-10 rounded-md border border-input bg-background px-3 text-sm"
@@ -501,15 +534,15 @@ export const CompanyDetail = () => {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border text-muted-foreground">
-                          <th className="text-left font-medium px-2 py-2">Месяц</th>
-                          <th className="text-left font-medium px-2 py-2">Новые юниты</th>
-                          <th className="text-left font-medium px-2 py-2">ARPU (₽)</th>
-                          <th className="text-left font-medium px-2 py-2">Выручка (₽)</th>
-                          <th className="text-left font-medium px-2 py-2">Маркетинг (₽)</th>
-                          <th className="text-left font-medium px-2 py-2">Retention %</th>
-                          <th className="text-left font-medium px-2 py-2">LTV (₽)</th>
-                          <th className="text-left font-medium px-2 py-2">CAC (₽)</th>
-                          <th className="text-left font-medium px-2 py-2">Churn %</th>
+                          <th className="text-left font-medium px-2 py-2">{t('common.month')}</th>
+                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.newUnits')}</th>
+                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.arpuRub')}</th>
+                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.revenueRub')}</th>
+                          <th className="text-left font-medium px-2 py-2">{t('common.marketingRub')}</th>
+                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.retention')}</th>
+                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.ltvRub')}</th>
+                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.cacRub')}</th>
+                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.churn')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -524,7 +557,7 @@ export const CompanyDetail = () => {
                                 <Input
                                   type="number"
                                   min="0"
-                                  aria-label={`Новые юниты ${i + 1}`}
+                                  aria-label={t('company.metrics.rowNewUnits', { row: i + 1 })}
                                   value={r.newUnits}
                                   onChange={(e) => updateRow(i, 'newUnits', e.target.value)}
                                 />
@@ -533,7 +566,7 @@ export const CompanyDetail = () => {
                                 <Input
                                   type="number"
                                   min="0"
-                                  aria-label={`ARPU ${i + 1}`}
+                                  aria-label={t('company.metrics.rowArpu', { row: i + 1 })}
                                   value={r.arpu}
                                   onChange={(e) => updateRow(i, 'arpu', e.target.value)}
                                 />
@@ -542,7 +575,7 @@ export const CompanyDetail = () => {
                                 <Input
                                   type="number"
                                   min="0"
-                                  aria-label={`Выручка ${i + 1}`}
+                                  aria-label={t('company.metrics.rowRevenue', { row: i + 1 })}
                                   value={r.revenue}
                                   onChange={(e) => updateRow(i, 'revenue', e.target.value)}
                                 />
@@ -551,7 +584,7 @@ export const CompanyDetail = () => {
                                 <Input
                                   type="number"
                                   min="0"
-                                  aria-label={`Маркетинг ${i + 1}`}
+                                  aria-label={t('company.metrics.rowMarketing', { row: i + 1 })}
                                   value={r.marketingSpend}
                                   onChange={(e) => updateRow(i, 'marketingSpend', e.target.value)}
                                 />
@@ -562,7 +595,7 @@ export const CompanyDetail = () => {
                                   min="0"
                                   max="100"
                                   step="0.1"
-                                  aria-label={`Retention % ${i + 1}`}
+                                  aria-label={t('company.metrics.rowRetention', { row: i + 1 })}
                                   value={r.retentionPct}
                                   onChange={(e) => updateRow(i, 'retentionPct', e.target.value)}
                                 />
@@ -583,16 +616,26 @@ export const CompanyDetail = () => {
                     </table>
                   </div>
 
+                  {bulkError && (
+                    <p role="alert" className="mt-3 text-sm text-destructive">
+                      {bulkError}
+                    </p>
+                  )}
+                  {bulkMutation.isError && (
+                    <p role="alert" className="mt-3 text-sm text-destructive">
+                      {normalizeApiError(bulkMutation.error).message}
+                    </p>
+                  )}
                   <div className="mt-3 flex gap-2">
                     <Button
                       size="sm"
                       disabled={!bulkValid || bulkMutation.isPending}
-                      onClick={() => bulkMutation.mutate()}
+                      onClick={handleBulkSave}
                     >
-                      {bulkMutation.isPending ? 'Сохранение...' : 'Сохранить метрики'}
+                      {bulkMutation.isPending ? t('common.saving') : t('company.metrics.saveMetrics')}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
-                      Отмена
+                      {t('common.cancel')}
                     </Button>
                   </div>
                 </div>
@@ -601,15 +644,15 @@ export const CompanyDetail = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
-                    <th className="text-left font-medium px-4 py-3">Период</th>
-                    <th className="text-left font-medium px-4 py-3">Выручка план</th>
-                    <th className="text-left font-medium px-4 py-3">Выручка факт</th>
-                    <th className="text-left font-medium px-4 py-3">Отклонение</th>
+                    <th className="text-left font-medium px-4 py-3">{t('common.period')}</th>
+                    <th className="text-left font-medium px-4 py-3">{t('company.metrics.revenuePlan')}</th>
+                    <th className="text-left font-medium px-4 py-3">{t('company.metrics.revenueFact')}</th>
+                    <th className="text-left font-medium px-4 py-3">{t('company.metrics.deviation')}</th>
                     <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">
-                      Новые юниты факт
+                      {t('company.metrics.newUnitsFact')}
                     </th>
                     <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">
-                      Retention факт
+                      {t('company.metrics.retentionFact')}
                     </th>
                   </tr>
                 </thead>
@@ -668,7 +711,7 @@ export const CompanyDetail = () => {
                   {rows.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                        Метрики ещё не добавлены.
+                        {t('company.metrics.empty')}
                       </td>
                     </tr>
                   )}
@@ -676,34 +719,67 @@ export const CompanyDetail = () => {
               </table>
             </CardContent>
           </Card>
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="cohorts">
+          <QueryState
+            isLoading={cohortsQuery.isLoading}
+            isError={cohortsQuery.isError}
+            error={cohortsQuery.error}
+            onRetry={() => cohortsQuery.refetch()}
+          >
           <CohortsTab
             cohorts={cohorts}
             canEdit={canEdit}
             onSubmit={(d) => cohortUpsert.mutate(d)}
             isPending={cohortUpsert.isPending}
           />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="budget">
+          <QueryState
+            isLoading={budgetsQuery.isLoading}
+            isError={budgetsQuery.isError}
+            error={budgetsQuery.error}
+            onRetry={() => budgetsQuery.refetch()}
+          >
           <BudgetTab
             budgets={budgets}
             canEdit={canEdit}
             onSubmit={(d) => budgetUpsert.mutate(d)}
             isPending={budgetUpsert.isPending}
           />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="unit">
+          <QueryState
+            isLoading={unitEconomicsQuery.isLoading}
+            isError={unitEconomicsQuery.isError}
+            error={unitEconomicsQuery.error}
+            onRetry={() => unitEconomicsQuery.refetch()}
+            isEmpty={unitEconomicsQuery.data == null}
+            emptyText={t('company.unit.empty')}
+          >
           <UnitEconomicsTab
             data={unitEconomics}
             isLoading={unitEconomicsQuery.isLoading}
           />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="tasks">
+          <QueryState
+            isLoading={tasksQuery.isLoading || readinessQuery.isLoading}
+            isError={tasksQuery.isError || readinessQuery.isError}
+            error={tasksQuery.error ?? readinessQuery.error}
+            onRetry={() => {
+              tasksQuery.refetch()
+              readinessQuery.refetch()
+            }}
+          >
           <TasksTab
             tasks={tasks}
             readiness={readiness}
@@ -713,17 +789,33 @@ export const CompanyDetail = () => {
             onDelete={(taskId) => deleteTaskMutation.mutate(taskId)}
             isPending={createTaskMutation.isPending}
           />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="market">
+          <QueryState
+            isLoading={marketMutation.isPending}
+            isError={marketMutation.isError}
+            error={marketMutation.error}
+            onRetry={() => marketMutation.reset()}
+          >
           <MarketTab
             data={marketMutation.data ?? null}
             isLoading={marketMutation.isPending}
             onAnalyze={(req) => marketMutation.mutate(req)}
           />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="hiring">
+          <QueryState
+            isLoading={hiringQuery.isLoading}
+            isError={hiringQuery.isError}
+            error={hiringQuery.error}
+            onRetry={() => hiringQuery.refetch()}
+            isEmpty={hiringQuery.data == null}
+            emptyText={t('company.hiring.empty')}
+          >
           <HiringTab
             data={hiringQuery.data}
             isLoading={hiringQuery.isLoading}
@@ -733,39 +825,87 @@ export const CompanyDetail = () => {
             onGenerate={() => hiringQuery.refetch()}
             onSaveSettings={(d) => hiringSettingsMutation.mutate(d)}
           />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="pnl">
+          <QueryState
+            isLoading={pnlQuery.isLoading}
+            isError={pnlQuery.isError}
+            error={pnlQuery.error}
+            onRetry={() => pnlQuery.refetch()}
+            isEmpty={pnlQuery.data == null}
+            emptyText={t('company.pnl.empty')}
+          >
           <PnLTab data={pnlQuery.data} isLoading={pnlQuery.isLoading} />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="cashflow">
+          <QueryState
+            isLoading={cashflowQuery.isLoading}
+            isError={cashflowQuery.isError}
+            error={cashflowQuery.error}
+            onRetry={() => cashflowQuery.refetch()}
+            isEmpty={cashflowQuery.data == null}
+            emptyText={t('company.cashflow.empty')}
+          >
           <CashFlowTab
             data={cashflowQuery.data}
             isLoading={cashflowQuery.isLoading}
           />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="credit">
+          <QueryState
+            isLoading={creditQuery.isLoading}
+            isError={creditQuery.isError}
+            error={creditQuery.error}
+            onRetry={() => creditQuery.refetch()}
+            isEmpty={creditQuery.data == null}
+            emptyText={t('company.credit.empty')}
+          >
           <CreditTab data={creditQuery.data} isLoading={creditQuery.isLoading} />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="valuation">
+          <QueryState
+            isLoading={valuationQuery.isLoading}
+            isError={valuationQuery.isError}
+            error={valuationQuery.error}
+            onRetry={() => valuationQuery.refetch()}
+            isEmpty={valuationQuery.data == null}
+            emptyText={t('company.valuation.empty')}
+          >
           <ValuationTab
             data={valuationQuery.data}
             isLoading={valuationQuery.isLoading}
           />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="sensitivity">
+          <QueryState
+            isLoading={sensitivityQuery.isLoading}
+            isError={sensitivityQuery.isError}
+            error={sensitivityQuery.error}
+            onRetry={() => sensitivityQuery.refetch()}
+            isEmpty={sensitivityQuery.data == null}
+            emptyText={t('company.sensitivity.empty')}
+          >
           <SensitivityTab
             data={sensitivityQuery.data}
             isLoading={sensitivityQuery.isLoading}
           />
+          </QueryState>
         </TabsContent>
 
         <TabsContent value="reports">
+          <QueryState>
           <ReportsTab companyId={id} />
+          </QueryState>
         </TabsContent>
       </Tabs>
 

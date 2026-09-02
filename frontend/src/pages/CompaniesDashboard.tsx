@@ -1,45 +1,20 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { dashboardApi, companiesApi } from '../api/companies'
+import { getTenantKey } from '../auth/authSession'
+import { qk } from '../lib/queryKeys'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Building2, TrendingUp, CircleCheck, AlertTriangle, Plus, AlertCircle, RefreshCw } from 'lucide-react'
-
-const statusMap: Record<string, { label: string; className: string }> = {
-  on_track: { label: 'Выполняет план', className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
-  behind: { label: 'Отстаёт', className: 'bg-destructive/10 text-destructive border-destructive/20' },
-  no_plan: { label: 'Без плана', className: 'bg-muted text-muted-foreground border-border' },
-  no_data: { label: 'Нет данных', className: 'bg-muted text-muted-foreground border-border' },
-}
-
-const INDUSTRY_LABELS: Record<string, string> = {
-  saas: 'SaaS',
-  fintech: 'Fintech',
-  ecommerce: 'E-commerce',
-  edtech: 'EdTech',
-  healthtech: 'HealthTech',
-  ai: 'AI/ML',
-  other: 'Другое',
-}
-
-const INDUSTRY_OPTIONS = Object.entries(INDUSTRY_LABELS)
-
-const LOCATION_SUGGESTIONS = [
-  'Россия',
-  'Казахстан',
-  'Глобальный рынок',
-  'Москва',
-  'Санкт-Петербург',
-  'Алматы',
-]
-
-const fmtRub = (v: number | null) => (v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`)
+import { QueryState } from '@/components/common/QueryState'
+import { fmtRub } from '@/lib/format'
+import { Building2, TrendingUp, CircleCheck, AlertTriangle, Plus, RefreshCw } from 'lucide-react'
 
 export const CompaniesDashboard = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
@@ -47,17 +22,46 @@ export const CompaniesDashboard = () => {
   const [industry, setIndustry] = useState('')
   const [geography, setGeography] = useState('')
 
+  const statusMap: Record<string, { label: string; className: string }> = {
+    on_track: { label: t('dashboard.status.onTrack'), className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
+    behind: { label: t('dashboard.status.behind'), className: 'bg-destructive/10 text-destructive border-destructive/20' },
+    no_plan: { label: t('dashboard.status.noPlan'), className: 'bg-muted text-muted-foreground border-border' },
+    no_data: { label: t('dashboard.status.noData'), className: 'bg-muted text-muted-foreground border-border' },
+  }
+
+  const INDUSTRY_LABELS: Record<string, string> = {
+    saas: 'SaaS',
+    fintech: 'Fintech',
+    ecommerce: 'E-commerce',
+    edtech: 'EdTech',
+    healthtech: 'HealthTech',
+    ai: 'AI/ML',
+    other: t('common.other'),
+  }
+
+  const INDUSTRY_OPTIONS = Object.entries(INDUSTRY_LABELS)
+
+  const LOCATION_SUGGESTIONS = [
+    t('common.geo.ru'),
+    t('common.geo.kz'),
+    t('common.geo.global'),
+    t('dashboard.locations.moscow'),
+    t('dashboard.locations.spb'),
+    t('dashboard.locations.almaty'),
+  ]
+
+  const tenantKey = getTenantKey()
+
   const { data, isLoading, error, isFetching, refetch } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: dashboardApi.get,
+    queryKey: qk.dashboard(tenantKey),
+    queryFn: ({ signal }) => dashboardApi.get({ signal }),
   })
 
   const createMutation = useMutation({
     mutationFn: (payload: { name: string; industry?: string; geography?: string }) =>
       companiesApi.create(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      queryClient.invalidateQueries({ queryKey: ['companies'] })
+      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
       setShowForm(false)
       setName('')
       setIndustry('')
@@ -65,64 +69,39 @@ export const CompaniesDashboard = () => {
     },
   })
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6 p-4 sm:p-6">
-        <Skeleton className="h-8 w-56" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="border bg-card/50">
-              <CardContent className="p-5">
-                <Skeleton className="h-4 w-16 mb-3" />
-                <Skeleton className="h-7 w-28" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <Skeleton className="h-64 w-full" />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
-          <p className="text-destructive font-medium">Ошибка загрузки портфеля</p>
-          <p className="text-muted-foreground text-sm mt-1">{(error as Error).message || 'Попробуйте обновить страницу'}</p>
-        </div>
-      </div>
-    )
-  }
-
   const total = data?.totalCompanies ?? 0
   const onTrack = data?.onTrack ?? 0
   const behind = data?.behind ?? 0
   const onTrackPct = total > 0 ? Math.round((onTrack / total) * 100) : 0
 
   const cards = [
-    { title: 'Компании в портфеле', value: String(total), icon: Building2 },
-    { title: 'Средняя выручка', value: fmtRub(data?.avgRevenue ?? null), icon: TrendingUp },
-    { title: 'Выполняют план', value: `${onTrackPct}%`, icon: CircleCheck },
-    { title: 'Отстают', value: String(behind), icon: AlertTriangle },
+    { title: t('dashboard.cards.companies'), value: String(total), icon: Building2 },
+    { title: t('dashboard.cards.avgRevenue'), value: fmtRub(data?.avgRevenue ?? null), icon: TrendingUp },
+    { title: t('dashboard.cards.onTrack'), value: `${onTrackPct}%`, icon: CircleCheck },
+    { title: t('dashboard.cards.behind'), value: String(behind), icon: AlertTriangle },
   ]
 
   return (
+    <QueryState
+      isLoading={isLoading}
+      isError={Boolean(error)}
+      error={error}
+      onRetry={() => refetch()}
+    >
     <div className="space-y-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Портфель компаний</h1>
-          <p className="text-muted-foreground">Обзор всех стартапов акселератора</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('dashboard.title')}</h1>
+          <p className="text-muted-foreground">{t('dashboard.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-            {isFetching ? 'Пересчёт...' : 'Принудительный пересчёт'}
+            {isFetching ? t('common.recalculating') : t('common.forceRecalc')}
           </Button>
           <Button size="sm" onClick={() => setShowForm(!showForm)}>
             <Plus className="w-4 h-4 mr-2" />
-            Добавить компанию
+            {t('dashboard.addCompany')}
           </Button>
         </div>
       </div>
@@ -132,17 +111,17 @@ export const CompaniesDashboard = () => {
           <CardContent className="p-5">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input
-                placeholder="Название компании"
+                placeholder={t('dashboard.companyName')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <select
-                aria-label="Сфера деятельности"
+                aria-label={t('dashboard.sphere')}
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="">Выберите сферу</option>
+                <option value="">{t('dashboard.selectSphere')}</option>
                 {INDUSTRY_OPTIONS.map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
@@ -151,8 +130,8 @@ export const CompaniesDashboard = () => {
               </select>
               <input
                 list="locations"
-                aria-label="Место нахождение"
-                placeholder="Место нахождение"
+                aria-label={t('dashboard.location')}
+                placeholder={t('dashboard.location')}
                 value={geography}
                 onChange={(e) => setGeography(e.target.value)}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -169,10 +148,10 @@ export const CompaniesDashboard = () => {
                 disabled={!name.trim() || createMutation.isPending}
                 onClick={() => createMutation.mutate({ name, industry, geography })}
               >
-                {createMutation.isPending ? 'Создание...' : 'Создать'}
+                {createMutation.isPending ? t('dashboard.creating') : t('dashboard.create')}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
-                Отмена
+                {t('common.cancel')}
               </Button>
             </div>
           </CardContent>
@@ -202,12 +181,12 @@ export const CompaniesDashboard = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-muted-foreground">
-                <th className="text-left font-medium px-5 py-3">Компания</th>
-                <th className="text-left font-medium px-5 py-3 hidden sm:table-cell">Сфера</th>
-                <th className="text-left font-medium px-5 py-3">Выручка (факт)</th>
-                <th className="text-left font-medium px-5 py-3 hidden md:table-cell">Выручка (план)</th>
-                <th className="text-left font-medium px-5 py-3">Прогресс задач</th>
-                <th className="text-left font-medium px-5 py-3">Статус</th>
+                <th className="text-left font-medium px-5 py-3">{t('dashboard.table.company')}</th>
+                <th className="text-left font-medium px-5 py-3 hidden sm:table-cell">{t('dashboard.table.sphere')}</th>
+                <th className="text-left font-medium px-5 py-3">{t('dashboard.table.revenueFact')}</th>
+                <th className="text-left font-medium px-5 py-3 hidden md:table-cell">{t('dashboard.table.revenuePlan')}</th>
+                <th className="text-left font-medium px-5 py-3">{t('dashboard.table.taskProgress')}</th>
+                <th className="text-left font-medium px-5 py-3">{t('dashboard.table.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -237,7 +216,7 @@ export const CompaniesDashboard = () => {
               {(data?.companies ?? []).length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
-                    Пока нет компаний. Добавьте первую компанию.
+                    {t('dashboard.empty')}
                   </td>
                 </tr>
               )}
@@ -246,5 +225,6 @@ export const CompaniesDashboard = () => {
         </CardContent>
       </Card>
     </div>
+    </QueryState>
   )
 }

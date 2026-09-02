@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../store/authStore'
+import { logout } from '../auth/authSession'
 import { subscriptionApi } from '../api/subscription'
 import type { PlanResponse } from '@/types/api'
 import { User, CreditCard, LogOut, CheckCircle2, Loader2 } from 'lucide-react'
@@ -7,16 +9,17 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
-const fmtPrice = (v: number | null) =>
-  v == null ? 'Индивидуально' : v === 0 ? 'Бесплатно' : `₽${v.toLocaleString('ru-RU')}/мес`
-
-const fmtAiLimit = (v: number | null) =>
-  v == null ? 'Безлимит AI' : `${v} AI-отчёт(ов)/мес`
-
 export const Settings = () => {
-  const { user, logout } = useAuthStore()
+  const { t } = useTranslation()
+  const { user } = useAuthStore()
   const [plans, setPlans] = useState<PlanResponse[]>([])
   const [plansLoading, setPlansLoading] = useState(true)
+
+  const fmtPrice = (v: number | null) =>
+    v == null ? t('settings.individual') : v === 0 ? t('settings.free') : t('settings.perMonth', { price: v.toLocaleString('ru-RU') })
+
+  const fmtAiLimit = (v: number | null) =>
+    v == null ? t('settings.unlimitedAi') : t('settings.aiReports', { count: v })
 
   useEffect(() => {
     subscriptionApi
@@ -28,19 +31,19 @@ export const Settings = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Настройки</h1>
+      <h1 className="text-2xl font-bold text-foreground">{t('settings.title')}</h1>
 
       {/* Профиль */}
       <Card className="border">
         <CardContent className="p-6">
           <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
             <User className="w-5 h-5" />
-            Профиль
+            {t('settings.profile')}
           </h3>
           <div className="space-y-2 text-muted-foreground">
-            <p><span className="text-sm text-muted-foreground">Email:</span> {user?.email}</p>
-            <p><span className="text-sm text-muted-foreground">Компания:</span> {user?.companyName || 'Не указана'}</p>
-            <p><span className="text-sm text-muted-foreground">Имя:</span> {user?.fullName || 'Не указано'}</p>
+            <p><span className="text-sm text-muted-foreground">{t('settings.email')}</span> {user?.email}</p>
+            <p><span className="text-sm text-muted-foreground">{t('settings.company')}</span> {user?.companyName || t('settings.notSpecified')}</p>
+            <p><span className="text-sm text-muted-foreground">{t('settings.name')}</span> {user?.fullName || t('settings.notSpecifiedM')}</p>
           </div>
         </CardContent>
       </Card>
@@ -50,13 +53,13 @@ export const Settings = () => {
         <CardContent className="p-6">
           <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
             <CreditCard className="w-5 h-5" />
-            Подписка
+            {t('settings.subscription')}
           </h3>
 
           {plansLoading ? (
             <div className="flex items-center gap-2 text-muted-foreground py-6">
               <Loader2 className="w-4 h-4 animate-spin" />
-              Загрузка тарифов...
+              {t('settings.loadingPlans')}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -74,12 +77,12 @@ export const Settings = () => {
                     <p className="text-sm text-muted-foreground">{fmtAiLimit(plan.aiReportsLimit)}</p>
                     <p className="text-sm font-bold text-foreground mt-1">{fmtPrice(plan.price)}</p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      До {plan.companyLimit ?? '∞'} компаний
+                      {t('settings.companiesUpTo', { count: plan.companyLimit ?? '∞' })}
                     </p>
                     {user?.subscriptionPlan === plan.id ? (
                       <Badge variant="default" className="mt-2">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Активен
+                        {t('settings.active')}
                       </Badge>
                     ) : null}
                   </CardContent>
@@ -92,7 +95,7 @@ export const Settings = () => {
             <div className="flex items-center justify-between p-3 bg-card/50 rounded-lg mt-4">
               <div>
                 <p className="text-sm text-muted-foreground">
-                  Использовано сегодня: {user.usedToday} / {user.dailyLimit ?? '∞'}
+                  {t('settings.usedToday', { used: user.usedToday, limit: user.dailyLimit ?? '∞' })}
                 </p>
               </div>
               {user.dailyLimit != null && (
@@ -117,7 +120,7 @@ export const Settings = () => {
         onClick={logout}
       >
         <LogOut />
-        Выйти
+        {t('common.logout')}
       </Button>
     </div>
   )

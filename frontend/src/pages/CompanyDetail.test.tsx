@@ -73,8 +73,8 @@ const sensitivityApiMock = vi.hoisted(() => ({
 
 vi.mock('@/api/sensitivity', () => ({ sensitivityApi: sensitivityApiMock }))
 
-vi.mock('@/store/authStore', () => ({
-  useAuthStore: () => ({
+vi.mock('@/store/authStore', () => {
+  const buildState = () => ({
     user: {
       id: 'u1',
       email: 'a@b.c',
@@ -87,8 +87,11 @@ vi.mock('@/store/authStore', () => ({
       dailyLimit: 10,
       usedToday: 0,
     },
-  }),
-}))
+  })
+  // Мок должен поддерживать и hook-вызов, и getState() для getTenantKey().
+  const useAuthStore = Object.assign(buildState, { getState: buildState })
+  return { useAuthStore }
+})
 
 const company = {
   id: 'comp1',
@@ -404,6 +407,7 @@ function renderCompanyDetail() {
 
 describe('CompanyDetail', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     mocks.role = 'admin'
     mocks.companiesApi.get.mockResolvedValue(company)
     mocks.companiesApi.metrics.mockResolvedValue([metric])
@@ -447,21 +451,70 @@ describe('CompanyDetail', () => {
     expect(screen.queryByText('Когортный анализ — План vs Факт')).not.toBeInTheDocument()
   })
 
+  it('fetches only the company and active-tab queries on mount', async () => {
+    renderCompanyDetail()
+    await screen.findByRole('tab', { name: 'Метрики' })
+
+    await waitFor(() => expect(mocks.companiesApi.get).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(mocks.companiesApi.metrics).toHaveBeenCalledTimes(1))
+
+    expect(mocks.companiesApi.cohorts).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.budgets).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.unitEconomics).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.tasks).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.readiness).not.toHaveBeenCalled()
+    expect(hiringApiMock.plan).not.toHaveBeenCalled()
+    expect(pnlApiMock.get).not.toHaveBeenCalled()
+    expect(cashflowApiMock.get).not.toHaveBeenCalled()
+    expect(creditApiMock.forecast).not.toHaveBeenCalled()
+    expect(valuationApiMock.get).not.toHaveBeenCalled()
+    expect(sensitivityApiMock.get).not.toHaveBeenCalled()
+    expect(marketApiMock.analyze).not.toHaveBeenCalled()
+  })
+
+  it('forwards React Query AbortSignal to the api functions', async () => {
+    renderCompanyDetail()
+    await screen.findByRole('tab', { name: 'Метрики' })
+
+    await waitFor(() => expect(mocks.companiesApi.get).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(mocks.companiesApi.metrics).toHaveBeenCalledTimes(1))
+
+    const getCall = mocks.companiesApi.get.mock.calls[0]
+    expect(getCall[0]).toBe('comp1')
+    expect(getCall[1].signal).toBeInstanceOf(AbortSignal)
+
+    const metricsCall = mocks.companiesApi.metrics.mock.calls[0]
+    expect(metricsCall[0]).toBe('comp1')
+    expect(metricsCall[2].signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('defers a tab query until its tab becomes active', async () => {
+    renderCompanyDetail()
+    await screen.findByRole('tab', { name: 'Метрики' })
+
+    expect(mocks.companiesApi.cohorts).not.toHaveBeenCalled()
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Когорты' }))
+    await waitFor(() => expect(mocks.companiesApi.cohorts).toHaveBeenCalledTimes(1))
+
+    expect(mocks.companiesApi.budgets).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.unitEconomics).not.toHaveBeenCalled()
+  })
+
   it('switches to cohorts tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Когорты' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Когорты' }))
     expect(await screen.findByText('Когортный анализ — матрица удержания M1–M12')).toBeInTheDocument()
   })
 
   it('switches to budget tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Бюджет' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Бюджет' }))
     expect(await screen.findByText('Бюджет — План vs Факт')).toBeInTheDocument()
   })
 
   it('switches to unit economics tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Юнит-экономика' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Юнит-экономика' }))
     expect(await screen.findByText('LTV/CAC')).toBeInTheDocument()
     expect(screen.getByText('Magic Number')).toBeInTheDocument()
     expect(screen.getByText('80.0%')).toBeInTheDocument()
@@ -469,27 +522,27 @@ describe('CompanyDetail', () => {
 
   it('switches to tasks tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Задачи' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Задачи' }))
     expect(await screen.findByText('Готовность к продаже')).toBeInTheDocument()
     expect(screen.getByText('Подготовить метрики')).toBeInTheDocument()
   })
 
   it('switches to market tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Рынок' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Рынок' }))
     expect(await screen.findByText('Внешний анализ рынка')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Анализировать' })).toBeInTheDocument()
   })
 
   it('switches to hiring tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Найм' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Найм' }))
     expect(await screen.findByText('Прогноз найма')).toBeInTheDocument()
   })
 
   it('switches to pnl tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'P&L' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'P&L' }))
     expect(
       await screen.findByText('P&L — Отчёт о прибылях и убытках'),
     ).toBeInTheDocument()
@@ -497,7 +550,7 @@ describe('CompanyDetail', () => {
 
   it('switches to cashflow tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Cash Flow' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Cash Flow' }))
     expect(
       await screen.findByText('Cash Flow — Движение денежных средств'),
     ).toBeInTheDocument()
@@ -505,7 +558,7 @@ describe('CompanyDetail', () => {
 
   it('switches to credit tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Кредиты' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Кредиты' }))
     expect(
       await screen.findByText('Кредиты — умное прогнозирование'),
     ).toBeInTheDocument()
@@ -513,7 +566,7 @@ describe('CompanyDetail', () => {
 
   it('switches to valuation tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Оценка' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Оценка' }))
     expect(
       await screen.findByText('Оценка бизнеса — модель Гордона'),
     ).toBeInTheDocument()
@@ -521,7 +574,7 @@ describe('CompanyDetail', () => {
 
   it('switches to sensitivity tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Чувствительность' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Чувствительность' }))
     expect(
       await screen.findByText('Анализ чувствительности — консервативный сценарий'),
     ).toBeInTheDocument()
@@ -529,7 +582,7 @@ describe('CompanyDetail', () => {
 
   it('switches to reports tab on click', async () => {
     renderCompanyDetail()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Отчёты' }))
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Отчёты' }))
     expect(await screen.findByText('Отчёты для инвесторов')).toBeInTheDocument()
   })
 
@@ -553,10 +606,10 @@ describe('CompanyDetail', () => {
     await screen.findByRole('tab', { name: 'Метрики' })
     expect(screen.queryByRole('button', { name: /Добавить метрику/ })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Когорты' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Когорты' }))
     expect(screen.queryByRole('button', { name: /Добавить когорту/ })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Бюджет' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Бюджет' }))
     expect(screen.queryByRole('button', { name: /Добавить бюджет/ })).not.toBeInTheDocument()
   })
 
@@ -576,6 +629,11 @@ describe('CompanyDetail', () => {
     fireEvent.change(screen.getByLabelText('Маркетинг 1'), { target: { value: '1000' } })
     fireEvent.change(screen.getByLabelText('Retention % 1'), { target: { value: '90' } })
 
+    fireEvent.change(screen.getByLabelText('Выручка 2'), { target: { value: '6000' } })
+    fireEvent.change(screen.getByLabelText('Новые юниты 2'), { target: { value: '12' } })
+    fireEvent.change(screen.getByLabelText('ARPU 2'), { target: { value: '600' } })
+    fireEvent.change(screen.getByLabelText('Retention % 2'), { target: { value: '85' } })
+
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить метрики' }))
 
     await waitFor(() =>
@@ -593,15 +651,60 @@ describe('CompanyDetail', () => {
           {
             period: '2026-02-01',
             type: 'fact',
-            new_units: 0,
-            arpu: 0,
-            revenue: 0,
+            new_units: 12,
+            arpu: 600,
+            revenue: 6000,
             marketing_spend: 0,
-            retention_rate: 0,
+            retention_rate: 0.85,
           },
         ],
       }),
     )
+  })
+
+  it('blocks bulk save when a required field is empty and shows an inline message', async () => {
+    mocks.companiesApi.upsertMetricBulk.mockResolvedValue([])
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
+
+    fireEvent.change(screen.getByLabelText('Стартовый месяц'), {
+      target: { value: '2026-01' },
+    })
+    fireEvent.change(screen.getByLabelText('Месяцев'), { target: { value: '2' } })
+
+    fireEvent.change(screen.getByLabelText('Выручка 1'), { target: { value: '5000' } })
+    fireEvent.change(screen.getByLabelText('Новые юниты 1'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('ARPU 1'), { target: { value: '500' } })
+    fireEvent.change(screen.getByLabelText('Retention % 1'), { target: { value: '90' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить метрики' }))
+
+    expect(
+      await screen.findByText('Строка 2: поле «Новые юниты» обязательно и должно быть числом.'),
+    ).toBeInTheDocument()
+    expect(mocks.companiesApi.upsertMetricBulk).not.toHaveBeenCalled()
+  })
+
+  it('blocks bulk save when ARPU is empty instead of silently sending 0', async () => {
+    mocks.companiesApi.upsertMetricBulk.mockResolvedValue([])
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
+
+    fireEvent.change(screen.getByLabelText('Стартовый месяц'), {
+      target: { value: '2026-01' },
+    })
+    fireEvent.change(screen.getByLabelText('Месяцев'), { target: { value: '1' } })
+
+    fireEvent.change(screen.getByLabelText('Выручка 1'), { target: { value: '5000' } })
+    fireEvent.change(screen.getByLabelText('Новые юниты 1'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('Retention % 1'), { target: { value: '90' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить метрики' }))
+
+    expect(
+      await screen.findByText('Строка 1: поле «ARPU» обязательно и должно быть числом.'),
+    ).toBeInTheDocument()
+    expect(mocks.companiesApi.upsertMetricBulk).not.toHaveBeenCalled()
   })
 
   it('saves gross margin via update', async () => {
@@ -612,7 +715,7 @@ describe('CompanyDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
     await waitFor(() =>
       expect(mocks.companiesApi.update).toHaveBeenCalledWith('comp1', {
-        grossMargin: 0.8,
+        gross_margin: 0.8,
       }),
     )
   })

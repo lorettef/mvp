@@ -2,12 +2,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, LogOut } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
+import { logout } from '../auth/authSession'
 import { Button } from '@/components/ui/button'
 import { LanguageToggle } from '@/components/LanguageToggle'
 
 export const Landing = () => {
   const { t } = useTranslation()
-  const { user, logout } = useAuthStore()
+  const { user } = useAuthStore()
   const navigate = useNavigate()
 
   const isLoggedIn = Boolean(user)

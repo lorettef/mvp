@@ -1,39 +1,24 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { AxiosError } from 'axios'
-import { useAuthStore, type User } from '../store/authStore'
+import { useTranslation } from 'react-i18next'
 import { authApi } from '../api/auth'
 import { analytics } from '../api/analytics'
-import { UserResponse } from '@/types/api'
+import { completeLogin } from '../auth/authSession'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 
-function mapAndSetUser(userData: UserResponse, setUser: (user: User) => void) {
-  setUser({
-    id: userData.id,
-    email: userData.email,
-    fullName: userData.fullName ?? '',
-    companyName: userData.companyName ?? '',
-    role: userData.role,
-    organizationId: userData.organizationId,
-    companyId: userData.companyId,
-    subscriptionPlan: userData.subscriptionPlan,
-    dailyLimit: userData.dailyLimit,
-    usedToday: userData.usedToday,
-  })
-}
-
 export const Login = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
-  const setUser = useAuthStore((state) => state.setUser)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [successMsg, setSuccessMsg] = useState(location.state?.message || '')
+  const [successMsg] = useState(location.state?.message || '')
 
   const handleDemoLogin = async () => {
     setLoading(true)
@@ -41,12 +26,12 @@ export const Login = () => {
     try {
       await authApi.seed()
       const userData = await authApi.me()
-      mapAndSetUser(userData, setUser)
+      completeLogin(userData)
       analytics.track('demo_activated')
       navigate('/dashboard')
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ detail?: string }>
-      setError(axiosErr.response?.data?.detail || 'Ошибка демо-доступа')
+      setError(axiosErr.response?.data?.detail || t('auth.login.demoError'))
     } finally {
       setLoading(false)
     }
@@ -60,11 +45,11 @@ export const Login = () => {
     try {
       await authApi.login({ email, password })
       const userData = await authApi.me()
-      mapAndSetUser(userData, setUser)
+      completeLogin(userData)
       navigate('/dashboard')
     } catch (err: unknown) {
       const axiosErr = err as AxiosError<{ detail?: string }>
-      setError(axiosErr.response?.data?.detail || 'Ошибка входа')
+      setError(axiosErr.response?.data?.detail || t('auth.login.error'))
     } finally {
       setLoading(false)
     }
@@ -88,7 +73,7 @@ export const Login = () => {
               Startup Engine
             </h2>
             <p className="mt-1 text-center text-sm text-muted-foreground">
-              Операционная система для SaaS
+              {t('auth.login.subtitle')}
             </p>
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
@@ -106,7 +91,7 @@ export const Login = () => {
                 id="email"
                 type="email"
                 required
-                placeholder="Email"
+                placeholder={t('auth.login.email')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-card border-input"
@@ -115,27 +100,27 @@ export const Login = () => {
                 id="password"
                 type="password"
                 required
-                placeholder="Пароль"
+                placeholder={t('auth.login.password')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="bg-card border-input"
               />
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Вход...' : 'Войти'}
+                {loading ? t('auth.login.submitting') : t('auth.login.submit')}
               </Button>
 
               <div className="text-center text-sm">
                 <Button variant="link" asChild>
                   <Link to="/register">
-                    Нет аккаунта? Зарегистрироваться
+                    {t('auth.login.noAccount')}
                   </Link>
                 </Button>
               </div>
 
               <div className="flex items-center gap-3 my-4">
                 <Separator className="flex-1" />
-                <span className="text-xs text-muted-foreground">или</span>
+                <span className="text-xs text-muted-foreground">{t('auth.login.or')}</span>
                 <Separator className="flex-1" />
               </div>
 
@@ -147,7 +132,7 @@ export const Login = () => {
                 onClick={handleDemoLogin}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                Быстрый демо-доступ
+                {t('auth.login.demo')}
               </Button>
             </form>
           </CardContent>
