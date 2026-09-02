@@ -1,3 +1,5 @@
+import os
+
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -9,7 +11,9 @@ from app.models.organization import Organization
 from app.models.company import Company
 from app.models.user import User
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL", "sqlite+aiosqlite:///./test.db"
+)
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -119,3 +123,52 @@ async def seeded_observer(
 def auth_headers(user: User) -> dict:
     token = create_access_token({"sub": str(user.id)})
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def other_organization(db_session: AsyncSession) -> Organization:
+    org = Organization(name="Other Accelerator")
+    db_session.add(org)
+    await db_session.flush()
+    return org
+
+
+@pytest_asyncio.fixture
+async def other_company(
+    db_session: AsyncSession, other_organization: Organization
+) -> Company:
+    company = Company(
+        organization_id=other_organization.id,
+        name="Other Startup",
+        industry="SaaS",
+        geography="RU",
+    )
+    db_session.add(company)
+    await db_session.flush()
+    return company
+
+
+@pytest_asyncio.fixture
+async def other_admin(
+    db_session: AsyncSession, other_organization: Organization, other_company: Company
+) -> User:
+    return await make_user(
+        db_session, "other-admin@test.ru", "admin", other_organization.id, other_company.id
+    )
+
+
+@pytest_asyncio.fixture
+async def second_org_admins(
+    db_session: AsyncSession, other_organization: Organization, other_company: Company
+) -> list[User]:
+    u1 = await make_user(
+        db_session, "other-admin-2@test.ru", "admin", other_organization.id, other_company.id
+    )
+    u2 = await make_user(
+        db_session, "other-admin-3@test.ru", "admin", other_organization.id, other_company.id
+    )
+    return [u1, u2]
+
+
+def auth_cookie(user: User) -> dict:
+    return {"access_token": create_access_token({"sub": str(user.id)})}
