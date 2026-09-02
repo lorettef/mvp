@@ -26,6 +26,7 @@ const Recommendations = lazy(() =>
 )
 const Forecast = lazy(() => import('./pages/Forecast').then((m) => ({ default: m.Forecast })))
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
+const NotFound = lazy(() => import('./pages/NotFound').then((m) => ({ default: m.NotFound })))
 
 // Global query/mutation error handlers live in createQueryClient():
 // unhandled failures surface as toasts unless meta.skipGlobalError or a cancellation.
@@ -67,6 +68,8 @@ function App() {
                     <Route path="/settings" element={<Settings />} />
                   </Route>
                 </Route>
+
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </ErrorBoundary>

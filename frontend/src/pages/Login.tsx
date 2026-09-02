@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { useTranslation } from 'react-i18next'
@@ -19,6 +19,14 @@ export const Login = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMsg] = useState(location.state?.message || '')
+  const [demoMode, setDemoMode] = useState(false)
+
+  useEffect(() => {
+    fetch('/health')
+      .then((r) => r.json())
+      .then((d) => setDemoMode(Boolean(d.demo_mode)))
+      .catch(() => {})
+  }, [])
 
   const handleDemoLogin = async () => {
     setLoading(true)
@@ -118,22 +126,26 @@ export const Login = () => {
                 </Button>
               </div>
 
-              <div className="flex items-center gap-3 my-4">
-                <Separator className="flex-1" />
-                <span className="text-xs text-muted-foreground">{t('auth.login.or')}</span>
-                <Separator className="flex-1" />
-              </div>
+              {demoMode && (
+                <>
+                  <div className="flex items-center gap-3 my-4">
+                    <Separator className="flex-1" />
+                    <span className="text-xs text-muted-foreground">{t('auth.login.or')}</span>
+                    <Separator className="flex-1" />
+                  </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled={loading}
-                onClick={handleDemoLogin}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                {t('auth.login.demo')}
-              </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={loading}
+                    onClick={handleDemoLogin}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    {t('auth.login.demo')}
+                  </Button>
+                </>
+              )}
             </form>
           </CardContent>
         </Card>

@@ -103,7 +103,8 @@ async def health_check():
     return {
         "status": "ok",
         "service": "Startup Engine API",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "demo_mode": settings.DEMO_MODE
     }
 
 @app.get("/")
