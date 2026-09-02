@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from app.schemas.metrics import MetricsRequest, MetricsResponse
+from app.schemas.ai_metrics import MetricsRequest, MetricsResponse
 from app.services.analytics_service import AnalyticsService
 from app.api.dependencies import get_current_user, audit_action
 

@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from app.schemas.metrics import MetricsRequest, MetricsResponse
+from app.schemas.ai_metrics import MetricsRequest, MetricsResponse
 
 class AnalyticsService:
     """Сервис аналитики юнит-экономики."""

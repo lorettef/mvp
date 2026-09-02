@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from app.schemas.metrics import MetricsRequest
+from app.schemas.ai_metrics import MetricsRequest
 
 class RecommendationAction(BaseModel):
     title: str
