@@ -15,5 +15,7 @@ class Company(Base):
     name = Column(String(255), nullable=False)
     industry = Column(String(100), nullable=True)
     geography = Column(String(100), nullable=True)
+    business_model = Column(String(50), nullable=True)
     gross_margin = Column(Float, nullable=False, default=0.75)
     created_at = Column(DateTime, server_default=func.now())
+    archived_at = Column(DateTime, nullable=True)
