@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
     budgets: vi.fn(),
     upsertMetric: vi.fn(),
     upsertMetricBulk: vi.fn(),
+    deleteMetric: vi.fn(),
+    deleteCohort: vi.fn(),
+    deleteBudget: vi.fn(),
     update: vi.fn(),
     upsertCohort: vi.fn(),
     upsertBudget: vi.fn(),
@@ -438,6 +441,9 @@ describe('CompanyDetail', () => {
     sensitivityApiMock.get.mockResolvedValue(sensitivityData)
     mocks.companiesApi.recalculate.mockResolvedValue(recalculateData)
     mocks.companiesApi.generatePlan.mockResolvedValue(planGenerateData)
+    mocks.companiesApi.deleteMetric.mockResolvedValue(undefined)
+    mocks.companiesApi.deleteCohort.mockResolvedValue(undefined)
+    mocks.companiesApi.deleteBudget.mockResolvedValue(undefined)
   })
 
   it('renders 13 tab triggers', async () => {
@@ -729,5 +735,18 @@ describe('CompanyDetail', () => {
     renderCompanyDetail()
 
     expect(await screen.findByLabelText('Валовая маржа (Gross Margin, %)')).toHaveValue(75.5)
+  })
+
+  it('confirms metric deletion before calling the delete API', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('button', { name: 'Удалить метрику' }))
+
+    expect(screen.getByText('Удалить данные?')).toBeInTheDocument()
+    expect(mocks.companiesApi.deleteMetric).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    await waitFor(() =>
+      expect(mocks.companiesApi.deleteMetric).toHaveBeenCalledWith('comp1', 'm1'),
+    )
   })
 })

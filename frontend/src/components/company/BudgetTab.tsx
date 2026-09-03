@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MonthPicker } from '@/components/ui/month-picker'
-import { Plus, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Plus, ArrowUpRight, ArrowDownRight, Trash2 } from 'lucide-react'
 import { fmtPeriod, fmtRub } from '@/lib/format'
 
 const fmtDevRub = (v: number) =>
@@ -19,6 +20,7 @@ interface BudgetTabProps {
   budgets: Budget[]
   canEdit: boolean
   onSubmit: (d: BudgetUpsert) => void
+  onDelete?: (id: string) => void
   isPending: boolean
 }
 
@@ -26,10 +28,12 @@ export function BudgetTab({
   budgets,
   canEdit,
   onSubmit,
+  onDelete,
   isPending,
 }: BudgetTabProps) {
   const { t } = useTranslation()
   const [showForm, setShowForm] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
   const [form, setForm] = useState({
     period: '',
     type: 'plan' as 'plan' | 'fact',
@@ -160,6 +164,9 @@ export function BudgetTab({
               <th className="text-left font-medium px-4 py-3">{t('common.plan')}</th>
               <th className="text-left font-medium px-4 py-3">{t('common.fact')}</th>
               <th className="text-left font-medium px-4 py-3">{t('company.budget.deviation')}</th>
+              {canEdit && onDelete && (
+                <th className="w-12 px-4 py-3" aria-label={t('common.actions')} />
+              )}
             </tr>
           </thead>
           <tbody>
@@ -214,6 +221,26 @@ export function BudgetTab({
                         </span>
                       )}
                     </td>
+                    {i === 0 && canEdit && onDelete && (
+                      <td rowSpan={ARTICLES.length} className="px-4 py-3 align-top text-right">
+                        <div className="flex flex-col items-end gap-1">
+                          {[entry.plan, entry.fact].map((budget) =>
+                            budget ? (
+                              <Button
+                                key={budget.id}
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                aria-label={t('company.budget.delete')}
+                                onClick={() => setDeleteId(budget.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            ) : null,
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 )
               })
@@ -221,15 +248,30 @@ export function BudgetTab({
             {periods.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={5 + (canEdit && onDelete ? 1 : 0)}
                   className="px-4 py-8 text-center text-muted-foreground"
                 >
                   {t('company.budget.empty')}
                 </td>
               </tr>
             )}
-          </tbody>
+            </tbody>
         </table>
+        <ConfirmDialog
+          open={deleteId !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteId(null)
+          }}
+          title={t('company.delete.title')}
+          description={t('company.delete.description')}
+          confirmLabel={t('common.delete')}
+          cancelLabel={t('common.cancel')}
+          danger
+          onConfirm={() => {
+            if (deleteId !== null) onDelete?.(deleteId)
+            setDeleteId(null)
+          }}
+        />
       </CardContent>
     </Card>
   )

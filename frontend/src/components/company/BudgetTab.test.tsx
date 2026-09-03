@@ -99,4 +99,23 @@ describe('BudgetTab', () => {
       screen.queryByRole('button', { name: /Добавить бюджет/ })
     ).not.toBeInTheDocument()
   })
+
+  it('confirms budget deletion before invoking the callback', () => {
+    const onDelete = vi.fn()
+    render(
+      <BudgetTab
+        budgets={[makeBudget()]}
+        canEdit
+        onSubmit={vi.fn()}
+        onDelete={onDelete}
+        isPending={false}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить бюджет' }))
+    expect(onDelete).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+
+    expect(onDelete).toHaveBeenCalledWith('b1')
+  })
 })

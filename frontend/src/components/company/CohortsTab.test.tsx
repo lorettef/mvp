@@ -140,6 +140,25 @@ describe('CohortsTab', () => {
     })
   })
 
+  it('confirms cohort deletion before invoking the callback', () => {
+    const onDelete = vi.fn()
+    render(
+      <CohortsTab
+        cohorts={[makeCohort()]}
+        canEdit
+        onSubmit={vi.fn()}
+        onDelete={onDelete}
+        isPending={false}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить когорту' }))
+    expect(onDelete).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+
+    expect(onDelete).toHaveBeenCalledWith('c1')
+  })
+
   it('shows empty state when there are no cohorts', () => {
     render(<CohortsTab cohorts={[]} canEdit onSubmit={vi.fn()} isPending={false} />)
     expect(screen.getByText('Когорты ещё не добавлены.')).toBeInTheDocument()

@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MonthPicker } from '@/components/ui/month-picker'
-import { Plus } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Plus, Trash2 } from 'lucide-react'
 import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
@@ -47,6 +48,7 @@ interface CohortsTabProps {
   cohorts: Cohort[]
   canEdit: boolean
   onSubmit: (d: CohortUpsert) => void
+  onDelete?: (id: string) => void
   isPending: boolean
 }
 
@@ -54,10 +56,12 @@ export function CohortsTab({
   cohorts,
   canEdit,
   onSubmit,
+  onDelete,
   isPending,
 }: CohortsTabProps) {
   const { t } = useTranslation()
   const [showForm, setShowForm] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
   const [form, setForm] = useState({
     period: '',
     type: 'plan' as 'plan' | 'fact',
@@ -109,7 +113,7 @@ export function CohortsTab({
     onSubmit(payload)
   }
 
-  const colCount = 3 + MONTHS.length + 2
+  const colCount = 3 + MONTHS.length + 2 + (canEdit && onDelete ? 1 : 0)
 
   return (
     <Card className="border bg-card/50">
@@ -217,6 +221,9 @@ export function CohortsTab({
                 <th className="text-left font-medium px-3 py-3 whitespace-nowrap">
                   {t('company.cohorts.cac')}
                 </th>
+                {canEdit && onDelete && (
+                  <th className="w-12 px-3 py-3" aria-label={t('common.actions')} />
+                )}
               </tr>
             </thead>
             <tbody>
@@ -269,6 +276,19 @@ export function CohortsTab({
                         {activeUsers(c)}
                       </td>
                       <td className="px-3 py-3 text-foreground">{cacValue(c)}</td>
+                      {canEdit && onDelete && (
+                        <td className="px-3 py-3 text-right">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            aria-label={t('company.cohorts.delete')}
+                            onClick={() => setDeleteId(c.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   )
                 })
@@ -286,6 +306,21 @@ export function CohortsTab({
             </tbody>
           </table>
         </div>
+        <ConfirmDialog
+          open={deleteId !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteId(null)
+          }}
+          title={t('company.delete.title')}
+          description={t('company.delete.description')}
+          confirmLabel={t('common.delete')}
+          cancelLabel={t('common.cancel')}
+          danger
+          onConfirm={() => {
+            if (deleteId !== null) onDelete?.(deleteId)
+            setDeleteId(null)
+          }}
+        />
       </CardContent>
     </Card>
   )

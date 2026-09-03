@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { CohortsTab } from '@/components/company/CohortsTab'
 import { BudgetTab } from '@/components/company/BudgetTab'
@@ -36,7 +37,7 @@ import { AIInsight } from '@/components/company/AIInsight'
 import { QueryState } from '@/components/common/QueryState'
 import { normalizeApiError } from '@/lib/apiError'
 import { fmtPct, fmtPeriod, fmtRub, formatMonthLabel } from '@/lib/format'
-import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
+import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw, Trash2 } from 'lucide-react'
 
 interface BulkRow {
   newUnits: string
@@ -107,6 +108,7 @@ export const CompanyDetail = () => {
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyBulkRow(), emptyBulkRow(), emptyBulkRow()])
   const [bulkError, setBulkError] = useState<string | null>(null)
   const [grossMarginPct, setGrossMarginPct] = useState('75')
+  const [metricDeleteId, setMetricDeleteId] = useState<string | null>(null)
 
   const providerLabel = (p: string) =>
     p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : t('company.providerDemo')
@@ -316,6 +318,27 @@ export const CompanyDetail = () => {
     mutationFn: (d: BudgetUpsert) => companiesApi.upsertBudget(id, d),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.companyBudgets(tenantKey, id) })
+    },
+  })
+
+  const deleteMetricMutation = useMutation({
+    mutationFn: (metricId: string) => companiesApi.deleteMetric(id, metricId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
+    },
+  })
+
+  const deleteCohortMutation = useMutation({
+    mutationFn: (cohortId: string) => companiesApi.deleteCohort(id, cohortId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
+    },
+  })
+
+  const deleteBudgetMutation = useMutation({
+    mutationFn: (budgetId: string) => companiesApi.deleteBudget(id, budgetId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
     },
   })
 
@@ -676,6 +699,9 @@ export const CompanyDetail = () => {
                     <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">
                       {t('company.metrics.retentionFact')}
                     </th>
+                    {canEdit && (
+                      <th className="w-12 px-4 py-3" aria-label={t('common.actions')} />
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -727,12 +753,32 @@ export const CompanyDetail = () => {
                         <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
                           {fmtPct(entry.fact?.retentionRate)}
                         </td>
+                        {canEdit && (
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex justify-end gap-1">
+                              {[entry.plan, entry.fact].map((metric) =>
+                                metric ? (
+                                  <Button
+                                    key={metric.id}
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    aria-label={t('company.metrics.delete')}
+                                    onClick={() => setMetricDeleteId(metric.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                ) : null,
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                      <td colSpan={6 + (canEdit ? 1 : 0)} className="px-4 py-8 text-center text-muted-foreground">
                         {t('company.metrics.empty')}
                       </td>
                     </tr>
@@ -755,6 +801,7 @@ export const CompanyDetail = () => {
             cohorts={cohorts}
             canEdit={canEdit}
             onSubmit={(d) => cohortUpsert.mutate(d)}
+            onDelete={(cohortId) => deleteCohortMutation.mutate(cohortId)}
             isPending={cohortUpsert.isPending}
           />
           </QueryState>
@@ -771,6 +818,7 @@ export const CompanyDetail = () => {
             budgets={budgets}
             canEdit={canEdit}
             onSubmit={(d) => budgetUpsert.mutate(d)}
+            onDelete={(budgetId) => deleteBudgetMutation.mutate(budgetId)}
             isPending={budgetUpsert.isPending}
           />
           </QueryState>
@@ -938,6 +986,22 @@ export const CompanyDetail = () => {
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={metricDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setMetricDeleteId(null)
+        }}
+        title={t('company.delete.title')}
+        description={t('company.delete.description')}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        onConfirm={() => {
+          if (metricDeleteId !== null) deleteMetricMutation.mutate(metricDeleteId)
+          setMetricDeleteId(null)
+        }}
+      />
     </div>
   )
 }
