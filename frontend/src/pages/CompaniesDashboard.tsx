@@ -1,28 +1,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { dashboardApi, companiesApi } from '../api/companies'
+import { dashboardApi } from '../api/companies'
 import { getTenantKey } from '../auth/authSession'
 import { qk } from '../lib/queryKeys'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { QueryState } from '@/components/common/QueryState'
 import { StartupInvite } from '@/components/common/StartupInvite'
+import { CompanyOnboardingWizard } from '@/components/company/CompanyOnboardingWizard'
 import { fmtRub } from '@/lib/format'
 import { Building2, TrendingUp, CircleCheck, AlertTriangle, Plus, RefreshCw } from 'lucide-react'
 
 export const CompaniesDashboard = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
-  const [name, setName] = useState('')
-  const [industry, setIndustry] = useState('')
-  const [geography, setGeography] = useState('')
 
   const statusMap: Record<string, { label: string; className: string }> = {
     on_track: { label: t('dashboard.status.onTrack'), className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
@@ -31,49 +26,11 @@ export const CompaniesDashboard = () => {
     no_data: { label: t('dashboard.status.noData'), className: 'bg-muted text-muted-foreground border-border' },
   }
 
-  const INDUSTRY_LABELS: Record<string, string> = {
-    saas: 'SaaS',
-    fintech: 'Fintech',
-    ecommerce: 'E-commerce',
-    edtech: 'EdTech',
-    healthtech: 'HealthTech',
-    ai: 'AI/ML',
-    marketplaces: 'Маркетплейсы',
-    foodtech: 'FoodTech',
-    logistics: 'Логистика',
-    proptech: 'PropTech',
-    media: 'Медиа и развлечения',
-    hardware: 'Hardware / IoT',
-    biotech: 'Biotech',
-    cleantech: 'CleanTech',
-    other: t('common.other'),
-  }
-
-  const INDUSTRY_OPTIONS = Object.entries(INDUSTRY_LABELS)
-
-  const REGIONS = [
-    { label: t('common.geo.ru'), rate: '21' },
-    { label: t('common.geo.kz'), rate: '16' },
-    { label: t('common.geo.global'), rate: '4' },
-  ]
-
   const tenantKey = getTenantKey()
 
   const { data, isLoading, error, isFetching, refetch } = useQuery({
     queryKey: qk.dashboard(tenantKey),
     queryFn: ({ signal }) => dashboardApi.get({ signal }),
-  })
-
-  const createMutation = useMutation({
-    mutationFn: (payload: { name: string; industry?: string; geography?: string }) =>
-      companiesApi.create(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
-      setShowForm(false)
-      setName('')
-      setIndustry('')
-      setGeography('')
-    },
   })
 
   const total = data?.totalCompanies ?? 0
@@ -106,7 +63,7 @@ export const CompaniesDashboard = () => {
             <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
             {isFetching ? t('common.recalculating') : t('common.forceRecalc')}
           </Button>
-          <Button size="sm" onClick={() => setShowForm(!showForm)}>
+          <Button size="sm" onClick={() => setShowForm((open) => !open)}>
             <Plus className="w-4 h-4 mr-2" />
             {t('dashboard.addCompany')}
           </Button>
@@ -115,81 +72,7 @@ export const CompaniesDashboard = () => {
 
       <StartupInvite />
 
-      {showForm && (
-        <Card className="border bg-card/50">
-          <CardContent className="p-5">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="company-name" className="text-xs font-medium text-muted-foreground">
-                  {t('dashboard.companyName')}
-                </label>
-                <Input
-                  id="company-name"
-                  placeholder={t('dashboard.companyName')}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="company-industry" className="text-xs font-medium text-muted-foreground">
-                  {t('dashboard.sphere')}
-                </label>
-                <Select value={industry} onValueChange={setIndustry}>
-                  <SelectTrigger id="company-industry" aria-label={t('dashboard.sphere')}>
-                    <SelectValue placeholder={t('dashboard.selectSphere')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INDUSTRY_OPTIONS.map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <p className="text-xs font-medium text-muted-foreground">{t('dashboard.location')}</p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" role="radiogroup" aria-label={t('dashboard.location')}>
-                  {REGIONS.map((region) => {
-                    const isSelected = geography === region.label
-                    return (
-                      <button
-                        key={region.label}
-                        type="button"
-                        role="radio"
-                        aria-checked={isSelected}
-                        onClick={() => setGeography(region.label)}
-                        className={`rounded-lg border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${
-                          isSelected
-                            ? 'border-primary bg-primary/10 text-foreground'
-                            : 'border-input bg-card hover:border-primary/50 hover:bg-accent'
-                        }`}
-                      >
-                        <span className="text-sm font-medium">{region.label}</span>
-                        <span className="mt-2 block text-xs text-muted-foreground">
-                          {t('common.keyRateHint', { rate: region.rate })}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <Button
-                size="sm"
-                disabled={!name.trim() || createMutation.isPending}
-                onClick={() => createMutation.mutate({ name, industry, geography })}
-              >
-                {createMutation.isPending ? t('dashboard.creating') : t('dashboard.create')}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
-                {t('common.cancel')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <CompanyOnboardingWizard open={showForm} tenantKey={tenantKey} onClose={() => setShowForm(false)} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((c) => (
@@ -233,7 +116,7 @@ export const CompaniesDashboard = () => {
                   >
                     <td className="px-5 py-3 font-medium text-foreground">{c.name}</td>
                     <td className="px-5 py-3 text-muted-foreground hidden sm:table-cell">
-                      {c.industry ? INDUSTRY_LABELS[c.industry] ?? c.industry : '—'}
+                      {c.industry ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-foreground">{fmtRub(c.latestRevenue)}</td>
                     <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{fmtRub(c.latestPlanRevenue)}</td>
