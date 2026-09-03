@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from app.models.company import Company
 from app.schemas.company import CompanyCreate, CompanyUpdate
 from app.core.roles import ROLE_ADMIN
+from app.core.time import utcnow
 
 
 class CompanyService:
@@ -37,24 +38,41 @@ class CompanyService:
             industry=data.industry,
             geography=data.geography,
             gross_margin=data.gross_margin if data.gross_margin is not None else 0.75,
+            business_model=data.business_model,
         )
         self.db.add(company)
         await self.db.flush()
         return company
 
-    async def list_companies(self, user: dict) -> list[Company]:
-        """Список компаний, доступных пользователю."""
+    async def list_companies(self, user: dict, archived: bool = False) -> list[Company]:
+        """Список компаний, доступных пользователю.
+
+        `archived=False` возвращает активные компании (archived_at IS NULL),
+        `archived=True` — только архивные (archived_at IS NOT NULL).
+        """
+        archived_filter = (
+            Company.archived_at.is_not(None)
+            if archived
+            else Company.archived_at.is_(None)
+        )
+
         if user["role"] == ROLE_ADMIN:
             result = await self.db.execute(
                 select(Company)
-                .where(Company.organization_id == user["organization_id"])
+                .where(
+                    Company.organization_id == user["organization_id"],
+                    archived_filter,
+                )
                 .order_by(Company.name)
             )
             return list(result.scalars().all())
 
         if user["company_id"]:
             result = await self.db.execute(
-                select(Company).where(Company.id == user["company_id"])
+                select(Company).where(
+                    Company.id == user["company_id"],
+                    archived_filter,
+                )
             )
             return list(result.scalars().all())
 
@@ -72,11 +90,23 @@ class CompanyService:
 
     async def update_company(self, company: Company, data: CompanyUpdate) -> Company:
         """Обновление данных компании."""
-        for field in ("name", "industry", "geography", "gross_margin"):
+        for field in ("name", "industry", "geography", "gross_margin", "business_model"):
             value = getattr(data, field)
             if value is not None:
                 setattr(company, field, value)
 
+        await self.db.flush()
+        return company
+
+    async def archive_company(self, company: Company) -> Company:
+        """Архивация компании (архивные скрыты из активного списка)."""
+        company.archived_at = utcnow()
+        await self.db.flush()
+        return company
+
+    async def restore_company(self, company: Company) -> Company:
+        """Восстановление компании из архива."""
+        company.archived_at = None
         await self.db.flush()
         return company
 
