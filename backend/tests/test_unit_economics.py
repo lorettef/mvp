@@ -68,6 +68,37 @@ async def test_unit_economics_happy(client, seeded_company, seeded_admin, db_ses
     assert any("Runway" in a for a in body["alerts"])
 
 
+async def test_unit_economics_partial_retention(
+    client, seeded_company, seeded_admin, db_session
+):
+    """Когорта с частичным retention (None) не роняет расчёт; недостающие = None."""
+    db_session.add(
+        Metric(
+            company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
+            revenue=100000, arpu=100, cac=1000, ltv=5000, churn=0.03,
+        )
+    )
+    db_session.add(
+        Cohort(
+            company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
+            retention_m1=0.8,
+        )
+    )
+    await db_session.flush()
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/unit-economics",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+
+    assert body["retention"]["m1"] == 0.8
+    assert body["retention"]["m3"] is None
+    assert body["retention"]["m6"] is None
+    assert body["retention"]["m12"] is None
+
+
 async def test_unit_economics_uses_plan_fallback_when_fact_missing(
     client, seeded_company, seeded_admin, db_session
 ):
