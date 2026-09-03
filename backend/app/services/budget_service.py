@@ -2,6 +2,7 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,6 +46,22 @@ class BudgetService:
             await self.db.flush()
 
         return budget
+
+    async def delete_budget(self, company_id: UUID, budget_id: UUID) -> None:
+        result = await self.db.execute(
+            select(Budget).where(
+                Budget.id == budget_id,
+                Budget.company_id == company_id,
+            )
+        )
+        budget = result.scalar_one_or_none()
+        if not budget:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Бюджет не найден",
+            )
+        await self.db.delete(budget)
+        await self.db.flush()
 
     async def list_budgets(
         self, company_id: UUID, period: Optional[date] = None

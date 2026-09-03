@@ -41,3 +41,21 @@ async def list_budgets(
     service = BudgetService(db)
     budgets = await service.list_budgets(company_id, period)
     return [BudgetResponse.model_validate(b) for b in budgets]
+
+
+@router.delete("/{company_id}/budgets/{budget_id}")
+async def delete_budget(
+    company_id: uuid.UUID,
+    budget_id: uuid.UUID,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав",
+        )
+
+    service = BudgetService(db)
+    await service.delete_budget(company_id, budget_id)
+    return {"detail": "ok"}
