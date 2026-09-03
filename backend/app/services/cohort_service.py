@@ -2,6 +2,7 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -65,6 +66,22 @@ class CohortService:
             await self.db.flush()
 
         return cohort
+
+    async def delete_cohort(self, company_id: UUID, cohort_id: UUID) -> None:
+        result = await self.db.execute(
+            select(Cohort).where(
+                Cohort.id == cohort_id,
+                Cohort.company_id == company_id,
+            )
+        )
+        cohort = result.scalar_one_or_none()
+        if not cohort:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Когорта не найдена",
+            )
+        await self.db.delete(cohort)
+        await self.db.flush()
 
     async def list_cohorts(
         self, company_id: UUID, period: Optional[date] = None

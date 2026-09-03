@@ -41,3 +41,21 @@ async def list_cohorts(
     service = CohortService(db)
     cohorts = await service.list_cohorts(company_id, period)
     return [CohortResponse.model_validate(c) for c in cohorts]
+
+
+@router.delete("/{company_id}/cohorts/{cohort_id}")
+async def delete_cohort(
+    company_id: uuid.UUID,
+    cohort_id: uuid.UUID,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав",
+        )
+
+    service = CohortService(db)
+    await service.delete_cohort(company_id, cohort_id)
+    return {"detail": "ok"}

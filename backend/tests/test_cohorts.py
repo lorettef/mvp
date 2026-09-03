@@ -137,3 +137,60 @@ async def test_list_cohorts_company_isolation(
     )
     assert res.status_code == 200
     assert res.json() == []
+
+
+async def test_delete_cohort_removes_only_that(client, seeded_company, seeded_admin):
+    url = f"/api/v1/companies/{seeded_company.id}/cohorts"
+    r1 = await client.put(
+        url, json=_cohort_payload(period="2026-01-01"), headers=auth_headers(seeded_admin)
+    )
+    r2 = await client.put(
+        url, json=_cohort_payload(period="2026-02-01"), headers=auth_headers(seeded_admin)
+    )
+    id1 = r1.json()["id"]
+    id2 = r2.json()["id"]
+
+    res = await client.delete(f"{url}/{id1}", headers=auth_headers(seeded_admin))
+    assert res.status_code == 200
+
+    listing = await client.get(url, headers=auth_headers(seeded_admin))
+    ids = [row["id"] for row in listing.json()]
+    assert id1 not in ids
+    assert id2 in ids
+
+
+async def test_delete_cohort_wrong_company_404(
+    client, seeded_company, seeded_admin, db_session
+):
+    res = await client.put(
+        f"/api/v1/companies/{seeded_company.id}/cohorts",
+        json=_cohort_payload(),
+        headers=auth_headers(seeded_admin),
+    )
+    cohort_id = res.json()["id"]
+
+    other = Company(
+        organization_id=seeded_company.organization_id,
+        name="Other Startup",
+    )
+    db_session.add(other)
+    await db_session.flush()
+
+    res = await client.delete(
+        f"/api/v1/companies/{other.id}/cohorts/{cohort_id}",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 404
+
+
+async def test_delete_cohort_forbidden_observer(
+    client, seeded_company, seeded_admin, seeded_observer
+):
+    url = f"/api/v1/companies/{seeded_company.id}/cohorts"
+    res = await client.put(
+        url, json=_cohort_payload(), headers=auth_headers(seeded_admin)
+    )
+    cohort_id = res.json()["id"]
+
+    res = await client.delete(f"{url}/{cohort_id}", headers=auth_headers(seeded_observer))
+    assert res.status_code == 403
