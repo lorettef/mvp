@@ -16,6 +16,8 @@ class CohortService:
         self.db = db
 
     async def upsert_cohort(self, company_id: UUID, data: CohortUpsert) -> Cohort:
+        """Create or update a cohort. Retention fields are optional (partial
+        fill): a missing (None) field is stored as NULL, never coerced to 0."""
         result = await self.db.execute(
             select(Cohort).where(
                 Cohort.company_id == company_id,

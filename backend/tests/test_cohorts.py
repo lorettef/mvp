@@ -194,3 +194,34 @@ async def test_delete_cohort_forbidden_observer(
 
     res = await client.delete(f"{url}/{cohort_id}", headers=auth_headers(seeded_observer))
     assert res.status_code == 403
+
+
+async def test_upsert_cohort_partial_retention(client, seeded_company, seeded_admin):
+    url = f"/api/v1/companies/{seeded_company.id}/cohorts"
+    res = await client.put(
+        url,
+        json={"period": "2026-03-01", "type": "plan", "size": 30, "retention_m1": 0.5},
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["size"] == 30
+    assert body["retention_m1"] == 0.5
+    assert body["retention_m2"] is None
+    assert body["retention_m3"] is None
+    assert body["retention_m12"] is None
+
+
+async def test_upsert_cohort_clears_retention_on_update(
+    client, seeded_company, seeded_admin
+):
+    url = f"/api/v1/companies/{seeded_company.id}/cohorts"
+    await client.put(url, json=_cohort_payload(), headers=auth_headers(seeded_admin))
+
+    payload = _cohort_payload()
+    payload["retention_m2"] = None
+    res = await client.put(url, json=payload, headers=auth_headers(seeded_admin))
+    assert res.status_code == 200
+    body = res.json()
+    assert body["retention_m2"] is None
+    assert body["retention_m1"] == 0.8  # остальные поля сохранены
