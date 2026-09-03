@@ -1,5 +1,16 @@
 import axios from 'axios'
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    /**
+     * Per-request opt-out of the snake_case → camelCase response transform.
+     * Used for payloads whose keys must stay snake_case (e.g. the slug-keyed
+     * `profiles` dict in the catalog response).
+     */
+    skipTransform?: boolean
+  }
+}
+
 export const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
@@ -24,7 +35,7 @@ function transformKeys(obj: any): any {
 
 // Response interceptor: deep-transform snake_case → camelCase
 api.interceptors.response.use((response) => {
-  if (response.data && typeof response.data === 'object') {
+  if (response.data && typeof response.data === 'object' && !response.config.skipTransform) {
     response.data = transformKeys(response.data)
   }
   return response

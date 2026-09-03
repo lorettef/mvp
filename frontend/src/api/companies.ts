@@ -23,7 +23,8 @@ import type {
 import { api } from './client'
 
 export const companiesApi = {
-  list: ({ signal }: { signal?: AbortSignal } = {}): Promise<Company[]> => api.get('/companies', { signal }).then((res) => res.data),
+  list: ({ signal, archived }: { signal?: AbortSignal; archived?: boolean } = {}): Promise<Company[]> =>
+    api.get('/companies', { signal, params: archived !== undefined ? { archived } : {} }).then((res) => res.data),
   get: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<Company> => api.get(`/companies/${id}`, { signal }).then((res) => res.data),
   create: (data: CompanyCreate, { signal }: { signal?: AbortSignal } = {}): Promise<Company> =>
     api.post('/companies', data, { signal }).then((res) => res.data),
@@ -31,20 +32,30 @@ export const companiesApi = {
     api.patch(`/companies/${id}`, data, { signal }).then((res) => res.data),
   remove: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<void> =>
     api.delete(`/companies/${id}`, { signal }).then((res) => res.data),
+  archive: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<Company> =>
+    api.post(`/companies/${id}/archive`, undefined, { signal }).then((res) => res.data),
+  restore: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<Company> =>
+    api.post(`/companies/${id}/restore`, undefined, { signal }).then((res) => res.data),
   metrics: (id: string, period?: string, { signal }: { signal?: AbortSignal } = {}): Promise<Metric[]> =>
     api.get(`/companies/${id}/metrics`, { params: period ? { period } : {}, signal }).then((res) => res.data),
   upsertMetric: (id: string, data: MetricUpsert, { signal }: { signal?: AbortSignal } = {}): Promise<Metric> =>
     api.put(`/companies/${id}/metrics`, data, { signal }).then((res) => res.data),
   upsertMetricBulk: (id: string, data: MetricBulkUpsert, { signal }: { signal?: AbortSignal } = {}): Promise<Metric[]> =>
     api.put(`/companies/${id}/metrics/bulk`, data, { signal }).then((res) => res.data),
+  deleteMetric: (id: string, metricId: string, { signal }: { signal?: AbortSignal } = {}): Promise<void> =>
+    api.delete(`/companies/${id}/metrics/${metricId}`, { signal }).then((res) => res.data),
   cohorts: (id: string, period?: string, { signal }: { signal?: AbortSignal } = {}): Promise<Cohort[]> =>
     api.get(`/companies/${id}/cohorts`, { params: period ? { period } : {}, signal }).then((res) => res.data),
   upsertCohort: (id: string, data: CohortUpsert, { signal }: { signal?: AbortSignal } = {}): Promise<Cohort> =>
     api.put(`/companies/${id}/cohorts`, data, { signal }).then((res) => res.data),
+  deleteCohort: (id: string, cohortId: string, { signal }: { signal?: AbortSignal } = {}): Promise<void> =>
+    api.delete(`/companies/${id}/cohorts/${cohortId}`, { signal }).then((res) => res.data),
   budgets: (id: string, period?: string, { signal }: { signal?: AbortSignal } = {}): Promise<Budget[]> =>
     api.get(`/companies/${id}/budgets`, { params: period ? { period } : {}, signal }).then((res) => res.data),
   upsertBudget: (id: string, data: BudgetUpsert, { signal }: { signal?: AbortSignal } = {}): Promise<Budget> =>
     api.put(`/companies/${id}/budgets`, data, { signal }).then((res) => res.data),
+  deleteBudget: (id: string, budgetId: string, { signal }: { signal?: AbortSignal } = {}): Promise<void> =>
+    api.delete(`/companies/${id}/budgets/${budgetId}`, { signal }).then((res) => res.data),
   unitEconomics: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<UnitEconomicsResponse> =>
     api.get(`/companies/${id}/unit-economics`, { signal }).then((res) => res.data),
   tasks: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<Task[]> =>

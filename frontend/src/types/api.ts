@@ -111,14 +111,17 @@ export interface Company {
   organizationId: string
   name: string
   industry: string | null
+  businessModel: string | null
   geography: string | null
   grossMargin: number
+  archivedAt: string | null
   createdAt: string
 }
 
 export interface CompanyCreate {
   name: string
   industry?: string
+  business_model?: string
   geography?: string
   gross_margin?: number
 }
@@ -126,8 +129,41 @@ export interface CompanyCreate {
 export interface CompanyUpdate {
   name?: string
   industry?: string
+  business_model?: string
   geography?: string
   gross_margin?: number
+}
+
+// Catalog (industry / business-model / metric-profile taxonomy)
+export interface IndustryItem {
+  slug: string
+  label: string
+}
+
+export interface BusinessModelItem {
+  slug: string
+  label: string
+  description: string
+}
+
+export interface MetricDef {
+  key: string
+  label: string
+  required: boolean
+  why: string
+}
+
+export interface MetricProfile {
+  label: string
+  why: string
+  metrics: MetricDef[]
+  derived: string[]
+}
+
+export interface CatalogResponse {
+  industries: IndustryItem[]
+  businessModels: BusinessModelItem[]
+  profiles: Record<string, Record<string, MetricProfile>>
 }
 
 // Stored metrics (server-side)
@@ -196,18 +232,18 @@ export interface Cohort {
   period: string
   type: 'plan' | 'fact'
   size: number
-  retentionM1: number
-  retentionM2: number
-  retentionM3: number
-  retentionM4: number
-  retentionM5: number
-  retentionM6: number
-  retentionM7: number
-  retentionM8: number
-  retentionM9: number
-  retentionM10: number
-  retentionM11: number
-  retentionM12: number
+  retentionM1: number | null
+  retentionM2: number | null
+  retentionM3: number | null
+  retentionM4: number | null
+  retentionM5: number | null
+  retentionM6: number | null
+  retentionM7: number | null
+  retentionM8: number | null
+  retentionM9: number | null
+  retentionM10: number | null
+  retentionM11: number | null
+  retentionM12: number | null
   marketingSpend: number | null
   createdAt: string
   updatedAt: string
@@ -217,18 +253,18 @@ export interface CohortUpsert {
   period: string
   type: 'plan' | 'fact'
   size: number
-  retention_m1: number
-  retention_m2: number
-  retention_m3: number
-  retention_m4: number
-  retention_m5: number
-  retention_m6: number
-  retention_m7: number
-  retention_m8: number
-  retention_m9: number
-  retention_m10: number
-  retention_m11: number
-  retention_m12: number
+  retention_m1: number | null
+  retention_m2: number | null
+  retention_m3: number | null
+  retention_m4: number | null
+  retention_m5: number | null
+  retention_m6: number | null
+  retention_m7: number | null
+  retention_m8: number | null
+  retention_m9: number | null
+  retention_m10: number | null
+  retention_m11: number | null
+  retention_m12: number | null
   marketing_spend?: number
 }
 
