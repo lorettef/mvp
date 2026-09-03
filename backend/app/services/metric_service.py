@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException, status
 
 from app.core.time import utcnow
 from app.models.metric import Metric
@@ -160,3 +161,15 @@ class MetricService:
 
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def delete_metric(self, company_id: UUID, metric_id: UUID) -> None:
+        """Удаление метрики компании (404, если не найдена или чужая)."""
+        metric = await self.db.get(Metric, metric_id)
+        if not metric or metric.company_id != company_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Метрика не найдена",
+            )
+
+        await self.db.delete(metric)
+        await self.db.flush()

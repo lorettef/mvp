@@ -219,3 +219,22 @@ async def list_metrics(
     service = MetricService(db)
     metrics = await service.list_metrics(company_id, period)
     return [MetricResponse.model_validate(m) for m in metrics]
+
+
+@router.delete("/{company_id}/metrics/{metric_id}")
+async def delete_metric(
+    company_id: uuid.UUID,
+    metric_id: uuid.UUID,
+    user: dict = Depends(require_company_access()),
+    db: AsyncSession = Depends(get_db),
+):
+    """Удаление метрики компании (admin или company)."""
+    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав"
+        )
+
+    service = MetricService(db)
+    await service.delete_metric(company_id, metric_id)
+    return {"detail": "ok"}
