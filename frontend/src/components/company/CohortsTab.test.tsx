@@ -159,6 +159,51 @@ describe('CohortsTab', () => {
     expect(onDelete).toHaveBeenCalledWith('c1')
   })
 
+  it('submits empty retention cells as null', () => {
+    const onSubmit = vi.fn()
+    render(<CohortsTab cohorts={[]} canEdit onSubmit={onSubmit} isPending={false} />)
+    fireEvent.click(screen.getByRole('button', { name: /Добавить когорту/ }))
+    chooseMonth('Январь 2025')
+    fireEvent.change(screen.getByLabelText('Размер когорты'), { target: { value: '45' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      period: '2025-01-01',
+      type: 'plan',
+      size: 45,
+      retention_m1: null,
+      retention_m2: null,
+      retention_m3: null,
+      retention_m4: null,
+      retention_m5: null,
+      retention_m6: null,
+      retention_m7: null,
+      retention_m8: null,
+      retention_m9: null,
+      retention_m10: null,
+      retention_m11: null,
+      retention_m12: null,
+    })
+  })
+
+  it('renders missing retention and active users as em dashes', () => {
+    render(
+      <CohortsTab
+        cohorts={[makeCohort({ retentionM1: null, retentionM12: null })]}
+        canEdit
+        onSubmit={vi.fn()}
+        isPending={false}
+      />,
+    )
+
+    const row = screen.getByRole('row', { name: /2025-03/ })
+    expect(row).toHaveTextContent('—')
+    expect(row).not.toHaveTextContent('NaN')
+    expect(screen.getAllByRole('cell', { name: '—' }).some((cell) =>
+      cell.querySelector('span')?.className.includes('text-muted-foreground'),
+    )).toBe(true)
+  })
+
   it('shows empty state when there are no cohorts', () => {
     render(<CohortsTab cohorts={[]} canEdit onSubmit={vi.fn()} isPending={false} />)
     expect(screen.getByText('Когорты ещё не добавлены.')).toBeInTheDocument()

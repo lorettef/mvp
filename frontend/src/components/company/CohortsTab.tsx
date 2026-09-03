@@ -11,7 +11,7 @@ import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
 
-const RETENTION_KEYS: Array<keyof Cohort> = [
+const RETENTION_KEYS = [
   'retentionM1',
   'retentionM2',
   'retentionM3',
@@ -24,10 +24,12 @@ const RETENTION_KEYS: Array<keyof Cohort> = [
   'retentionM10',
   'retentionM11',
   'retentionM12',
-]
+ ] as const
 
-const retentionAt = (c: Cohort, i: number): number =>
-  c[RETENTION_KEYS[i]] as number
+const retentionAt = (c: Cohort, i: number): number | null => {
+  const key = RETENTION_KEYS[i]
+  return key === undefined ? null : c[key]
+}
 
 // Heatmap: green >70%, amber 50–70%, red <50% (kogor.md:156-159)
 const heatClass = (v: number): string => {
@@ -36,8 +38,13 @@ const heatClass = (v: number): string => {
   return 'bg-red-500/20 text-red-700'
 }
 
-const activeUsers = (c: Cohort): number =>
-  Math.round(c.size * retentionAt(c, 11))
+const activeUsers = (c: Cohort): number | null => {
+  const retention = retentionAt(c, 11)
+  return retention == null ? null : Math.round(c.size * retention)
+}
+
+const retentionValue = (value: string): number | null =>
+  value === '' ? null : Number(value) / 100
 
 const cacValue = (c: Cohort): string => {
   if (c.marketingSpend == null || c.size <= 0) return '—'
@@ -82,8 +89,7 @@ export function CohortsTab({
 
   const valid =
     form.period !== '' &&
-    form.size !== '' &&
-    form.retention.every((r) => r !== '')
+    form.size !== ''
 
   const setRetention = (i: number, value: string) => {
     const next = [...form.retention]
@@ -96,18 +102,18 @@ export function CohortsTab({
       period: `${form.period}-01`,
       type: form.type,
       size: Number(form.size),
-      retention_m1: Number(form.retention[0]) / 100,
-      retention_m2: Number(form.retention[1]) / 100,
-      retention_m3: Number(form.retention[2]) / 100,
-      retention_m4: Number(form.retention[3]) / 100,
-      retention_m5: Number(form.retention[4]) / 100,
-      retention_m6: Number(form.retention[5]) / 100,
-      retention_m7: Number(form.retention[6]) / 100,
-      retention_m8: Number(form.retention[7]) / 100,
-      retention_m9: Number(form.retention[8]) / 100,
-      retention_m10: Number(form.retention[9]) / 100,
-      retention_m11: Number(form.retention[10]) / 100,
-      retention_m12: Number(form.retention[11]) / 100,
+      retention_m1: retentionValue(form.retention[0]),
+      retention_m2: retentionValue(form.retention[1]),
+      retention_m3: retentionValue(form.retention[2]),
+      retention_m4: retentionValue(form.retention[3]),
+      retention_m5: retentionValue(form.retention[4]),
+      retention_m6: retentionValue(form.retention[5]),
+      retention_m7: retentionValue(form.retention[6]),
+      retention_m8: retentionValue(form.retention[7]),
+      retention_m9: retentionValue(form.retention[8]),
+      retention_m10: retentionValue(form.retention[9]),
+      retention_m11: retentionValue(form.retention[10]),
+      retention_m12: retentionValue(form.retention[11]),
     }
     if (form.marketing !== '') payload.marketing_spend = Number(form.marketing)
     onSubmit(payload)
@@ -257,23 +263,27 @@ export function CohortsTab({
                         const v = retentionAt(c, idx)
                         return (
                           <td key={m} className="px-2 py-3 text-center">
-                            <span
-                              title={t('company.cohorts.cellTitle', {
-                                month: m,
-                                retention: fmtPct(v),
-                                users: Math.round(c.size * v),
-                              })}
-                              className={`inline-block rounded px-2 py-1 text-xs font-medium ${heatClass(
-                                v
-                              )}`}
-                            >
-                              {fmtPct(v)}
-                            </span>
+                            {v === null ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              <span
+                                title={t('company.cohorts.cellTitle', {
+                                  month: m,
+                                  retention: fmtPct(v),
+                                  users: Math.round(c.size * v),
+                                })}
+                                className={`inline-block rounded px-2 py-1 text-xs font-medium ${heatClass(
+                                  v,
+                                )}`}
+                              >
+                                {fmtPct(v)}
+                              </span>
+                            )}
                           </td>
                         )
                       })}
                       <td className="px-3 py-3 text-foreground">
-                        {activeUsers(c)}
+                        {activeUsers(c) ?? '—'}
                       </td>
                       <td className="px-3 py-3 text-foreground">{cacValue(c)}</td>
                       {canEdit && onDelete && (
