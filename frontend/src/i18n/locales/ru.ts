@@ -157,6 +157,7 @@ export const ru = {
         businessModel: 'Бизнес-модель',
         metrics: 'Метрики',
       },
+      location: 'Место нахождение',
       businessModelLabel: 'Бизнес-модель',
       businessModelHint: 'Доступные модели зависят от выбранной отрасли.',
       selectBusinessModel: 'Выберите бизнес-модель',

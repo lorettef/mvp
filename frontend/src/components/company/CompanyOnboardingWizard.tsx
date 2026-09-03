@@ -18,7 +18,7 @@ interface CompanyOnboardingWizardProps {
   readonly onClose: () => void
 }
 
-type OnboardingPayload = Pick<CompanyCreate, 'name' | 'industry' | 'business_model' | 'gross_margin'>
+type OnboardingPayload = Pick<CompanyCreate, 'name' | 'industry' | 'business_model' | 'gross_margin' | 'geography'>
 
 const WIZARD_STEPS = 4
 
@@ -27,9 +27,16 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
   const queryClient = useQueryClient()
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
+  const [geography, setGeography] = useState('')
   const [industry, setIndustry] = useState('')
   const [businessModel, setBusinessModel] = useState('')
   const [grossMargin, setGrossMargin] = useState('')
+
+  const REGIONS = [
+    { label: t('common.geo.ru'), rate: '21' },
+    { label: t('common.geo.kz'), rate: '16' },
+    { label: t('common.geo.global'), rate: '4' },
+  ]
 
   const catalogQuery = useQuery<CatalogResponse>({
     queryKey: ['catalog'],
@@ -70,6 +77,7 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
   const reset = () => {
     setStep(1)
     setName('')
+    setGeography('')
     setIndustry('')
     setBusinessModel('')
     setGrossMargin('')
@@ -84,6 +92,7 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
     if (!canContinue || !profile || !industry || !businessModel) return
     createMutation.mutate({
       name: name.trim(),
+      geography,
       industry,
       business_model: businessModel,
       gross_margin: grossMarginValue,
@@ -125,17 +134,46 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
       </CardHeader>
       <CardContent className="space-y-5">
         {step === 1 && (
-          <div className="space-y-2">
-            <label htmlFor="onboarding-company-name" className="text-sm font-medium text-foreground">
-              {t('dashboard.companyName')}
-            </label>
-            <Input
-              id="onboarding-company-name"
-              autoFocus
-              placeholder={t('dashboard.companyName')}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="onboarding-company-name" className="text-sm font-medium text-foreground">
+                {t('dashboard.companyName')}
+              </label>
+              <Input
+                id="onboarding-company-name"
+                autoFocus
+                placeholder={t('dashboard.companyName')}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">{t('dashboard.onboarding.location')}</p>
+              <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label={t('dashboard.onboarding.location')}>
+                {REGIONS.map((region) => {
+                  const isSelected = geography === region.label
+                  return (
+                    <button
+                      key={region.label}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => setGeography(region.label)}
+                      className={`rounded-lg border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${
+                        isSelected
+                          ? 'border-primary bg-primary/10 text-foreground'
+                          : 'border-input bg-card hover:border-primary/50 hover:bg-accent'
+                      }`}
+                    >
+                      <span className="text-sm font-medium">{region.label}</span>
+                      <span className="mt-2 block text-xs text-muted-foreground">
+                        {t('common.keyRateHint', { rate: region.rate })}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         )}
 

@@ -157,6 +157,7 @@ export const en = {
         businessModel: 'Business model',
         metrics: 'Metrics',
       },
+      location: 'Location',
       businessModelLabel: 'Business model',
       businessModelHint: 'Available models depend on the selected industry.',
       selectBusinessModel: 'Select business model',

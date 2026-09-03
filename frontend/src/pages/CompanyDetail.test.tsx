@@ -734,7 +734,8 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.get.mockResolvedValue({ ...company, grossMargin: 0.755 })
     renderCompanyDetail()
 
-    expect(await screen.findByLabelText('Валовая маржа (Gross Margin, %)')).toHaveValue(75.5)
+    const input = await screen.findByLabelText('Валовая маржа (Gross Margin, %)')
+    await waitFor(() => expect(input).toHaveValue(75.5))
   })
 
   it('confirms metric deletion before calling the delete API', async () => {

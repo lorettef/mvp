@@ -12,6 +12,10 @@ const dashboardApiMock = vi.hoisted(() => ({
   get: vi.fn(),
 }))
 
+const catalogApiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+}))
+
 const invitesApiMock = vi.hoisted(() => ({
   create: vi.fn(),
 }))
@@ -24,6 +28,7 @@ vi.mock('@/api/companies', () => ({
   companiesApi: companiesApiMock,
   dashboardApi: dashboardApiMock,
 }))
+vi.mock('@/api/catalog', () => ({ catalogApi: catalogApiMock }))
 vi.mock('@/api/invites', () => ({ invitesApi: invitesApiMock }))
 vi.mock('../auth/authSession', () => ({ getTenantKey: () => 'org-1' }))
 vi.mock('../store/authStore', () => ({
@@ -54,6 +59,12 @@ describe('CompaniesDashboard startup invites', () => {
       onTrack: 0,
       behind: 0,
       companies: [],
+    })
+    catalogApiMock.get.mockReset()
+    catalogApiMock.get.mockResolvedValue({
+      industries: [{ slug: 'saas', label: 'SaaS' }],
+      businessModels: [{ slug: 'subscription', label: 'Подписка', description: '' }],
+      profiles: { saas: { subscription: { label: '', why: '', metrics: [], derived: [] } } },
     })
     invitesApiMock.create.mockReset()
     Object.defineProperty(navigator, 'clipboard', {
@@ -109,6 +120,12 @@ describe('CompaniesDashboard create form', () => {
       behind: 0,
       companies: [],
     })
+    catalogApiMock.get.mockReset()
+    catalogApiMock.get.mockResolvedValue({
+      industries: [{ slug: 'saas', label: 'SaaS' }],
+      businessModels: [{ slug: 'subscription', label: 'Подписка', description: '' }],
+      profiles: { saas: { subscription: { label: '', why: '', metrics: [], derived: [] } } },
+    })
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: vi.fn(),
@@ -121,15 +138,23 @@ describe('CompaniesDashboard create form', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Название компании' }), {
       target: { value: 'Новая компания' },
     })
-    fireEvent.click(screen.getByRole('combobox', { name: 'Сфера деятельности' }))
-    fireEvent.click(await screen.findByRole('option', { name: 'Маркетплейсы' }))
     fireEvent.click(screen.getByRole('radio', { name: new RegExp(geography) }))
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Сфера деятельности' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'SaaS' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Бизнес-модель' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Подписка' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+    fireEvent.change(screen.getByLabelText('Валовая маржа (%)'), { target: { value: '75.5' } })
     fireEvent.click(screen.getByRole('button', { name: 'Создать' }))
 
     await waitFor(() =>
       expect(companiesApiMock.create).toHaveBeenCalledWith({
         name: 'Новая компания',
-        industry: 'marketplaces',
+        industry: 'saas',
+        business_model: 'subscription',
+        gross_margin: 75.5,
         geography,
       }),
     )
