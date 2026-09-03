@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.database import engine
-from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin, invites
+from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin, invites, catalog
 
 # Настройка логирования
 logging.basicConfig(
@@ -96,6 +96,7 @@ app.include_router(
     prefix="/api/v1/subscription",
     tags=["subscription"]
 )
+app.include_router(catalog.router, prefix="/api/v1/catalog", tags=["catalog"])
 
 @app.get("/health")
 async def health_check():
