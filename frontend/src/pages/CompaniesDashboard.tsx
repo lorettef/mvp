@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { dashboardApi } from '../api/companies'
@@ -7,24 +6,16 @@ import { getTenantKey } from '../auth/authSession'
 import { qk } from '../lib/queryKeys'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { QueryState } from '@/components/common/QueryState'
 import { StartupInvite } from '@/components/common/StartupInvite'
 import { CompanyOnboardingWizard } from '@/components/company/CompanyOnboardingWizard'
+import { CompanyLifecycleSections } from '@/components/company/CompanyLifecycleSections'
 import { fmtRub } from '@/lib/format'
 import { Building2, TrendingUp, CircleCheck, AlertTriangle, Plus, RefreshCw } from 'lucide-react'
 
 export const CompaniesDashboard = () => {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
-
-  const statusMap: Record<string, { label: string; className: string }> = {
-    on_track: { label: t('dashboard.status.onTrack'), className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
-    behind: { label: t('dashboard.status.behind'), className: 'bg-destructive/10 text-destructive border-destructive/20' },
-    no_plan: { label: t('dashboard.status.noPlan'), className: 'bg-muted text-muted-foreground border-border' },
-    no_data: { label: t('dashboard.status.noData'), className: 'bg-muted text-muted-foreground border-border' },
-  }
 
   const tenantKey = getTenantKey()
 
@@ -92,54 +83,7 @@ export const CompaniesDashboard = () => {
         ))}
       </div>
 
-      <Card className="border bg-card/50">
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-muted-foreground">
-                <th className="text-left font-medium px-5 py-3">{t('dashboard.table.company')}</th>
-                <th className="text-left font-medium px-5 py-3 hidden sm:table-cell">{t('dashboard.table.sphere')}</th>
-                <th className="text-left font-medium px-5 py-3">{t('dashboard.table.revenueFact')}</th>
-                <th className="text-left font-medium px-5 py-3 hidden md:table-cell">{t('dashboard.table.revenuePlan')}</th>
-                <th className="text-left font-medium px-5 py-3">{t('dashboard.table.taskProgress')}</th>
-                <th className="text-left font-medium px-5 py-3">{t('dashboard.table.status')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.companies ?? []).map((c) => {
-                const s = statusMap[c.status] ?? statusMap.no_data
-                return (
-                  <tr
-                    key={c.id}
-                    className="border-b border-border/50 last:border-0 hover:bg-muted/40 cursor-pointer transition-colors"
-                    onClick={() => navigate(`/companies/${c.id}`)}
-                  >
-                    <td className="px-5 py-3 font-medium text-foreground">{c.name}</td>
-                    <td className="px-5 py-3 text-muted-foreground hidden sm:table-cell">
-                      {c.industry ?? '—'}
-                    </td>
-                    <td className="px-5 py-3 text-foreground">{fmtRub(c.latestRevenue)}</td>
-                    <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{fmtRub(c.latestPlanRevenue)}</td>
-                    <td className="px-5 py-3 text-foreground">
-                      {c.taskProgress != null ? `${c.taskProgress}%` : '—'}
-                    </td>
-                    <td className="px-5 py-3">
-                      <Badge className={s.className}>{s.label}</Badge>
-                    </td>
-                  </tr>
-                )
-              })}
-              {(data?.companies ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
-                    {t('dashboard.empty')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      <CompanyLifecycleSections tenantKey={tenantKey} dashboardCompanies={data?.companies ?? []} />
     </div>
     </QueryState>
   )

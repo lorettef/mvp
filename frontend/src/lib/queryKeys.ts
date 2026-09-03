@@ -13,6 +13,12 @@
  */
 export const qk = {
   dashboard: (tenant: string): readonly string[] => ['tenant', tenant, 'dashboard'],
+  companies: (tenant: string, archived: boolean): readonly string[] => [
+    'tenant',
+    tenant,
+    'companies',
+    archived ? 'archived' : 'active',
+  ],
 
   company: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id],
   companyMetrics: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'metrics'],

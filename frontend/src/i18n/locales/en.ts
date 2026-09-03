@@ -20,6 +20,8 @@ export const en = {
     save: 'Save',
     saving: 'Saving...',
     cancel: 'Cancel',
+    delete: 'Delete',
+    actions: 'Actions',
     retry: 'Retry',
     noData: 'No data',
     plan: 'Plan',
@@ -169,6 +171,21 @@ export const en = {
       back: 'Back',
       next: 'Next',
     },
+    lifecycle: {
+      activeTitle: 'Active companies',
+      archiveTitle: 'Archive',
+      activeEmpty: 'No active companies.',
+      archiveEmpty: 'The archive is empty.',
+      loading: 'Loading companies...',
+      loadError: 'Could not load the company list.',
+      grossMargin: 'Gross margin: {{value}}%',
+      archive: 'Archive',
+      restore: 'Restore',
+      delete: 'Delete',
+      deleteConfirm: 'Delete the company and all related data?',
+      confirmDelete: 'Delete permanently',
+      processing: 'Processing...',
+    },
   },
   company: {
     providerDemo: 'demo mode',
@@ -180,6 +197,10 @@ export const en = {
     generatePlan: 'Generate AI plan',
     generating: 'Generating...',
     planGenerated: 'Plan for {{count}} months generated ({{provider}}).',
+    delete: {
+      title: 'Delete data?',
+      description: 'This action cannot be undone.',
+    },
     tabs: {
       metrics: 'Metrics',
       cohorts: 'Cohorts',
@@ -223,6 +244,7 @@ export const en = {
       newUnitsFact: 'New units fact',
       retentionFact: 'Retention fact',
       empty: 'No metrics added yet.',
+      delete: 'Delete metric',
     },
     cohorts: {
       title: 'Cohort analysis — M1–M12 retention matrix',
@@ -234,6 +256,7 @@ export const en = {
       cac: 'CAC',
       cellTitle: 'M{{month}}: {{retention}} · {{users}} people',
       empty: 'No cohorts added yet.',
+      delete: 'Delete cohort',
     },
     budget: {
       title: 'Budget — Plan vs Fact',
@@ -248,6 +271,7 @@ export const en = {
       article: 'Line item',
       deviation: 'Deviation',
       empty: 'No budget added yet.',
+      delete: 'Delete budget',
     },
     unit: {
       title: 'Unit economics',

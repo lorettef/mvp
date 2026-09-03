@@ -20,6 +20,8 @@ export const ru = {
     save: 'Сохранить',
     saving: 'Сохранение...',
     cancel: 'Отмена',
+    delete: 'Удалить',
+    actions: 'Действия',
     retry: 'Повторить',
     noData: 'Нет данных',
     plan: 'План',
@@ -169,6 +171,21 @@ export const ru = {
       back: 'Назад',
       next: 'Далее',
     },
+    lifecycle: {
+      activeTitle: 'Активные компании',
+      archiveTitle: 'Архив',
+      activeEmpty: 'Активных компаний нет.',
+      archiveEmpty: 'Архив пуст.',
+      loading: 'Загрузка компаний...',
+      loadError: 'Не удалось загрузить список компаний.',
+      grossMargin: 'Валовая маржа: {{value}}%',
+      archive: 'Архивировать',
+      restore: 'Восстановить',
+      delete: 'Удалить',
+      deleteConfirm: 'Удалить компанию и все связанные данные?',
+      confirmDelete: 'Удалить навсегда',
+      processing: 'Выполняется...',
+    },
   },
   company: {
     providerDemo: 'демо-режим',
@@ -180,6 +197,10 @@ export const ru = {
     generatePlan: 'Сгенерировать план AI',
     generating: 'Генерация...',
     planGenerated: 'План на {{count}} мес. сгенерирован ({{provider}}).',
+    delete: {
+      title: 'Удалить данные?',
+      description: 'Это действие нельзя отменить.',
+    },
     tabs: {
       metrics: 'Метрики',
       cohorts: 'Когорты',
@@ -223,6 +244,7 @@ export const ru = {
       newUnitsFact: 'Новые юниты факт',
       retentionFact: 'Retention факт',
       empty: 'Метрики ещё не добавлены.',
+      delete: 'Удалить метрику',
     },
     cohorts: {
       title: 'Когортный анализ — матрица удержания M1–M12',
@@ -234,6 +256,7 @@ export const ru = {
       cac: 'CAC',
       cellTitle: 'M{{month}}: {{retention}} · {{users}} чел',
       empty: 'Когорты ещё не добавлены.',
+      delete: 'Удалить когорту',
     },
     budget: {
       title: 'Бюджет — План vs Факт',
@@ -248,6 +271,7 @@ export const ru = {
       article: 'Статья',
       deviation: 'Отклонение',
       empty: 'Бюджет ещё не добавлен.',
+      delete: 'Удалить бюджет',
     },
     unit: {
       title: 'Юнит-экономика',
