@@ -9,6 +9,7 @@ class CompanyCreate(BaseModel):
     industry: Optional[str] = None
     geography: Optional[str] = None
     gross_margin: Optional[float] = Field(None, gt=0, le=1)
+    business_model: Optional[str] = None
 
 
 class CompanyUpdate(BaseModel):
@@ -16,6 +17,7 @@ class CompanyUpdate(BaseModel):
     industry: Optional[str] = None
     geography: Optional[str] = None
     gross_margin: Optional[float] = Field(None, gt=0, le=1)
+    business_model: Optional[str] = None
 
 
 class CompanyResponse(BaseModel):
@@ -26,4 +28,6 @@ class CompanyResponse(BaseModel):
     industry: Optional[str]
     geography: Optional[str]
     gross_margin: float
+    business_model: Optional[str] = None
+    archived_at: Optional[datetime] = None
     created_at: datetime
