@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+*.log
+*.pid
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment / secrets — NEVER bake these into the image
+.env
+.env.*
+!.env.example
+.env.example
+
+# Local databases — NEVER ship dev/test data in the image
+*.db
+*.sqlite
+*.sqlite3
+
+# Tests
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.cover
+test*.db
+
+# OS
+.DS_Store
+Thumbs.db
