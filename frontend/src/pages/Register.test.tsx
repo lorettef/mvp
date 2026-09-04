@@ -77,6 +77,29 @@ describe('Register', () => {
     })
   })
 
+  it('sends industry and geography for a startup', async () => {
+    renderRegister()
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Стартап' }))
+    fillCommonFields()
+    fireEvent.change(screen.getByLabelText('Название стартапа'), { target: { value: 'Orbit Labs' } })
+    fireEvent.change(screen.getByLabelText('Сфера деятельности'), { target: { value: 'saas' } })
+    fireEvent.change(screen.getByLabelText('Местоположение'), { target: { value: 'Россия' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Зарегистрироваться' }))
+
+    await waitFor(() => {
+      expect(authApiMock.register).toHaveBeenCalledWith({
+        email: 'founder@example.com',
+        password: 'password123',
+        full_name: 'Алексей',
+        company_name: 'Orbit Labs',
+        account_type: 'startup',
+        industry: 'saas',
+        geography: 'Россия',
+      })
+    })
+  })
+
   it('shows a client validation error and does not submit an empty startup name', async () => {
     renderRegister()
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Стартап' }))

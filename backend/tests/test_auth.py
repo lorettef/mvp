@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from app.core.limiter import limiter
 from app.models.organization import Organization
+from app.models.company import Company
 from app.models.user import User
 from app.models.subscription import Subscription
 
@@ -151,6 +152,28 @@ async def test_register_standalone_startup(client, db_session):
     assert user.role == "admin"
     assert user.organization_id == org.id
     assert user.company_id is not None
+
+
+async def test_register_standalone_startup_with_industry_geography(client, db_session):
+    """Стартап при регистрации указывает сферу и местоположение — сохраняются на компании."""
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json=_register_payload(
+            email="startup-geo@test.ru",
+            full_name="Startup Founder",
+            company_name="Geo Startup",
+            account_type="startup",
+            industry="saas",
+            geography="Германия",
+        ),
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+
+    company = await db_session.get(Company, uuid.UUID(body["company_id"]))
+    assert company is not None
+    assert company.industry == "saas"
+    assert company.geography == "Германия"
 
 
 async def test_register_standalone_without_company_name_422(client):

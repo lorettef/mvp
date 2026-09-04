@@ -13,6 +13,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type AccountType = 'fund' | 'startup'
 
+const INDUSTRIES: Array<{ slug: string; label: string }> = [
+  { slug: 'saas', label: 'SaaS' },
+  { slug: 'fintech', label: 'Fintech' },
+  { slug: 'ecommerce', label: 'E-commerce' },
+  { slug: 'edtech', label: 'EdTech' },
+  { slug: 'healthtech', label: 'HealthTech' },
+  { slug: 'ai', label: 'AI/ML' },
+  { slug: 'marketplaces', label: 'Маркетплейсы' },
+  { slug: 'foodtech', label: 'FoodTech' },
+  { slug: 'logistics', label: 'Логистика' },
+  { slug: 'proptech', label: 'PropTech' },
+  { slug: 'media', label: 'Медиа и развлечения' },
+  { slug: 'hardware', label: 'Hardware / IoT' },
+  { slug: 'biotech', label: 'Biotech' },
+  { slug: 'cleantech', label: 'CleanTech' },
+  { slug: 'other', label: 'Другое' },
+]
+
+const selectClassName =
+  'flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
+
 export const Register = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -23,6 +44,8 @@ export const Register = () => {
     password: '',
     fullName: '',
     companyName: '',
+    industry: '',
+    geography: '',
   })
   const [accountType, setAccountType] = useState<AccountType>(inviteToken ? 'startup' : 'fund')
   const [inviteOrganizationName, setInviteOrganizationName] = useState<string | null>(null)
@@ -72,6 +95,8 @@ export const Register = () => {
         company_name: form.companyName,
         ...(accountType === 'startup' ? { account_type: 'startup' } : {}),
         ...(inviteToken ? { invite_token: inviteToken } : {}),
+        industry: form.industry || undefined,
+        geography: form.geography || undefined,
       })
       analytics.track('registered')
       navigate('/login', { state: { message: t('auth.register.success') } })
@@ -184,6 +209,34 @@ export const Register = () => {
                     onChange={(e) => setForm({ ...form, companyName: e.target.value })}
                     className="bg-card border-input"
                   />
+                  <div className="space-y-2">
+                    <label htmlFor="register-industry" className="text-sm font-medium text-foreground">{t('auth.register.industry')}</label>
+                    <select
+                      id="register-industry"
+                      className={selectClassName}
+                      value={form.industry}
+                      onChange={(e) => setForm({ ...form, industry: e.target.value })}
+                    >
+                      <option value="">{t('auth.register.industryPlaceholder')}</option>
+                      {INDUSTRIES.map((item) => (
+                        <option key={item.slug} value={item.slug}>{item.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="register-geography" className="text-sm font-medium text-foreground">{t('auth.register.geography')}</label>
+                    <select
+                      id="register-geography"
+                      className={selectClassName}
+                      value={form.geography}
+                      onChange={(e) => setForm({ ...form, geography: e.target.value })}
+                    >
+                      <option value="">{t('auth.register.geographyPlaceholder')}</option>
+                      <option value={t('common.geo.ru')}>{t('common.geo.ru')}</option>
+                      <option value={t('common.geo.kz')}>{t('common.geo.kz')}</option>
+                      <option value={t('common.geo.global')}>{t('common.geo.global')}</option>
+                    </select>
+                  </div>
                   {!inviteToken && (
                     <p className="pt-1 text-xs text-muted-foreground">
                       <Link to="/register" className="text-primary underline-offset-4 hover:underline">

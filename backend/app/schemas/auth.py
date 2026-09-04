@@ -11,6 +11,8 @@ class UserCreate(BaseModel):
     company_name: Optional[str] = Field(None, max_length=255)
     account_type: Literal["fund", "startup"] = "fund"
     invite_token: Optional[str] = None
+    industry: Optional[str] = Field(None, max_length=100)
+    geography: Optional[str] = Field(None, max_length=100)
 
     @field_validator("password")
     @classmethod

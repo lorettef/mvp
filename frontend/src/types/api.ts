@@ -11,6 +11,8 @@ export interface RegisterRequest {
   company_name?: string
   account_type?: 'fund' | 'startup'
   invite_token?: string | null
+  industry?: string
+  geography?: string
 }
 
 export interface LoginRequest {
@@ -114,6 +116,7 @@ export interface Company {
   businessModel: string | null
   geography: string | null
   grossMargin: number
+  selectedMetrics: string[] | null
   archivedAt: string | null
   createdAt: string
 }
@@ -124,6 +127,7 @@ export interface CompanyCreate {
   business_model?: string
   geography?: string
   gross_margin?: number
+  selected_metrics?: string[]
 }
 
 export interface CompanyUpdate {
@@ -132,6 +136,7 @@ export interface CompanyUpdate {
   business_model?: string
   geography?: string
   gross_margin?: number
+  selected_metrics?: string[]
 }
 
 // Catalog (industry / business-model / metric-profile taxonomy)
@@ -162,7 +167,7 @@ export interface MetricProfile {
 
 export interface CatalogResponse {
   industries: IndustryItem[]
-  businessModels: BusinessModelItem[]
+  business_models: BusinessModelItem[]
   profiles: Record<string, Record<string, MetricProfile>>
 }
 

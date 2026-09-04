@@ -64,8 +64,8 @@ class AuthService:
             company = Company(
                 organization_id=invite.organization_id,
                 name=data.company_name,
-                industry=None,
-                geography=None
+                industry=data.industry,
+                geography=data.geography
             )
             self.db.add(company)
             await self.db.flush()
@@ -86,8 +86,8 @@ class AuthService:
             company = Company(
                 organization_id=organization.id,
                 name=data.company_name,
-                industry=None,
-                geography=None
+                industry=data.industry,
+                geography=data.geography
             )
             self.db.add(company)
             await self.db.flush()
@@ -109,8 +109,8 @@ class AuthService:
                 company = Company(
                     organization_id=organization.id,
                     name=data.company_name,
-                    industry=None,
-                    geography=None
+                    industry=data.industry,
+                    geography=data.geography
                 )
                 self.db.add(company)
                 await self.db.flush()
