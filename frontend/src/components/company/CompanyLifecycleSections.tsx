@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Archive, RotateCcw, Trash2 } from 'lucide-react'
 
 import { companiesApi } from '@/api/companies'
+import { catalogApi } from '@/api/catalog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,6 +34,21 @@ export function CompanyLifecycleSections({ tenantKey, dashboardCompanies }: Comp
     queryKey: qk.companies(tenantKey, true),
     queryFn: ({ signal }) => companiesApi.list({ signal, archived: true }),
   })
+  const catalogQuery = useQuery({
+    queryKey: ['catalog'],
+    queryFn: ({ signal }) => catalogApi.get({ signal }),
+  })
+
+  const industryLabels = new Map(
+    (catalogQuery.data?.industries ?? []).map((item) => [item.slug, item.label]),
+  )
+  const businessModelLabels = new Map(
+    (catalogQuery.data?.business_models ?? []).map((item) => [item.slug, item.label]),
+  )
+  const industryLabel = (slug: string | null) =>
+    slug ? (industryLabels.get(slug) ?? slug) : '—'
+  const businessModelLabel = (slug: string | null) =>
+    slug ? (businessModelLabels.get(slug) ?? slug) : null
 
   const invalidateCompanyViews = (companyId: string) => {
     void queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
@@ -83,8 +99,8 @@ export function CompanyLifecycleSections({ tenantKey, dashboardCompanies }: Comp
           >
             <p className="truncate font-medium text-foreground">{company.name}</p>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span>{company.industry ?? '—'}</span>
-              {company.businessModel && <span>{company.businessModel}</span>}
+              <span>{industryLabel(company.industry)}</span>
+              {company.businessModel && <span>{businessModelLabel(company.businessModel)}</span>}
               <span>{t('dashboard.lifecycle.grossMargin', { value: company.grossMargin })}</span>
               {!archived && <Badge className={status.className}>{status.label}</Badge>}
             </div>

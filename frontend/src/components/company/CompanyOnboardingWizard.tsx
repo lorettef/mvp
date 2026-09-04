@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
@@ -18,7 +18,7 @@ interface CompanyOnboardingWizardProps {
   readonly onClose: () => void
 }
 
-type OnboardingPayload = Pick<CompanyCreate, 'name' | 'industry' | 'business_model' | 'gross_margin' | 'geography'>
+type OnboardingPayload = Pick<CompanyCreate, 'name' | 'industry' | 'business_model' | 'gross_margin' | 'geography' | 'selected_metrics'>
 
 const WIZARD_STEPS = 4
 
@@ -31,6 +31,7 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
   const [industry, setIndustry] = useState('')
   const [businessModel, setBusinessModel] = useState('')
   const [grossMargin, setGrossMargin] = useState('')
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>([])
 
   const REGIONS = [
     { label: t('common.geo.ru'), rate: '21' },
@@ -42,6 +43,14 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
     queryKey: ['catalog'],
     queryFn: ({ signal }) => catalogApi.get({ signal }),
   })
+
+  useEffect(() => {
+    const catalog = catalogQuery.data
+    if (!catalog || !industry || !businessModel) return
+    const prof = catalog.profiles[industry]?.[businessModel]
+    if (!prof) return
+    setSelectedMetrics(prof.metrics.map((metric) => metric.key))
+  }, [industry, businessModel, catalogQuery.data])
 
   const createMutation = useMutation({
     mutationFn: (payload: OnboardingPayload) => companiesApi.create(payload),
@@ -55,12 +64,12 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
 
   const catalog = catalogQuery.data
   const selectedIndustry: IndustryItem | undefined = catalog?.industries.find((item) => item.slug === industry)
-  const selectedBusinessModel: BusinessModelItem | undefined = catalog?.businessModels.find(
+  const selectedBusinessModel: BusinessModelItem | undefined = catalog?.business_models.find(
     (item) => item.slug === businessModel,
   )
   const availableBusinessModels = catalog && industry
     ? Object.keys(catalog.profiles[industry] ?? {})
-        .map((slug) => catalog.businessModels.find((item) => item.slug === slug))
+        .map((slug) => catalog.business_models.find((item) => item.slug === slug))
         .filter((item): item is BusinessModelItem => item !== undefined)
     : []
   const profile: MetricProfile | undefined = catalog?.profiles[industry]?.[businessModel]
@@ -81,11 +90,18 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
     setIndustry('')
     setBusinessModel('')
     setGrossMargin('')
+    setSelectedMetrics([])
   }
 
   const close = () => {
     reset()
     onClose()
+  }
+
+  const toggleMetric = (key: string) => {
+    setSelectedMetrics((current) =>
+      current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+    )
   }
 
   const submit = () => {
@@ -96,6 +112,7 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
       industry,
       business_model: businessModel,
       gross_margin: grossMarginValue,
+      selected_metrics: selectedMetrics,
     })
   }
 
@@ -248,18 +265,40 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">{t('dashboard.onboarding.recommendedTitle')}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{profile.why}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {t('dashboard.onboarding.selectMetricsHint')}
+                  </p>
                 </div>
                 <ul className="space-y-2">
-                  {profile.metrics.map((metric) => (
-                    <li key={metric.key} className="flex items-start gap-3 rounded-md border border-border p-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground">{metric.label}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{metric.why}</p>
-                      </div>
-                      {metric.required && <Badge variant="secondary">{t('dashboard.onboarding.required')}</Badge>}
-                    </li>
-                  ))}
+                  {profile.metrics.map((metric) => {
+                    const checked = selectedMetrics.includes(metric.key)
+                    return (
+                      <li key={metric.key}>
+                        <label
+                          className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                            checked ? 'border-primary/50 bg-primary/5' : 'border-border'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4"
+                            checked={checked}
+                            onChange={() => toggleMetric(metric.key)}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-foreground">{metric.label}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{metric.why}</p>
+                          </div>
+                          {metric.required && <Badge variant="secondary">{t('dashboard.onboarding.required')}</Badge>}
+                        </label>
+                      </li>
+                    )
+                  })}
                 </ul>
+                <p className="text-xs text-muted-foreground">
+                  {t('dashboard.onboarding.selectedCount', { count: selectedMetrics.length })}
+                  {profile.derived.length > 0 && ` · ${t('dashboard.onboarding.derivedNote')}`}
+                </p>
                 {profile.metrics.length === 0 && <p className="text-sm text-muted-foreground">{t('dashboard.onboarding.noMetrics')}</p>}
               </div>
             ) : (

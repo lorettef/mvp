@@ -63,7 +63,7 @@ describe('CompaniesDashboard startup invites', () => {
     catalogApiMock.get.mockReset()
     catalogApiMock.get.mockResolvedValue({
       industries: [{ slug: 'saas', label: 'SaaS' }],
-      businessModels: [{ slug: 'subscription', label: 'Подписка', description: '' }],
+      business_models: [{ slug: 'subscription', label: 'Подписка', description: '' }],
       profiles: { saas: { subscription: { label: '', why: '', metrics: [], derived: [] } } },
     })
     invitesApiMock.create.mockReset()
@@ -123,7 +123,7 @@ describe('CompaniesDashboard create form', () => {
     catalogApiMock.get.mockReset()
     catalogApiMock.get.mockResolvedValue({
       industries: [{ slug: 'saas', label: 'SaaS' }],
-      businessModels: [{ slug: 'subscription', label: 'Подписка', description: '' }],
+      business_models: [{ slug: 'subscription', label: 'Подписка', description: '' }],
       profiles: { saas: { subscription: { label: '', why: '', metrics: [], derived: [] } } },
     })
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -156,6 +156,7 @@ describe('CompaniesDashboard create form', () => {
         business_model: 'subscription',
         gross_margin: 75.5,
         geography,
+        selected_metrics: [],
       }),
     )
   })
