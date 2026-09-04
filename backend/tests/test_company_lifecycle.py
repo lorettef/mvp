@@ -34,6 +34,57 @@ async def test_create_company_with_business_model(client, seeded_organization, s
     assert body["archived_at"] is None
 
 
+async def test_create_company_with_selected_metrics(client, seeded_organization, seeded_admin):
+    res = await client.post(
+        "/api/v1/companies",
+        json={
+            "name": "MetricCo",
+            "industry": "saas",
+            "business_model": "subscription",
+            "geography": "Германия",
+            "selected_metrics": ["new_units", "arpu", "revenue", "retention_rate"],
+        },
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["selected_metrics"] == ["new_units", "arpu", "revenue", "retention_rate"]
+    assert body["industry"] == "saas"
+    assert body["business_model"] == "subscription"
+
+
+async def test_update_company_selected_metrics(client, seeded_company, seeded_admin):
+    res = await client.patch(
+        f"/api/v1/companies/{seeded_company.id}",
+        json={
+            "industry": "ecommerce",
+            "business_model": "retail",
+            "geography": "Казахстан",
+            "selected_metrics": ["revenue", "arpu"],
+        },
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["industry"] == "ecommerce"
+    assert body["business_model"] == "retail"
+    assert body["geography"] == "Казахстан"
+    assert body["selected_metrics"] == ["revenue", "arpu"]
+
+
+async def test_update_company_does_not_touch_unspecified_fields(client, seeded_company, seeded_admin):
+    res = await client.patch(
+        f"/api/v1/companies/{seeded_company.id}",
+        json={"selected_metrics": ["revenue"]},
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["selected_metrics"] == ["revenue"]
+    assert body["name"] == "Test Startup"
+    assert body["industry"] == "SaaS"
+
+
 async def test_archive_hides_from_active_and_shows_in_archived(client, seeded_company, seeded_admin):
     res = await client.post(
         f"/api/v1/companies/{seeded_company.id}/archive",

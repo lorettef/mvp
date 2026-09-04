@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Float, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, DateTime, Float, ForeignKey, UniqueConstraint, JSON
 from sqlalchemy import Uuid
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -16,6 +16,7 @@ class Company(Base):
     industry = Column(String(100), nullable=True)
     geography = Column(String(100), nullable=True)
     business_model = Column(String(50), nullable=True)
+    selected_metrics = Column(JSON, nullable=True)  # list[str] ключей из metric_catalog.METRIC_KEYS
     gross_margin = Column(Float, nullable=False, default=0.75)
     created_at = Column(DateTime, server_default=func.now())
     archived_at = Column(DateTime, nullable=True)

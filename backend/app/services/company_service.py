@@ -39,6 +39,7 @@ class CompanyService:
             geography=data.geography,
             gross_margin=data.gross_margin if data.gross_margin is not None else 0.75,
             business_model=data.business_model,
+            selected_metrics=data.selected_metrics,
         )
         self.db.add(company)
         await self.db.flush()
@@ -90,7 +91,7 @@ class CompanyService:
 
     async def update_company(self, company: Company, data: CompanyUpdate) -> Company:
         """Обновление данных компании."""
-        for field in ("name", "industry", "geography", "gross_margin", "business_model"):
+        for field in ("name", "industry", "geography", "gross_margin", "business_model", "selected_metrics"):
             value = getattr(data, field)
             if value is not None:
                 setattr(company, field, value)
