@@ -10,6 +10,7 @@ from app.core.metric_catalog import (
     business_models_for,
     default_business_model,
     default_industry,
+    describe_company,
     get_profile,
     list_business_models,
     list_industries,
@@ -87,3 +88,33 @@ def test_list_business_models_has_slug_label_description():
 def test_defaults():
     assert default_industry() == "saas"
     assert default_business_model() == "subscription"
+
+
+def test_describe_company_full_profile():
+    text = describe_company(
+        "saas",
+        "subscription",
+        "Германия",
+        ["new_units", "arpu", "revenue", "retention_rate"],
+    )
+    assert "SaaS" in text
+    assert "Подписка (SaaS)" in text
+    assert "Германия" in text
+    assert "Удержание подписчиков" in text
+
+
+def test_describe_company_distinguishes_marketplace():
+    saas_text = describe_company("saas", "subscription", None, None)
+    mkt_text = describe_company("ecommerce", "marketplace", None, None)
+    assert "Подписка (SaaS)" in saas_text
+    assert "Маркетплейс" in mkt_text
+    assert saas_text != mkt_text
+
+
+def test_describe_company_empty():
+    assert describe_company(None, None, None) == "профиль компании не указан"
+
+
+def test_describe_company_ignores_unknown_slugs():
+    text = describe_company("bogus", "bogus_model", None, None)
+    assert text == "профиль компании не указан"

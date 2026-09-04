@@ -647,3 +647,47 @@ def default_industry() -> str:
 def default_business_model() -> str:
     """Return the default business-model slug."""
     return DEFAULT_BUSINESS_MODEL
+
+
+def describe_company(
+    industry: str | None,
+    business_model: str | None,
+    geography: str | None,
+    selected_metrics: list[str] | None = None,
+) -> str:
+    """Build a human-readable profile of a company for AI prompts.
+
+    Returns a single Russian sentence describing industry, business model,
+    geography and the metric set the company tracks. Used by the AI insight and
+    plan-generation services so that analysis is tailored to the company's
+    actual profile instead of a generic SaaS template.
+    """
+    parts: list[str] = []
+
+    if industry and industry in INDUSTRIES:
+        parts.append(f"отрасль — {INDUSTRIES[industry]['label']}")
+    if business_model and business_model in BUSINESS_MODELS:
+        parts.append(f"бизнес-модель — {BUSINESS_MODELS[business_model]['label']}")
+    if geography:
+        parts.append(f"рынок/география — {geography}")
+
+    metric_labels: list[str] = []
+    if selected_metrics:
+        for key in selected_metrics:
+            if key in DERIVED_KEYS:
+                metric_labels.append(key.upper())
+            else:
+                for profile in _BM_METRICS.values():
+                    match = next((m for m in profile if m["key"] == key), None)
+                    if match:
+                        metric_labels.append(match["label"])
+                        break
+                else:
+                    metric_labels.append(key)
+    if metric_labels:
+        parts.append(f"отслеживаемые метрики — {', '.join(metric_labels)}")
+
+    if not parts:
+        return "профиль компании не указан"
+
+    return "Компания: " + "; ".join(parts) + "."

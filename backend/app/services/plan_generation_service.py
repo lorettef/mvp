@@ -8,8 +8,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.metric import Metric
+from app.models.company import Company
 from app.schemas.metric import MetricUpsert
 from app.schemas.plan import PlanGenerateResponse, PlanMetricItem
+from app.core import metric_catalog
 from app.services.ai_service import AIService
 from app.services.metric_service import MetricService
 
@@ -17,7 +19,8 @@ DEFAULT_MONTHS = 6
 GROWTH = 0.05
 
 PLAN_SYSTEM_PROMPT = (
-    "Ты — финансовый аналитик SaaS-стартапов. "
+    "Ты — финансовый аналитик венчурного фонда, работающий со стартапами "
+    "разных отраслей и бизнес-моделей. "
     "Отвечай строго в формате JSON, без пояснений вне JSON."
 )
 
@@ -43,7 +46,7 @@ class PlanGenerationService:
             )
 
         demo_summary, demo_items = self._demo_plan(facts[0], months)
-        prompt = self._build_prompt(facts, months)
+        prompt = self._build_prompt(facts, months, await self._company_context(company_id))
 
         ai = AIService(self.db)
         text, provider = await ai.complete(
@@ -95,6 +98,17 @@ class PlanGenerationService:
             metrics=items,
         )
 
+    async def _company_context(self, company_id: UUID) -> str:
+        company = await self.db.get(Company, company_id)
+        if company is None:
+            return metric_catalog.describe_company(None, None, None)
+        return metric_catalog.describe_company(
+            company.industry,
+            company.business_model,
+            company.geography,
+            company.selected_metrics,
+        )
+
     async def _fact_history(self, company_id: UUID) -> List[Metric]:
         result = await self.db.execute(
             select(Metric)
@@ -103,7 +117,7 @@ class PlanGenerationService:
         )
         return list(result.scalars().all())
 
-    def _build_prompt(self, facts: List[Metric], months: int) -> str:
+    def _build_prompt(self, facts: List[Metric], months: int, context: str) -> str:
         lines = [
             (
                 f"- {f.period.isoformat()}: Выручка={float(f.revenue):,.0f}, "
@@ -114,9 +128,13 @@ class PlanGenerationService:
             for f in facts
         ]
         return (
-            "Ты — финансовый аналитик SaaS-стартапов.\n"
+            f"{context}\n\n"
             f"Составь план (прогноз) ключевых метрик на следующие {months} месяцев "
             "на основе фактической истории компании.\n\n"
+            "Учитывай отрасль и бизнес-модель компании при задании темпов роста "
+            "(например, подписочный SaaS растёт плавно за счёт retention, "
+            "маркетплейс — за счёт GMV и комиссии, e-commerce — за счёт заказов "
+            "и среднего чека).\n\n"
             "Фактическая история (по убыванию периода):\n"
             f"{chr(10).join(lines)}\n\n"
             "Верни ответ строго в формате JSON:\n"
