@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { companiesApi } from '../api/companies'
+import { catalogApi } from '../api/catalog'
 import { marketApi } from '../api/market'
 import { hiringApi } from '../api/hiring'
 import { pnlApi } from '../api/pnl'
@@ -34,10 +35,11 @@ import { ValuationTab } from '@/components/company/ValuationTab'
 import { SensitivityTab } from '@/components/company/SensitivityTab'
 import { ReportsTab } from '@/components/company/ReportsTab'
 import { AIInsight } from '@/components/company/AIInsight'
+import { CompanyConfigDialog } from '@/components/company/CompanyConfigDialog'
 import { QueryState } from '@/components/common/QueryState'
 import { normalizeApiError } from '@/lib/apiError'
 import { fmtPct, fmtPeriod, fmtRub, formatMonthLabel } from '@/lib/format'
-import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw, Trash2 } from 'lucide-react'
+import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw, Trash2, Settings2 } from 'lucide-react'
 
 interface BulkRow {
   newUnits: string
@@ -109,9 +111,19 @@ export const CompanyDetail = () => {
   const [bulkError, setBulkError] = useState<string | null>(null)
   const [grossMarginPct, setGrossMarginPct] = useState('75')
   const [metricDeleteId, setMetricDeleteId] = useState<string | null>(null)
+  const [configOpen, setConfigOpen] = useState(false)
 
   const providerLabel = (p: string) =>
     p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : t('company.providerDemo')
+
+  const BUSINESS_MODEL_LABELS: Record<string, string> = {
+    subscription: 'Подписка (SaaS)',
+    marketplace: 'Маркетплейс',
+    retail: 'Онлайн-ритейл',
+    financial_services: 'Финансовые сервисы',
+    mobile_app: 'Мобильное приложение',
+    services: 'Сервисы / Аутсорсинг',
+  }
 
   const INDUSTRY_LABELS: Record<string, string> = {
     saas: 'SaaS',
@@ -131,11 +143,11 @@ export const CompanyDetail = () => {
     other: t('common.other'),
   }
 
-  const REQUIRED_BULK_FIELDS: Array<{ key: keyof BulkRow; label: string }> = [
-    { key: 'newUnits', label: t('company.metrics.newUnits') },
-    { key: 'arpu', label: t('company.metrics.arpu') },
-    { key: 'revenue', label: t('company.metrics.revenue') },
-    { key: 'retentionPct', label: t('company.metrics.retention') },
+  const REQUIRED_BULK_FIELDS: Array<{ key: keyof BulkRow; metricKey: string; fallback: string }> = [
+    { key: 'newUnits', metricKey: 'new_units', fallback: t('company.metrics.newUnits') },
+    { key: 'arpu', metricKey: 'arpu', fallback: t('company.metrics.arpu') },
+    { key: 'revenue', metricKey: 'revenue', fallback: t('company.metrics.revenue') },
+    { key: 'retentionPct', metricKey: 'retention_rate', fallback: t('company.metrics.retention') },
   ]
 
   const id = companyId ?? ''
@@ -146,6 +158,20 @@ export const CompanyDetail = () => {
     queryFn: ({ signal }) => companiesApi.get(id, { signal }),
     enabled: Boolean(id),
   })
+
+  const catalogQuery = useQuery({
+    queryKey: ['catalog'],
+    queryFn: ({ signal }) => catalogApi.get({ signal }),
+  })
+
+  const metricLabels = new Map<string, string>()
+  if (catalogQuery.data && companyQuery.data?.industry && companyQuery.data?.businessModel) {
+    const profile = catalogQuery.data.profiles[companyQuery.data.industry]?.[companyQuery.data.businessModel]
+    if (profile) {
+      for (const metric of profile.metrics) metricLabels.set(metric.key, metric.label)
+    }
+  }
+  const metricLabel = (key: string, fallback: string) => metricLabels.get(key) ?? fallback
 
   useEffect(() => {
     const gm = companyQuery.data?.grossMargin
@@ -291,7 +317,7 @@ export const CompanyDetail = () => {
       for (const field of REQUIRED_BULK_FIELDS) {
         const raw = row[field.key].trim()
         if (raw === '' || !Number.isFinite(Number(raw))) {
-          setBulkError(t('company.metrics.bulkError', { row: i + 1, field: field.label }))
+          setBulkError(t('company.metrics.bulkError', { row: i + 1, field: metricLabel(field.metricKey, field.fallback) }))
           return
         }
       }
@@ -420,11 +446,25 @@ export const CompanyDetail = () => {
               {company?.industry
                 ? INDUSTRY_LABELS[company.industry] ?? company.industry
                 : t('company.sphereNotSet')}{' '}
+              {company?.businessModel
+                ? `· ${BUSINESS_MODEL_LABELS[company.businessModel] ?? company.businessModel} `
+                : ''}
               · {company?.geography || t('company.locationNotSet')}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {canEdit && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfigOpen(true)}
+              title={t('dashboard.config.title')}
+            >
+              <Settings2 className="w-4 h-4 mr-2" />
+              {t('dashboard.config.title')}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -580,11 +620,11 @@ export const CompanyDetail = () => {
                       <thead>
                         <tr className="border-b border-border text-muted-foreground">
                           <th className="text-left font-medium px-2 py-2">{t('common.month')}</th>
-                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.newUnits')}</th>
-                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.arpuRub')}</th>
-                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.revenueRub')}</th>
-                          <th className="text-left font-medium px-2 py-2">{t('common.marketingRub')}</th>
-                          <th className="text-left font-medium px-2 py-2">{t('company.metrics.retention')}</th>
+                          <th className="text-left font-medium px-2 py-2">{metricLabel('new_units', t('company.metrics.newUnits'))}</th>
+                          <th className="text-left font-medium px-2 py-2">{metricLabel('arpu', t('company.metrics.arpuRub'))}</th>
+                          <th className="text-left font-medium px-2 py-2">{metricLabel('revenue', t('company.metrics.revenueRub'))}</th>
+                          <th className="text-left font-medium px-2 py-2">{metricLabel('marketing_spend', t('common.marketingRub'))}</th>
+                          <th className="text-left font-medium px-2 py-2">{metricLabel('retention_rate', t('company.metrics.retention'))}</th>
                           <th className="text-left font-medium px-2 py-2">{t('company.metrics.ltvRub')}</th>
                           <th className="text-left font-medium px-2 py-2">{t('company.metrics.cacRub')}</th>
                           <th className="text-left font-medium px-2 py-2">{t('company.metrics.churn')}</th>
@@ -690,14 +730,18 @@ export const CompanyDetail = () => {
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="text-left font-medium px-4 py-3">{t('common.period')}</th>
-                    <th className="text-left font-medium px-4 py-3">{t('company.metrics.revenuePlan')}</th>
-                    <th className="text-left font-medium px-4 py-3">{t('company.metrics.revenueFact')}</th>
+                    <th className="text-left font-medium px-4 py-3">
+                      {metricLabel('revenue', t('company.metrics.revenue'))} · {t('common.plan')}
+                    </th>
+                    <th className="text-left font-medium px-4 py-3">
+                      {metricLabel('revenue', t('company.metrics.revenue'))} · {t('common.fact')}
+                    </th>
                     <th className="text-left font-medium px-4 py-3">{t('company.metrics.deviation')}</th>
                     <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">
-                      {t('company.metrics.newUnitsFact')}
+                      {metricLabel('new_units', t('company.metrics.newUnits'))}
                     </th>
                     <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">
-                      {t('company.metrics.retentionFact')}
+                      {metricLabel('retention_rate', t('company.metrics.retention'))}
                     </th>
                     {canEdit && (
                       <th className="w-12 px-4 py-3" aria-label={t('common.actions')} />
@@ -1001,6 +1045,13 @@ export const CompanyDetail = () => {
           if (metricDeleteId !== null) deleteMetricMutation.mutate(metricDeleteId)
           setMetricDeleteId(null)
         }}
+      />
+
+      <CompanyConfigDialog
+        open={configOpen}
+        company={company ?? null}
+        tenantKey={tenantKey}
+        onOpenChange={setConfigOpen}
       />
     </div>
   )

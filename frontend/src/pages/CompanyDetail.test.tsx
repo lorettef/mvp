@@ -32,6 +32,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/api/companies', () => ({ companiesApi: mocks.companiesApi }))
 
+const catalogApiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+}))
+
+vi.mock('@/api/catalog', () => ({ catalogApi: catalogApiMock }))
+
 const marketApiMock = vi.hoisted(() => ({
   analyze: vi.fn(),
 }))
@@ -101,9 +107,33 @@ const company = {
   organizationId: 'org1',
   name: 'Test Startup',
   industry: 'saas',
+  businessModel: 'subscription',
   geography: 'RU',
   grossMargin: 0.75,
+  selectedMetrics: ['new_units', 'arpu', 'revenue', 'marketing_spend', 'retention_rate'],
+  archivedAt: null,
   createdAt: '',
+}
+
+const catalogData = {
+  industries: [{ slug: 'saas', label: 'SaaS' }],
+  business_models: [{ slug: 'subscription', label: 'Подписка (SaaS)', description: '' }],
+  profiles: {
+    saas: {
+      subscription: {
+        label: 'SaaS-подписка',
+        why: '',
+        metrics: [
+          { key: 'new_units', label: 'Новые платящие клиенты', required: true, why: '' },
+          { key: 'arpu', label: 'Средняя выручка на клиента', required: true, why: '' },
+          { key: 'revenue', label: 'Повторяющаяся выручка (MRR/ARR)', required: true, why: '' },
+          { key: 'marketing_spend', label: 'Расходы на привлечение', required: true, why: '' },
+          { key: 'retention_rate', label: 'Удержание подписчиков', required: true, why: '' },
+        ],
+        derived: ['churn', 'ltv', 'cac'],
+      },
+    },
+  },
 }
 
 const metric = {
@@ -444,6 +474,7 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.deleteMetric.mockResolvedValue(undefined)
     mocks.companiesApi.deleteCohort.mockResolvedValue(undefined)
     mocks.companiesApi.deleteBudget.mockResolvedValue(undefined)
+    catalogApiMock.get.mockResolvedValue(catalogData)
   })
 
   it('renders 13 tab triggers', async () => {
@@ -467,6 +498,20 @@ describe('CompanyDetail', () => {
     renderCompanyDetail()
     expect(await screen.findByText('Метрики — План vs Факт')).toBeInTheDocument()
     expect(screen.queryByText('Когортный анализ — План vs Факт')).not.toBeInTheDocument()
+  })
+
+  it('relabels metric columns by company industry and business model', async () => {
+    renderCompanyDetail()
+    await screen.findByText('Метрики — План vs Факт')
+
+    expect(await screen.findByText('Повторяющаяся выручка (MRR/ARR) · План')).toBeInTheDocument()
+    expect(screen.getByText('Повторяющаяся выручка (MRR/ARR) · Факт')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить метрику' }))
+    expect(await screen.findByText('Средняя выручка на клиента')).toBeInTheDocument()
+    expect(screen.getByText('Расходы на привлечение')).toBeInTheDocument()
+    expect(screen.getAllByText('Новые платящие клиенты').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Удержание подписчиков').length).toBeGreaterThan(0)
   })
 
   it('fetches only the company and active-tab queries on mount', async () => {
@@ -693,7 +738,7 @@ describe('CompanyDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить метрики' }))
 
     expect(
-      await screen.findByText('Строка 2: поле «Новые юниты» обязательно и должно быть числом.'),
+      await screen.findByText('Строка 2: поле «Новые платящие клиенты» обязательно и должно быть числом.'),
     ).toBeInTheDocument()
     expect(mocks.companiesApi.upsertMetricBulk).not.toHaveBeenCalled()
   })
@@ -712,7 +757,7 @@ describe('CompanyDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить метрики' }))
 
     expect(
-      await screen.findByText('Строка 1: поле «ARPU» обязательно и должно быть числом.'),
+      await screen.findByText('Строка 1: поле «Средняя выручка на клиента» обязательно и должно быть числом.'),
     ).toBeInTheDocument()
     expect(mocks.companiesApi.upsertMetricBulk).not.toHaveBeenCalled()
   })
