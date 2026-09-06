@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.database import engine
-from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin, invites, catalog
+from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin, invites, catalog, company_recommendations
 
 # Настройка логирования
 logging.basicConfig(
@@ -77,6 +77,11 @@ app.include_router(cohorts.router, prefix="/api/v1/companies", tags=["cohorts"])
 app.include_router(budgets.router, prefix="/api/v1/companies", tags=["budgets"])
 app.include_router(unit_economics.router, prefix="/api/v1/companies", tags=["unit-economics"])
 app.include_router(tasks.router, prefix="/api/v1/companies", tags=["tasks"])
+app.include_router(
+    company_recommendations.router,
+    prefix="/api/v1/companies",
+    tags=["recommendations"],
+)
 app.include_router(hiring.router, prefix="/api/v1/companies", tags=["hiring"])
 app.include_router(pnl.router, prefix="/api/v1/companies", tags=["pnl"])
 app.include_router(cashflow.router, prefix="/api/v1/companies", tags=["cashflow"])
