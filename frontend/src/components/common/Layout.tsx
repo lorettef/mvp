@@ -6,25 +6,15 @@ import { logout } from '../../auth/authSession'
 import { analytics } from '../../api/analytics'
 import {
   LayoutDashboard,
-  Sparkles,
-  TrendingUp,
   Settings,
   LogOut,
   Menu,
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Logo } from '@/components/shared/logo'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-
-const planVariant: Record<string, 'neutral' | 'info'> = {
-  starter: 'neutral',
-  pro: 'info',
-  business: 'info',
-  enterprise: 'info',
-}
 
 export const Layout = () => {
   const { t } = useTranslation()
@@ -38,21 +28,8 @@ export const Layout = () => {
 
   const navigation = [
     { name: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
-    { name: t('nav.recommendations'), href: '/recommendations', icon: Sparkles },
-    { name: t('nav.forecast'), href: '/forecast', icon: TrendingUp },
     { name: t('nav.settings'), href: '/settings', icon: Settings },
   ]
-
-  const planLabel =
-    user?.subscriptionPlan === 'starter'
-      ? 'Starter'
-      : user?.subscriptionPlan === 'pro'
-        ? 'Pro'
-        : user?.subscriptionPlan === 'business'
-          ? 'Business'
-          : user?.subscriptionPlan === 'enterprise'
-            ? 'Enterprise'
-            : null
 
   const navItems = (onNavigate?: () => void) =>
     navigation.map((item) => {
@@ -135,7 +112,6 @@ export const Layout = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            {planLabel ? <Badge variant={planVariant[user?.subscriptionPlan ?? 'starter']}>{planLabel}</Badge> : null}
             <ThemeToggle />
           </div>
         </header>
