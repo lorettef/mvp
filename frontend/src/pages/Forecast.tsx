@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { ForecastResponse } from '@/types/api'
-import { TrendingUp, Loader2, AlertCircle } from 'lucide-react'
+import { TrendingUp, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,6 +25,47 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
+
+interface TooltipEntry {
+  dataKey?: string
+  name?: string
+  value?: number | string
+  color?: string
+}
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean
+  payload?: TooltipEntry[]
+  label?: string
+}) {
+  if (!active || !payload?.length) return null
+  const rows = payload.filter(
+    (e) => e.dataKey === 'historical' || e.dataKey === 'forecast'
+  )
+  if (rows.length === 0) return null
+  return (
+    <div className="rounded-lg border bg-elevated px-3 py-2 shadow-lg">
+      <p className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="space-y-1">
+        {rows.map((entry) => (
+          <div key={entry.dataKey} className="flex items-center gap-2 text-sm">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span className="text-muted-foreground">{entry.name}</span>
+            <span className="ml-auto font-medium tabular-nums">
+              {entry.value != null
+                ? `₽${Number(entry.value).toLocaleString('ru-RU', { maximumFractionDigits: 0 })}`
+                : '—'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export const Forecast = () => {
   const { t } = useTranslation()
@@ -156,22 +197,9 @@ export const Forecast = () => {
               </div>
             </div>
 
-            <Button
-              className="w-full"
-              onClick={handlePredict}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" />
-                  {t('forecast.building')}
-                </>
-              ) : (
-                <>
-                  <TrendingUp />
-                  {t('forecast.build')}
-                </>
-              )}
+            <Button className="w-full" onClick={handlePredict} loading={loading}>
+              <TrendingUp />
+              {loading ? t('forecast.building') : t('forecast.build')}
             </Button>
           </div>
         </CardContent>
@@ -191,28 +219,44 @@ export const Forecast = () => {
 
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={prepareChartData()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(v) => `₽${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip />
-                  <Legend />
+                <ComposedChart
+                  data={prepareChartData()}
+                  margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={{ stroke: 'hsl(var(--border))' }}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  />
+                  <YAxis
+                    tickFormatter={(v) => `₽${(v / 1000).toFixed(0)}k`}
+                    tickLine={false}
+                    axisLine={false}
+                    width={64}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'hsl(var(--border))' }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                   <Line
                     type="monotone"
                     dataKey="historical"
-                    stroke="#3b82f6"
+                    stroke="hsl(var(--chart-1))"
                     strokeWidth={2}
                     name={t('forecast.historical')}
                     connectNulls
+                    dot={false}
                   />
                   <Line
                     type="monotone"
                     dataKey="forecast"
-                    stroke="#10b981"
+                    stroke="hsl(var(--chart-2))"
                     strokeWidth={2}
                     strokeDasharray="5 5"
                     name={t('forecast.forecast')}
                     connectNulls
+                    dot={false}
                   />
                   <Area
                     type="monotone"
@@ -220,6 +264,7 @@ export const Forecast = () => {
                     stackId="confidence"
                     stroke="none"
                     fill="transparent"
+                    legendType="none"
                     isAnimationActive={false}
                   />
                   <Area
@@ -227,9 +272,10 @@ export const Forecast = () => {
                     dataKey="confidenceBand"
                     stackId="confidence"
                     stroke="none"
-                    fill="#10b981"
+                    fill="hsl(var(--chart-2))"
                     fillOpacity={0.12}
                     name={t('forecast.confidence')}
+                    legendType="circle"
                     isAnimationActive={false}
                   />
                 </ComposedChart>
@@ -237,7 +283,7 @@ export const Forecast = () => {
             </div>
 
             <div className="mt-4 grid grid-cols-3 gap-4">
-              <Card className="border bg-card/50">
+              <Card className="border bg-card">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">
                     {t('forecast.firstForecastMonth', { n: historyInput.split(',').length + 1 })}
@@ -247,15 +293,15 @@ export const Forecast = () => {
                   </p>
                 </CardContent>
               </Card>
-              <Card className="border bg-card/50">
+              <Card className="border bg-card">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">{t('forecast.avgGrowth')}</p>
-                  <p className="text-lg font-bold text-green-400">
+                  <p className="text-lg font-bold text-success">
                     +{(Math.pow(result.predictions[result.predictions.length - 1] / parseFloat(historyInput.split(',').shift() || '1'), 1 / (historyInput.split(',').length + result.predictions.length - 1)) * 100 - 100).toFixed(1)}%
                   </p>
                 </CardContent>
               </Card>
-              <Card className="border bg-card/50">
+              <Card className="border bg-card">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">{t('forecast.method')}</p>
                   <p className="text-lg font-bold text-foreground capitalize">
