@@ -45,7 +45,7 @@ export const StartupInvite = () => {
       </div>
 
       {inviteLink && (
-        <Card className="border bg-card/50">
+        <Card className="border bg-card">
           <CardContent className="p-5 space-y-3">
             <div>
               <p className="text-sm font-medium text-foreground">{t('dashboard.invite.link')}</p>

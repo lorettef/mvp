@@ -4,11 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { recommendationsApi } from '../api/recommendations'
 import { analytics } from '../api/analytics'
 import { RecommendationAction, RecommendationResponse } from '@/types/api'
-import { 
-  Sparkles, 
-  Loader2, 
-  AlertCircle, 
-} from 'lucide-react'
+import { Sparkles, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -163,22 +159,9 @@ export const Recommendations = () => {
             </div>
           </div>
 
-          <Button
-            className="w-full mt-4"
-            onClick={handleGetRecommendations}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin" />
-                {t('recommendations.getting')}
-              </>
-            ) : (
-              <>
-                <Sparkles />
-                {t('recommendations.get')}
-              </>
-            )}
+          <Button className="mt-4 w-full" onClick={handleGetRecommendations} loading={loading}>
+            <Sparkles />
+            {loading ? t('recommendations.getting') : t('recommendations.get')}
           </Button>
         </CardContent>
       </Card>
@@ -194,18 +177,18 @@ export const Recommendations = () => {
       {result && (
         <div className="space-y-4">
           {/* Сводка */}
-          <Card className="bg-gradient-to-r from-primary-50 to-blue-50 border-primary-200">
+          <Card className="border-primary/20 bg-primary/5">
             <CardContent className="p-5">
               <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
+                <Sparkles className="h-5 w-5 flex-shrink-0 mt-0.5 text-primary" />
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-primary-800">{t('recommendations.analysis')}</p>
+                    <p className="text-sm font-medium">{t('recommendations.analysis')}</p>
                     <Badge variant="outline">
                       {providerLabels[result.provider] ?? t('recommendations.provider.demo')}
                     </Badge>
                   </div>
-                  <p className="text-sm text-primary-700 mt-1">{result.summary}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{result.summary}</p>
                 </div>
               </div>
             </CardContent>
@@ -236,7 +219,7 @@ export const Recommendations = () => {
           </div>
 
           {result.rawResponse && (
-            <div className="text-xs text-muted-foreground bg-card p-3 rounded-lg border border">
+            <div className="rounded-lg border bg-card p-3 text-xs text-muted-foreground">
               <details>
                 <summary className="cursor-pointer">{t('recommendations.techInfo')}</summary>
                 <p className="mt-2 whitespace-pre-wrap">{result.rawResponse}</p>

@@ -15,6 +15,16 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { Logo } from '@/components/shared/logo'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
+
+const planVariant: Record<string, 'neutral' | 'info'> = {
+  starter: 'neutral',
+  pro: 'info',
+  business: 'info',
+  enterprise: 'info',
+}
 
 export const Layout = () => {
   const { t } = useTranslation()
@@ -33,126 +43,104 @@ export const Layout = () => {
     { name: t('nav.settings'), href: '/settings', icon: Settings },
   ]
 
+  const planLabel =
+    user?.subscriptionPlan === 'starter'
+      ? 'Starter'
+      : user?.subscriptionPlan === 'pro'
+        ? 'Pro'
+        : user?.subscriptionPlan === 'business'
+          ? 'Business'
+          : user?.subscriptionPlan === 'enterprise'
+            ? 'Enterprise'
+            : null
+
+  const navItems = (onNavigate?: () => void) =>
+    navigation.map((item) => {
+      const isActive = location.pathname === item.href
+      return (
+        <Link
+          key={item.name}
+          to={item.href}
+          onClick={onNavigate}
+          aria-current={isActive ? 'page' : undefined}
+          className={cn(
+            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+            isActive
+              ? 'bg-accent text-foreground'
+              : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+          )}
+        >
+          <item.icon className="h-4 w-4" />
+          {item.name}
+        </Link>
+      )
+    })
+
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Боковая панель */}
-      <aside className="w-64 bg-background border-r border hidden md:flex flex-col fixed h-full shadow-sm z-10">
-        <div className="p-5 border-b border">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-primary-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-primary-500/20">
-              <svg className="w-5 h-5 text-white" viewBox="0 0 48 48" fill="none">
-                <path d="M24 4L6 14v12c0 11.05 7.68 21.37 18 24 10.32-2.63 18-12.95 18-24V14L24 4z"
-                  stroke="currentColor" strokeWidth="2.5" fill="none"/>
-                <path d="M18 22l4 4 8-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">Startup Engine</h1>
-              <p className="text-xs text-muted-foreground">{user?.companyName || t('nav.myCompany')}</p>
-            </div>
-          </div>
+    <div className="flex min-h-screen bg-background">
+      {/* Sidebar (desktop) */}
+      <aside className="fixed inset-y-0 z-30 hidden w-60 flex-col border-r bg-surface md:flex">
+        <div className="px-5 py-5">
+          <Logo subtitle={user?.companyName || t('nav.myCompany')} />
         </div>
 
-        <nav className="flex-1 p-3 space-y-1">
-          {navigation.map((item) => {
-            const isActive = location.pathname === item.href
-            return (
-              <Button
-                key={item.name}
-                variant="ghost"
-                className={`w-full justify-start gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
-                asChild
-              >
-                <Link to={item.href}>
-                  <item.icon className="w-5 h-5" />
-                  {item.name}
-                </Link>
-              </Button>
-            )
-          })}
-        </nav>
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">{navItems()}</nav>
 
-        <div className="p-4 border-t border">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-300 font-bold text-sm shadow-sm">
+        <div className="border-t px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
               {user?.fullName?.[0] || 'U'}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground/80 truncate">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
                 {user?.fullName || t('nav.user')}
               </p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-center text-muted-foreground hover:text-destructive"
+            className="mt-3 w-full justify-start text-muted-foreground hover:text-destructive"
             onClick={logout}
           >
-            <LogOut className="w-4 h-4 mr-2" />
+            <LogOut className="h-4 w-4" />
             {t('common.logout')}
           </Button>
         </div>
       </aside>
 
-      {/* Основной контент */}
-      <div className="flex-1 md:ml-64">
-        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border px-6 py-4 flex items-center justify-between">
-          <button 
-  className="md:hidden p-2 hover:bg-accent rounded-xl"
-  onClick={() => setMobileOpen(!mobileOpen)}
-  aria-label={t('common.toggleMenu')}
-  aria-expanded={mobileOpen}
->
-  <Menu className="w-5 h-5" />
-</button>
-{mobileOpen && (
-  <div className="md:hidden absolute top-full left-0 right-0 bg-card border-b border-border shadow-lg z-20">
-    <nav className="p-4 space-y-1">
-      {navigation.map((item) => {
-        const isActive = location.pathname === item.href
-        return (
-          <Link
-            key={item.name}
-            to={item.href}
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-              isActive
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-            }`}
-          >
-            <item.icon className="w-5 h-5" />
-            {item.name}
-          </Link>
-        )
-      })}
-    </nav>
-  </div>
-)}
-          <div className="flex items-center gap-3 ml-auto">
-            {user?.subscriptionPlan === 'starter' && (
-              <Badge variant="secondary">Starter</Badge>
-            )}
-            {user?.subscriptionPlan === 'pro' && (
-              <Badge variant="default">Pro</Badge>
-            )}
-            {user?.subscriptionPlan === 'business' && (
-              <Badge variant="outline" className="bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 border-amber-200">Business</Badge>
-            )}
-            {user?.subscriptionPlan === 'enterprise' && (
-              <Badge variant="outline" className="bg-gradient-to-r from-purple-50 to-blue-50 text-purple-700 border-purple-200">Enterprise</Badge>
-            )}
+      {/* Main column */}
+      <div className="flex min-w-0 flex-1 flex-col md:pl-60">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur sm:px-6">
+          <div className="flex items-center gap-3">
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden" aria-label={t('common.toggleMenu')}>
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 p-0">
+                <SheetTitle className="sr-only">{t('nav.dashboard')}</SheetTitle>
+                <div className="flex h-full flex-col">
+                  <div className="px-5 py-5">
+                    <Logo subtitle={user?.companyName || t('nav.myCompany')} />
+                  </div>
+                  <nav className="flex-1 space-y-1 px-3 py-2">
+                    {navItems(() => setMobileOpen(false))}
+                  </nav>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {planLabel ? <Badge variant={planVariant[user?.subscriptionPlan ?? 'starter']}>{planLabel}</Badge> : null}
             <ThemeToggle />
           </div>
         </header>
 
-        <main className="p-6">
+        <main className="flex-1 p-4 sm:p-6">
           <Outlet />
         </main>
       </div>

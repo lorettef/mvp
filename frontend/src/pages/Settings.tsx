@@ -69,7 +69,7 @@ export const Settings = () => {
                   className={`transition-all duration-200 ${
                     user?.subscriptionPlan === plan.id
                       ? 'border-primary bg-primary/5'
-                      : 'border-input bg-card/50'
+                      : 'border-input bg-card'
                   }`}
                 >
                   <CardContent className="p-5">
@@ -92,7 +92,7 @@ export const Settings = () => {
           )}
 
           {user && (
-            <div className="flex items-center justify-between p-3 bg-card/50 rounded-lg mt-4">
+            <div className="flex items-center justify-between p-3 bg-card rounded-lg mt-4">
               <div>
                 <p className="text-sm text-muted-foreground">
                   {t('settings.usedToday', { used: user.usedToday, limit: user.dailyLimit ?? '∞' })}

@@ -4,7 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
 import { Loader2 } from 'lucide-react'
-import { ThemeProvider } from './components/theme-provider'
+import { ThemeProvider, useTheme } from './components/theme-provider'
 import { ProtectedRoute } from './components/common/ProtectedRoute'
 import { Layout } from './components/common/Layout'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
@@ -33,6 +33,11 @@ const NotFound = lazy(() => import('./pages/NotFound').then((m) => ({ default: m
 const queryClient = createQueryClient()
 
 registerQueryClient(queryClient)
+
+function AppToaster() {
+  const { theme } = useTheme()
+  return <Toaster theme={theme === 'system' ? 'system' : theme} />
+}
 
 function App() {
   const { t } = useTranslation()
@@ -74,7 +79,7 @@ function App() {
             </Suspense>
           </ErrorBoundary>
         </BrowserRouter>
-        <Toaster theme="dark" />
+        <AppToaster />
       </QueryClientProvider>
     </ThemeProvider>
   )
