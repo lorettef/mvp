@@ -14,6 +14,9 @@ function makeTask(over: Partial<Task> = {}): Task {
     status: 'pending',
     effectiveStatus: 'pending',
     dueDate: null,
+    source: 'manual',
+    metric: null,
+    priority: null,
     createdAt: '',
     updatedAt: '',
     ...over,
@@ -49,6 +52,8 @@ describe('TasksTab', () => {
         onUpdate={vi.fn()}
         onDelete={vi.fn()}
         isPending={false}
+        onGenerateTasks={vi.fn()}
+        isGenerating={false}
       />
     )
     expect(screen.getByText('Подготовить метрики')).toBeInTheDocument()
@@ -68,6 +73,8 @@ describe('TasksTab', () => {
         onUpdate={vi.fn()}
         onDelete={vi.fn()}
         isPending={false}
+        onGenerateTasks={vi.fn()}
+        isGenerating={false}
       />
     )
     expect(screen.getByText('Готовность к продаже')).toBeInTheDocument()
@@ -86,6 +93,8 @@ describe('TasksTab', () => {
         onUpdate={vi.fn()}
         onDelete={vi.fn()}
         isPending={false}
+        onGenerateTasks={vi.fn()}
+        isGenerating={false}
       />
     )
     fireEvent.click(screen.getByRole('button', { name: /Добавить задачу/ }))
@@ -126,6 +135,8 @@ describe('TasksTab', () => {
         onUpdate={onUpdate}
         onDelete={vi.fn()}
         isPending={false}
+        onGenerateTasks={vi.fn()}
+        isGenerating={false}
       />
     )
     fireEvent.click(screen.getByRole('button', { name: 'В работу' }))
@@ -144,6 +155,8 @@ describe('TasksTab', () => {
         onUpdate={vi.fn()}
         onDelete={vi.fn()}
         isPending={false}
+        onGenerateTasks={vi.fn()}
+        isGenerating={false}
       />
     )
     expect(screen.getByText('Задачи ещё не добавлены.')).toBeInTheDocument()
@@ -157,6 +170,8 @@ describe('TasksTab', () => {
         onUpdate={vi.fn()}
         onDelete={vi.fn()}
         isPending={false}
+        onGenerateTasks={vi.fn()}
+        isGenerating={false}
       />
     )
     expect(screen.queryByRole('button', { name: /Добавить задачу/ })).not.toBeInTheDocument()

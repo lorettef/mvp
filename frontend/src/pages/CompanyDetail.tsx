@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { companiesApi } from '../api/companies'
 import { catalogApi } from '../api/catalog'
 import { marketApi } from '../api/market'
@@ -391,6 +392,23 @@ export const CompanyDetail = () => {
   const deleteTaskMutation = useMutation({
     mutationFn: (taskId: string) => companiesApi.deleteTask(id, taskId),
     onSuccess: invalidateTasks,
+  })
+
+  const generateRecommendationsMutation = useMutation({
+    mutationFn: () => companiesApi.generateRecommendations(id),
+    onSuccess: (data) => {
+      invalidateTasks()
+      toast.success(
+        t('company.tasks.generated', {
+          created: data.createdCount,
+          updated: data.updatedCount,
+        }),
+      )
+    },
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { data?: { detail?: string } } }
+      toast.error(axiosErr.response?.data?.detail || t('common.error'))
+    },
   })
 
   const marketMutation = useMutation({
@@ -910,6 +928,8 @@ export const CompanyDetail = () => {
             onUpdate={(taskId, d) => updateTaskMutation.mutate({ taskId, data: d })}
             onDelete={(taskId) => deleteTaskMutation.mutate(taskId)}
             isPending={createTaskMutation.isPending}
+            onGenerateTasks={() => generateRecommendationsMutation.mutate()}
+            isGenerating={generateRecommendationsMutation.isPending}
           />
           </QueryState>
         </TabsContent>

@@ -96,17 +96,6 @@ export interface RecommendationResponse {
   provider: string
 }
 
-// Subscription
-export interface PlanResponse {
-  id: string
-  name: string
-  price: number | null
-  pricePerCompany: number | null
-  companyLimit: number | null
-  aiReportsLimit: number | null
-  features: string[]
-}
-
 // Company
 export interface Company {
   id: string
@@ -325,6 +314,8 @@ export interface UnitEconomicsResponse {
 // Task system (sale-readiness, main USP)
 export type TaskStage = 'metrics' | 'documents' | 'negotiations' | 'presentation'
 export type TaskStatus = 'pending' | 'in_progress' | 'done'
+export type TaskSource = 'manual' | 'ai_recommendation'
+export type TaskPriority = 'high' | 'medium' | 'low'
 
 export interface Task {
   id: string
@@ -335,6 +326,9 @@ export interface Task {
   status: TaskStatus
   effectiveStatus: TaskStatus | 'overdue'
   dueDate: string | null
+  source: TaskSource
+  metric: string | null
+  priority: TaskPriority | null
   createdAt: string
   updatedAt: string
 }
@@ -345,6 +339,9 @@ export interface TaskCreate {
   stage: TaskStage
   status: TaskStatus
   due_date?: string
+  source?: TaskSource
+  metric?: string | null
+  priority?: TaskPriority | null
 }
 
 export interface TaskUpdate {
@@ -353,6 +350,17 @@ export interface TaskUpdate {
   stage?: TaskStage
   status?: TaskStatus
   due_date?: string
+  source?: TaskSource
+  metric?: string | null
+  priority?: TaskPriority | null
+}
+
+export interface RecommendationTasksResponse {
+  summary: string
+  provider: string
+  tasks: Task[]
+  createdCount: number
+  updatedCount: number
 }
 
 export interface StageProgress {

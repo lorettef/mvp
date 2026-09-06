@@ -19,6 +19,7 @@ import type {
   PlanGenerateResponse,
   InsightScenario,
   InsightResponse,
+  RecommendationTasksResponse,
 } from '@/types/api'
 import { api } from './client'
 
@@ -66,6 +67,8 @@ export const companiesApi = {
     api.patch(`/companies/${id}/tasks/${taskId}`, data, { signal }).then((res) => res.data),
   deleteTask: (id: string, taskId: string, { signal }: { signal?: AbortSignal } = {}): Promise<void> =>
     api.delete(`/companies/${id}/tasks/${taskId}`, { signal }).then((res) => res.data),
+  generateRecommendations: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<RecommendationTasksResponse> =>
+    api.post(`/companies/${id}/recommendations`, undefined, { signal }).then((res) => res.data),
   readiness: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<ReadinessResponse> =>
     api.get(`/companies/${id}/readiness`, { signal }).then((res) => res.data),
   recalculate: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<RecalculateResponse> =>
