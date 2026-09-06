@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { BrandMark } from '@/components/shared/logo'
 
 export const Login = () => {
   const { t } = useTranslation()
@@ -68,14 +69,8 @@ export const Login = () => {
       <div className="max-w-md w-full">
         <Card className="border bg-card">
           <CardContent className="p-8 pt-8">
-            <div className="flex justify-center mb-6">
-              <div className="w-14 h-14 bg-gradient-to-br from-primary-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-primary-500/25">
-                <svg className="w-8 h-8 text-white" viewBox="0 0 48 48" fill="none">
-                  <path d="M24 4L6 14v12c0 11.05 7.68 21.37 18 24 10.32-2.63 18-12.95 18-24V14L24 4z"
-                    stroke="currentColor" strokeWidth="2.5" fill="none" />
-                  <path d="M18 22l4 4 8-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+            <div className="mb-6 flex justify-center">
+              <BrandMark className="h-14 w-14 rounded-2xl shadow-lg shadow-primary-500/25" />
             </div>
             <h2 className="text-center text-2xl font-bold text-foreground">
               Startup Engine
@@ -86,12 +81,12 @@ export const Login = () => {
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
               {successMsg && (
-                <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-emerald-600 text-sm">
+                <div className="rounded-lg border border-success/20 bg-success/10 p-3 text-sm text-success">
                   {successMsg}
                 </div>
               )}
               {error && (
-                <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-destructive text-sm">
+                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
                   {error}
                 </div>
               )}

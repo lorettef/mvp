@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { BrandMark } from '@/components/shared/logo'
 
 type AccountType = 'fund' | 'startup'
 
@@ -30,9 +32,6 @@ const INDUSTRIES: Array<{ slug: string; label: string }> = [
   { slug: 'cleantech', label: 'CleanTech' },
   { slug: 'other', label: 'Другое' },
 ]
-
-const selectClassName =
-  'flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
 
 export const Register = () => {
   const { t } = useTranslation()
@@ -117,13 +116,7 @@ export const Register = () => {
         <Card className="border bg-card">
           <CardContent className="p-8 pt-8">
             <div className="mb-6 flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-blue-600 shadow-lg shadow-primary-500/25">
-                <svg className="h-8 w-8 text-white" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-                  <path d="M24 4L6 14v12c0 11.05 7.68 21.37 18 24 10.32-2.63 18-12.95 18-24V14L24 4z"
-                    stroke="currentColor" strokeWidth="2.5" fill="none" />
-                  <path d="M18 22l4 4 8-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              <BrandMark className="h-14 w-14 rounded-2xl shadow-lg shadow-primary-500/25" />
             </div>
             <h2 className="text-center text-2xl font-bold text-foreground">
               {t('auth.register.title')}
@@ -140,12 +133,12 @@ export const Register = () => {
 
               <form className="mt-6 space-y-4" aria-label={t('auth.register.title')} onSubmit={handleSubmit}>
                 {inviteOrganizationName && (
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-600" role="status">
+                  <div className="rounded-lg border border-success/20 bg-success/10 p-3 text-sm text-success" role="status">
                     {t('auth.register.inviteBanner', { name: inviteOrganizationName })}
                   </div>
                 )}
                 {error && (
-                  <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-destructive" role="alert">
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
                     {error}
                   </div>
                 )}
@@ -211,31 +204,35 @@ export const Register = () => {
                   />
                   <div className="space-y-2">
                     <label htmlFor="register-industry" className="text-sm font-medium text-foreground">{t('auth.register.industry')}</label>
-                    <select
-                      id="register-industry"
-                      className={selectClassName}
-                      value={form.industry}
-                      onChange={(e) => setForm({ ...form, industry: e.target.value })}
+                    <Select
+                      value={form.industry || undefined}
+                      onValueChange={(v) => setForm({ ...form, industry: v })}
                     >
-                      <option value="">{t('auth.register.industryPlaceholder')}</option>
-                      {INDUSTRIES.map((item) => (
-                        <option key={item.slug} value={item.slug}>{item.label}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="register-industry" aria-label={t('auth.register.industry')}>
+                        <SelectValue placeholder={t('auth.register.industryPlaceholder')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INDUSTRIES.map((item) => (
+                          <SelectItem key={item.slug} value={item.slug}>{item.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="register-geography" className="text-sm font-medium text-foreground">{t('auth.register.geography')}</label>
-                    <select
-                      id="register-geography"
-                      className={selectClassName}
-                      value={form.geography}
-                      onChange={(e) => setForm({ ...form, geography: e.target.value })}
+                    <Select
+                      value={form.geography || undefined}
+                      onValueChange={(v) => setForm({ ...form, geography: v })}
                     >
-                      <option value="">{t('auth.register.geographyPlaceholder')}</option>
-                      <option value={t('common.geo.ru')}>{t('common.geo.ru')}</option>
-                      <option value={t('common.geo.kz')}>{t('common.geo.kz')}</option>
-                      <option value={t('common.geo.global')}>{t('common.geo.global')}</option>
-                    </select>
+                      <SelectTrigger id="register-geography" aria-label={t('auth.register.geography')}>
+                        <SelectValue placeholder={t('auth.register.geographyPlaceholder')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={t('common.geo.ru')}>{t('common.geo.ru')}</SelectItem>
+                        <SelectItem value={t('common.geo.kz')}>{t('common.geo.kz')}</SelectItem>
+                        <SelectItem value={t('common.geo.global')}>{t('common.geo.global')}</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   {!inviteToken && (
                     <p className="pt-1 text-xs text-muted-foreground">

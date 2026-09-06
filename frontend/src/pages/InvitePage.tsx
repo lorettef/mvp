@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { invitesApi } from '@/api/invites'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { BrandMark } from '@/components/shared/logo'
 
 type InviteStatus = 'loading' | 'valid' | 'invalid'
 
@@ -48,12 +49,7 @@ export function InvitePage() {
         <Card className="border bg-card">
           <CardContent className="p-8 pt-8">
             <div className="mb-6 flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-blue-600 shadow-lg shadow-primary-500/25">
-                <svg className="h-8 w-8 text-white" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-                  <path d="M24 4L6 14v12c0 11.05 7.68 21.37 18 24 10.32-2.63 18-12.95 18-24V14L24 4z" stroke="currentColor" strokeWidth="2.5" fill="none" />
-                  <path d="M18 22l4 4 8-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              <BrandMark className="h-14 w-14 rounded-2xl shadow-lg shadow-primary-500/25" />
             </div>
 
             {status === 'loading' && (

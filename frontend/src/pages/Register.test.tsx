@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { Register } from './Register'
@@ -82,8 +83,11 @@ describe('Register', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Стартап' }))
     fillCommonFields()
     fireEvent.change(screen.getByLabelText('Название стартапа'), { target: { value: 'Orbit Labs' } })
-    fireEvent.change(screen.getByLabelText('Сфера деятельности'), { target: { value: 'saas' } })
-    fireEvent.change(screen.getByLabelText('Местоположение'), { target: { value: 'Россия' } })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Сфера деятельности' }))
+    await user.click(await screen.findByRole('option', { name: 'SaaS' }))
+    await user.click(screen.getByRole('combobox', { name: 'Местоположение' }))
+    await user.click(await screen.findByRole('option', { name: 'Россия' }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Зарегистрироваться' }))
 

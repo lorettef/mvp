@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore'
 import { logout } from '../auth/authSession'
 import { Button } from '@/components/ui/button'
 import { LanguageToggle } from '@/components/LanguageToggle'
+import { BrandMark } from '@/components/shared/logo'
 
 export const Landing = () => {
   const { t } = useTranslation()
@@ -41,13 +42,7 @@ export const Landing = () => {
       <header className="relative z-10 w-full">
         <div className="mx-auto max-w-6xl px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-primary-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-primary-500/20">
-              <svg className="w-5 h-5 text-white" viewBox="0 0 48 48" fill="none">
-                <path d="M24 4L6 14v12c0 11.05 7.68 21.37 18 24 10.32-2.63 18-12.95 18-24V14L24 4z"
-                  stroke="currentColor" strokeWidth="2.5" fill="none" />
-                <path d="M18 22l4 4 8-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
+            <BrandMark className="h-9 w-9 rounded-xl shadow-md shadow-primary-500/20" />
             <span className="text-lg font-semibold text-white">Startup Engine</span>
           </div>
 
@@ -76,13 +71,7 @@ export const Landing = () => {
       <main className="relative z-10 flex-1 flex items-center justify-center px-6">
         <div className="max-w-3xl text-center">
           <div className="mb-8 flex justify-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-primary-500/30">
-              <svg className="w-9 h-9 text-white" viewBox="0 0 48 48" fill="none">
-                <path d="M24 4L6 14v12c0 11.05 7.68 21.37 18 24 10.32-2.63 18-12.95 18-24V14L24 4z"
-                  stroke="currentColor" strokeWidth="2.5" fill="none" />
-                <path d="M18 22l4 4 8-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
+            <BrandMark className="h-16 w-16 rounded-2xl shadow-xl shadow-primary-500/30" />
           </div>
 
           <span className="inline-block px-4 py-1.5 rounded-full border border-white/15 bg-white/5 text-sm text-primary-200 mb-6">
