@@ -19,7 +19,7 @@ interface RowProps {
 function Row({ label, value, bold, accent }: RowProps) {
   const valueClass =
     accent === 'positive'
-      ? 'text-emerald-500'
+      ? 'text-success'
       : accent === 'negative'
         ? 'text-destructive'
         : 'text-foreground'
@@ -47,7 +47,7 @@ export function CashFlowTab({ data, isLoading }: CashFlowTabProps) {
 
   if (isLoading) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <Skeleton className="h-6 w-64 mb-4" />
           <Skeleton className="h-72 w-full" />
@@ -58,7 +58,7 @@ export function CashFlowTab({ data, isLoading }: CashFlowTabProps) {
 
   if (!data) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
             {t('company.cashflow.empty')}
@@ -76,7 +76,7 @@ export function CashFlowTab({ data, isLoading }: CashFlowTabProps) {
         : ('negative' as const)
 
   return (
-    <Card className="border bg-card/50">
+    <Card className="border bg-card">
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-foreground">

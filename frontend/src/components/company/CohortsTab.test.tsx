@@ -85,9 +85,9 @@ describe('CohortsTab', () => {
       makeCohort({ retentionM1: 0.8, retentionM2: 0.6, retentionM3: 0.4 }),
     ]
     render(<CohortsTab cohorts={cohorts} canEdit onSubmit={vi.fn()} isPending={false} />)
-    expect(screen.getByText('80.0%')).toHaveClass('bg-emerald-500/20')
-    expect(screen.getByText('60.0%')).toHaveClass('bg-amber-500/20')
-    expect(screen.getByText('40.0%')).toHaveClass('bg-red-500/20')
+    expect(screen.getByText('80.0%')).toHaveClass('bg-success/15')
+    expect(screen.getByText('60.0%')).toHaveClass('bg-warning/15')
+    expect(screen.getByText('40.0%')).toHaveClass('bg-danger/15')
   })
 
   it('computes active users and CAC per row', () => {

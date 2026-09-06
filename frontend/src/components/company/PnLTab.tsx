@@ -19,7 +19,7 @@ interface RowProps {
 function Row({ label, value, bold, accent }: RowProps) {
   const valueClass =
     accent === 'positive'
-      ? 'text-emerald-500'
+      ? 'text-success'
       : accent === 'negative'
         ? 'text-destructive'
         : 'text-foreground'
@@ -36,7 +36,7 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
 
   if (isLoading) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <Skeleton className="h-6 w-56 mb-4" />
           <Skeleton className="h-64 w-full" />
@@ -47,7 +47,7 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
 
   if (!data) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
             {t('company.pnl.empty')}
@@ -66,7 +66,7 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-foreground">
@@ -121,7 +121,7 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
         </CardContent>
       </Card>
 
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-4">{t('company.pnl.margin')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

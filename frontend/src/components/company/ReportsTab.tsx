@@ -11,7 +11,7 @@ export function ReportsTab({ companyId }: ReportsTabProps) {
   const base = `/api/v1/companies/${companyId}/report`
 
   return (
-    <Card className="border bg-card/50">
+    <Card className="border bg-card">
       <CardContent className="p-5">
         <h3 className="font-semibold text-foreground mb-2">
           {t('company.reports.title')}

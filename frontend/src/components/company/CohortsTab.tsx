@@ -4,7 +4,9 @@ import type { Cohort, CohortUpsert } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MonthPicker } from '@/components/ui/month-picker'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Plus, Trash2 } from 'lucide-react'
 import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
@@ -33,9 +35,9 @@ const retentionAt = (c: Cohort, i: number): number | null => {
 
 // Heatmap: green >70%, amber 50–70%, red <50% (kogor.md:156-159)
 const heatClass = (v: number): string => {
-  if (v > 0.7) return 'bg-emerald-500/20 text-emerald-700'
-  if (v >= 0.5) return 'bg-amber-500/20 text-amber-700'
-  return 'bg-red-500/20 text-red-700'
+  if (v > 0.7) return 'bg-success/15 text-success'
+  if (v >= 0.5) return 'bg-warning/15 text-warning'
+  return 'bg-danger/15 text-danger'
 }
 
 const activeUsers = (c: Cohort): number | null => {
@@ -122,7 +124,7 @@ export function CohortsTab({
   const colCount = 3 + MONTHS.length + 2 + (canEdit && onDelete ? 1 : 0)
 
   return (
-    <Card className="border bg-card/50">
+    <Card className="border bg-card">
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-semibold text-foreground">
@@ -144,17 +146,18 @@ export function CohortsTab({
                 value={form.period}
                 onChange={(period) => setForm({ ...form, period })}
               />
-              <select
-                aria-label={t('common.type')}
+              <Select
                 value={form.type}
-                onChange={(e) =>
-                  setForm({ ...form, type: e.target.value as 'plan' | 'fact' })
-                }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                onValueChange={(v) => setForm({ ...form, type: v as 'plan' | 'fact' })}
               >
-                <option value="plan">{t('common.plan')}</option>
-                <option value="fact">{t('common.fact')}</option>
-              </select>
+                <SelectTrigger aria-label={t('common.type')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="plan">{t('common.plan')}</SelectItem>
+                  <SelectItem value="fact">{t('common.fact')}</SelectItem>
+                </SelectContent>
+              </Select>
               <Input
                 type="number"
                 min="1"
@@ -201,68 +204,52 @@ export function CohortsTab({
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-muted-foreground">
-                <th className="text-left font-medium px-3 py-3 whitespace-nowrap">
-                  {t('company.cohorts.cohort')}
-                </th>
-                <th className="text-left font-medium px-3 py-3 whitespace-nowrap">
-                  {t('common.type')}
-                </th>
-                <th className="text-left font-medium px-3 py-3 whitespace-nowrap">
-                  {t('company.cohorts.sizeCol')}
-                </th>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">{t('company.cohorts.cohort')}</TableHead>
+                <TableHead className="whitespace-nowrap">{t('common.type')}</TableHead>
+                <TableHead className="text-right whitespace-nowrap">{t('company.cohorts.sizeCol')}</TableHead>
                 {MONTHS.map((m) => (
-                  <th
-                    key={m}
-                    className="text-center font-medium px-2 py-3 whitespace-nowrap"
-                  >
+                  <TableHead key={m} className="text-center whitespace-nowrap">
                     M{m}
-                  </th>
+                  </TableHead>
                 ))}
-                <th className="text-left font-medium px-3 py-3 whitespace-nowrap">
-                  {t('company.cohorts.active')}
-                </th>
-                <th className="text-left font-medium px-3 py-3 whitespace-nowrap">
-                  {t('company.cohorts.cac')}
-                </th>
+                <TableHead className="text-right whitespace-nowrap">{t('company.cohorts.active')}</TableHead>
+                <TableHead className="text-right whitespace-nowrap">{t('company.cohorts.cac')}</TableHead>
                 {canEdit && onDelete && (
-                  <th className="w-12 px-3 py-3" aria-label={t('common.actions')} />
+                  <TableHead className="w-12" aria-label={t('common.actions')} />
                 )}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {periods.map((period) => {
                 const entry = byPeriod.get(period)!
                 const types = (['plan', 'fact'] as const).filter((t) => entry[t])
                 return types.map((type, i) => {
                   const c = entry[type]!
                   return (
-                    <tr
-                      key={`${period}-${type}`}
-                      className="border-b border-border/50 last:border-0 hover:bg-muted/40 transition-colors"
-                    >
+                    <TableRow key={`${period}-${type}`}>
                       {i === 0 && (
-                        <td
+                        <TableCell
                           rowSpan={types.length}
-                          className="px-3 py-3 font-medium text-foreground align-top"
+                          className="align-top font-medium text-foreground"
                         >
                           {fmtPeriod(period)}
-                        </td>
+                        </TableCell>
                       )}
-                      <td
-                        className={`px-3 py-3 whitespace-nowrap ${
+                      <TableCell
+                        className={`whitespace-nowrap ${
                           type === 'fact' ? 'text-foreground' : 'text-muted-foreground'
                         }`}
                       >
                         {type === 'plan' ? t('common.plan') : t('common.fact')}
-                      </td>
-                      <td className="px-3 py-3 text-foreground">{c.size}</td>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-foreground">{c.size}</TableCell>
                       {MONTHS.map((m, idx) => {
                         const v = retentionAt(c, idx)
                         return (
-                          <td key={m} className="px-2 py-3 text-center">
+                          <TableCell key={m} className="text-center">
                             {v === null ? (
                               <span className="text-muted-foreground">—</span>
                             ) : (
@@ -272,22 +259,20 @@ export function CohortsTab({
                                   retention: fmtPct(v),
                                   users: Math.round(c.size * v),
                                 })}
-                                className={`inline-block rounded px-2 py-1 text-xs font-medium ${heatClass(
-                                  v,
-                                )}`}
+                                className={`inline-block rounded-sm px-2 py-1 text-xs font-medium ${heatClass(v)}`}
                               >
                                 {fmtPct(v)}
                               </span>
                             )}
-                          </td>
+                          </TableCell>
                         )
                       })}
-                      <td className="px-3 py-3 text-foreground">
+                      <TableCell className="text-right tabular-nums text-foreground">
                         {activeUsers(c) ?? '—'}
-                      </td>
-                      <td className="px-3 py-3 text-foreground">{cacValue(c)}</td>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-foreground">{cacValue(c)}</TableCell>
                       {canEdit && onDelete && (
-                        <td className="px-3 py-3 text-right">
+                        <TableCell className="text-right">
                           <Button
                             type="button"
                             size="icon"
@@ -297,24 +282,24 @@ export function CohortsTab({
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
-                        </td>
+                        </TableCell>
                       )}
-                    </tr>
+                    </TableRow>
                   )
                 })
               })}
               {periods.length === 0 && (
-                <tr>
-                  <td
+                <TableRow>
+                  <TableCell
                     colSpan={colCount}
-                    className="px-4 py-8 text-center text-muted-foreground"
+                    className="py-8 text-center text-muted-foreground"
                   >
                     {t('company.cohorts.empty')}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <ConfirmDialog
           open={deleteId !== null}

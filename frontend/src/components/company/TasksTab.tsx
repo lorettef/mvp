@@ -5,16 +5,17 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { StatusBadge, type StatusTone } from '@/components/shared/status-badge'
 import { Plus, Trash2 } from 'lucide-react'
 
 const STAGES: TaskStage[] = ['metrics', 'documents', 'negotiations', 'presentation']
 
-const STATUS_BADGE_CLASS: Record<string, string> = {
-  pending: 'bg-muted text-muted-foreground',
-  in_progress: 'bg-blue-500/15 text-blue-500',
-  done: 'bg-emerald-500/15 text-emerald-500',
-  overdue: 'bg-destructive/15 text-destructive',
+const statusTone: Record<string, StatusTone> = {
+  pending: 'neutral',
+  in_progress: 'info',
+  done: 'success',
+  overdue: 'danger',
 }
 
 interface TasksTabProps {
@@ -68,7 +69,7 @@ export function TasksTab({
   return (
     <div className="space-y-6">
       {readiness && (
-        <Card className="border bg-card/50">
+        <Card className="border bg-card">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-foreground">{t('company.tasks.readiness')}</h3>
@@ -88,7 +89,7 @@ export function TasksTab({
         </Card>
       )}
 
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-semibold text-foreground">{t('company.tasks.title')}</h3>
@@ -109,18 +110,18 @@ export function TasksTab({
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                 />
-                <select
-                  aria-label={t('company.tasks.stage')}
-                  value={form.stage}
-                  onChange={(e) => setForm({ ...form, stage: e.target.value as TaskStage })}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  {STAGES.map((s) => (
-                    <option key={s} value={s}>
-                      {STAGE_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
+                <Select value={form.stage} onValueChange={(v) => setForm({ ...form, stage: v as TaskStage })}>
+                  <SelectTrigger aria-label={t('company.tasks.stage')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STAGES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {STAGE_LABELS[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <DatePicker
                   aria-label={t('company.tasks.due')}
                   value={form.dueDate}
@@ -161,9 +162,9 @@ export function TasksTab({
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Badge className={STATUS_BADGE_CLASS[task.effectiveStatus] ?? ''}>
+                        <StatusBadge tone={statusTone[task.effectiveStatus] ?? 'neutral'}>
                           {STATUS_LABELS[task.effectiveStatus] ?? task.effectiveStatus}
-                        </Badge>
+                        </StatusBadge>
                         {canEdit && task.status !== 'done' && (
                           <>
                             {task.status === 'pending' && (

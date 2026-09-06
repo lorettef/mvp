@@ -17,7 +17,7 @@ export function ValuationTab({ data, isLoading }: ValuationTabProps) {
 
   if (isLoading) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <Skeleton className="h-6 w-48 mb-4" />
           <Skeleton className="h-64 w-full" />
@@ -28,7 +28,7 @@ export function ValuationTab({ data, isLoading }: ValuationTabProps) {
 
   if (!data) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
             {t('company.valuation.empty')}
@@ -47,7 +47,7 @@ export function ValuationTab({ data, isLoading }: ValuationTabProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-4">
             {t('company.valuation.title')}
@@ -67,7 +67,7 @@ export function ValuationTab({ data, isLoading }: ValuationTabProps) {
         </CardContent>
       </Card>
 
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-4">{t('company.valuation.params')}</h3>
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">

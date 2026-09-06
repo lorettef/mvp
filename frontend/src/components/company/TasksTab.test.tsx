@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { TasksTab } from './TasksTab'
 import type { Task, ReadinessResponse } from '@/types/api'
@@ -74,7 +75,7 @@ describe('TasksTab', () => {
     expect(screen.getByText(/Готовность 25%/)).toBeInTheDocument()
   })
 
-  it('creates a task with correct payload', () => {
+  it('creates a task with correct payload', async () => {
     const onCreate = vi.fn()
     render(
       <TasksTab
@@ -91,7 +92,9 @@ describe('TasksTab', () => {
     fireEvent.change(screen.getByLabelText('Название задачи'), {
       target: { value: 'Новая задача' },
     })
-    fireEvent.change(screen.getByLabelText('Этап'), { target: { value: 'documents' } })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Этап' }))
+    await user.click(await screen.findByRole('option', { name: 'Сбор документов' }))
     fireEvent.click(screen.getByRole('button', { name: 'Срок' }))
     const targetMonth = new Date(2026, 11, 1)
     const now = new Date()

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { RefreshCw } from 'lucide-react'
 import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
 
@@ -48,7 +49,7 @@ export function HiringTab({
 
   if (isLoading) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <Skeleton className="h-6 w-48 mb-4" />
           <Skeleton className="h-64 w-full" />
@@ -59,7 +60,7 @@ export function HiringTab({
 
   if (!data) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
             {t('company.hiring.empty')}
@@ -82,7 +83,7 @@ export function HiringTab({
 
   return (
     <div className="space-y-6">
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-foreground">{t('company.hiring.title')}</h3>
@@ -131,7 +132,7 @@ export function HiringTab({
       </Card>
 
       {canEdit && (
-        <Card className="border bg-card/50">
+        <Card className="border bg-card">
           <CardContent className="p-5">
             <h3 className="font-semibold text-foreground mb-4">
               {t('company.hiring.settingsTitle')}
@@ -208,65 +209,47 @@ export function HiringTab({
         </Card>
       )}
 
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-4">{t('company.hiring.monthlyPlan')}</h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left font-medium px-4 py-3">{t('common.month')}</th>
-                  <th className="text-left font-medium px-4 py-3">{t('common.period')}</th>
-                  <th className="text-left font-medium px-4 py-3">{t('company.hiring.revenue')}</th>
-                  <th className="text-left font-medium px-4 py-3">{t('company.hiring.fot')}</th>
-                  <th className="text-left font-medium px-4 py-3">{t('company.hiring.socialPayments')}</th>
-                  <th className="text-left font-medium px-4 py-3">{t('company.hiring.totalCost')}</th>
-                  <th className="text-left font-medium px-4 py-3">
-                    {t('company.hiring.headcountCol')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('common.month')}</TableHead>
+                  <TableHead>{t('common.period')}</TableHead>
+                  <TableHead className="text-right">{t('company.hiring.revenue')}</TableHead>
+                  <TableHead className="text-right">{t('company.hiring.fot')}</TableHead>
+                  <TableHead className="text-right">{t('company.hiring.socialPayments')}</TableHead>
+                  <TableHead className="text-right">{t('company.hiring.totalCost')}</TableHead>
+                  <TableHead>{t('company.hiring.headcountCol')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {data.months.map((m) => (
-                  <tr
-                    key={m.month}
-                    className="border-b border-border/50 last:border-0 hover:bg-muted/40 transition-colors"
-                  >
-                    <td className="px-4 py-3 text-muted-foreground">{m.month}</td>
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      {fmtPeriod(m.period)}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {fmtRub(m.revenue)}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {fmtRub(m.fot)}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {fmtRub(m.socialPayments)}
-                    </td>
-                    <td className="px-4 py-3 text-foreground">
-                      {fmtRub(m.totalCost)}
-                    </td>
-                    <td className="px-4 py-3 text-foreground">
+                  <TableRow key={m.month}>
+                    <TableCell className="text-muted-foreground">{m.month}</TableCell>
+                    <TableCell className="font-medium text-foreground">{fmtPeriod(m.period)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.revenue)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.fot)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.socialPayments)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-foreground">{fmtRub(m.totalCost)}</TableCell>
+                    <TableCell className="text-foreground">
                       {m.headcount} ({m.devCount}/{m.salesCount}/{m.marketingCount})
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
                 {data.months.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-8 text-center text-muted-foreground"
-                    >
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                       {data.baseRevenue == null
                         ? t('company.hiring.emptyAddRevenue')
                         : t('company.hiring.emptyNotCalculated')}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>

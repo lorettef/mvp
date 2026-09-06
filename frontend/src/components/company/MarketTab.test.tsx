@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { MarketTab } from './MarketTab'
 import type { MarketAnalysisResponse } from '@/types/api'
@@ -27,12 +28,16 @@ describe('MarketTab', () => {
     expect(screen.getByRole('button', { name: 'Анализировать' })).toBeInTheDocument()
   })
 
-  it('calls onAnalyze with the selected form values', () => {
+  it('calls onAnalyze with the selected form values', async () => {
     const onAnalyze = vi.fn()
     render(<MarketTab data={null} isLoading={false} onAnalyze={onAnalyze} />)
-    fireEvent.change(screen.getByLabelText('Сфера деятельности'), { target: { value: 'fintech' } })
-    fireEvent.change(screen.getByLabelText('География'), { target: { value: 'KZ' } })
-    fireEvent.change(screen.getByLabelText('Горизонт'), { target: { value: '2' } })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Сфера деятельности' }))
+    await user.click(await screen.findByRole('option', { name: 'Fintech' }))
+    await user.click(screen.getByRole('combobox', { name: 'География' }))
+    await user.click(await screen.findByRole('option', { name: 'Казахстан' }))
+    await user.click(screen.getByRole('combobox', { name: 'Горизонт' }))
+    await user.click(await screen.findByRole('option', { name: '2 год(а)' }))
     fireEvent.click(screen.getByRole('button', { name: 'Анализировать' }))
     expect(onAnalyze).toHaveBeenCalledWith({ industry: 'fintech', geography: 'KZ', horizon: 2 })
   })

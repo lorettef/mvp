@@ -6,9 +6,9 @@ import { Archive, RotateCcw, Trash2 } from 'lucide-react'
 
 import { companiesApi } from '@/api/companies'
 import { catalogApi } from '@/api/catalog'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Section } from '@/components/shared/section'
+import { StatusBadge, type StatusTone } from '@/components/shared/status-badge'
 import { fmtRub } from '@/lib/format'
 import { qk } from '@/lib/queryKeys'
 import type { Company, CompanyStatusItem } from '@/types/api'
@@ -19,6 +19,13 @@ interface CompanyLifecycleSectionsProps {
 }
 
 type Status = CompanyStatusItem['status']
+
+const statusTone: Record<Status, StatusTone> = {
+  on_track: 'success',
+  behind: 'danger',
+  no_plan: 'neutral',
+  no_data: 'neutral',
+}
 
 export function CompanyLifecycleSections({ tenantKey, dashboardCompanies }: CompanyLifecycleSectionsProps) {
   const { t } = useTranslation()
@@ -73,11 +80,11 @@ export function CompanyLifecycleSections({ tenantKey, dashboardCompanies }: Comp
     },
   })
 
-  const statusMap: Record<Status, { label: string; className: string }> = {
-    on_track: { label: t('dashboard.status.onTrack'), className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
-    behind: { label: t('dashboard.status.behind'), className: 'bg-destructive/10 text-destructive border-destructive/20' },
-    no_plan: { label: t('dashboard.status.noPlan'), className: 'bg-muted text-muted-foreground border-border' },
-    no_data: { label: t('dashboard.status.noData'), className: 'bg-muted text-muted-foreground border-border' },
+  const statusLabel: Record<Status, string> = {
+    on_track: t('dashboard.status.onTrack'),
+    behind: t('dashboard.status.behind'),
+    no_plan: t('dashboard.status.noPlan'),
+    no_data: t('dashboard.status.noData'),
   }
   const dashboardById = new Map(dashboardCompanies.map((company) => [company.id, company]))
   const isMutating = archiveMutation.isPending || restoreMutation.isPending || deleteMutation.isPending
@@ -86,30 +93,40 @@ export function CompanyLifecycleSections({ tenantKey, dashboardCompanies }: Comp
 
   const renderCompany = (company: Company, archived: boolean) => {
     const summary = dashboardById.get(company.id)
-    const status = statusMap[summary?.status ?? 'no_data']
+    const status = summary?.status ?? 'no_data'
     const isDeletePending = pendingDeleteId === company.id
 
     return (
-      <div key={company.id} className="rounded-lg border border-border/70 bg-card/40 p-4 transition-colors hover:bg-muted/30">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div key={company.id} className="px-5 py-4 transition-colors hover:bg-muted/40">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
-            className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+            className="flex min-w-0 flex-1 items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
             onClick={() => openCompany(company.id)}
           >
-            <p className="truncate font-medium text-foreground">{company.name}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span>{industryLabel(company.industry)}</span>
-              {company.businessModel && <span>{businessModelLabel(company.businessModel)}</span>}
-              <span>{t('dashboard.lifecycle.grossMargin', { value: company.grossMargin })}</span>
-              {!archived && <Badge className={status.className}>{status.label}</Badge>}
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-semibold text-primary">
+              {company.name[0]?.toUpperCase()}
             </div>
-            {!archived && summary && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t('dashboard.table.revenueFact')}: {fmtRub(summary.latestRevenue)} · {t('dashboard.table.taskProgress')}: {summary.taskProgress != null ? `${summary.taskProgress}%` : '—'}
-              </p>
-            )}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">{company.name}</p>
+                {!archived && <StatusBadge tone={statusTone[status]}>{statusLabel[status]}</StatusBadge>}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span>{industryLabel(company.industry)}</span>
+                {company.businessModel && <span>{businessModelLabel(company.businessModel)}</span>}
+                <span>{t('dashboard.lifecycle.grossMargin', { value: company.grossMargin })}</span>
+                {!archived && summary && (
+                  <span>
+                    {t('dashboard.table.revenueFact')}: {fmtRub(summary.latestRevenue)} ·{' '}
+                    {t('dashboard.table.taskProgress')}:{' '}
+                    {summary.taskProgress != null ? `${summary.taskProgress}%` : '—'}
+                  </span>
+                )}
+              </div>
+            </div>
           </button>
+
           <div className="flex shrink-0 flex-wrap gap-2">
             {!archived && (
               <Button
@@ -144,7 +161,8 @@ export function CompanyLifecycleSections({ tenantKey, dashboardCompanies }: Comp
             <Button
               type="button"
               size="sm"
-              variant="destructive"
+              variant="ghost"
+              className="text-muted-foreground hover:text-destructive"
               disabled={isMutating}
               onClick={(event) => {
                 event.stopPropagation()
@@ -156,15 +174,22 @@ export function CompanyLifecycleSections({ tenantKey, dashboardCompanies }: Comp
             </Button>
           </div>
         </div>
+
         {isDeletePending && (
-          <div className="mt-4 flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-destructive">{t('dashboard.lifecycle.deleteConfirm')}</p>
+          <div className="mt-4 flex flex-col gap-3 rounded-md border border-danger/30 bg-danger/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-danger">{t('dashboard.lifecycle.deleteConfirm')}</p>
             <div className="flex shrink-0 gap-2">
               <Button type="button" size="sm" variant="ghost" onClick={() => setPendingDeleteId(null)}>
                 {t('common.cancel')}
               </Button>
-              <Button type="button" size="sm" variant="destructive" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(company.id)}>
-                {deleteMutation.isPending ? t('dashboard.lifecycle.processing') : t('dashboard.lifecycle.confirmDelete')}
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                loading={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(company.id)}
+              >
+                {t('dashboard.lifecycle.confirmDelete')}
               </Button>
             </div>
           </div>
@@ -177,40 +202,56 @@ export function CompanyLifecycleSections({ tenantKey, dashboardCompanies }: Comp
   const archivedCompanies = archivedQuery.data ?? []
 
   return (
-    <div className="space-y-6">
-      <Card className="border bg-card/50">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center justify-between gap-3 text-lg">
-            <span>{t('dashboard.lifecycle.activeTitle')}</span>
-            <span className="text-sm font-normal text-muted-foreground">{activeCompanies.length}</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {activeQuery.isLoading && <p className="text-sm text-muted-foreground">{t('dashboard.lifecycle.loading')}</p>}
-          {activeQuery.error && <p className="text-sm text-destructive">{t('dashboard.lifecycle.loadError')}</p>}
-          {!activeQuery.isLoading && !activeQuery.error && activeCompanies.length === 0 && (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('dashboard.lifecycle.activeEmpty')}</p>
-          )}
-          {activeCompanies.map((company) => renderCompany(company, false))}
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      <Section
+        title={t('dashboard.lifecycle.activeTitle')}
+        actions={
+          <span className="text-sm text-muted-foreground tabular-nums">{activeCompanies.length}</span>
+        }
+        className="[&>div:last-child]:p-0"
+      >
+        {activeQuery.isLoading && (
+          <p className="px-5 py-4 text-sm text-muted-foreground">{t('dashboard.lifecycle.loading')}</p>
+        )}
+        {activeQuery.error && (
+          <p className="px-5 py-4 text-sm text-destructive">{t('dashboard.lifecycle.loadError')}</p>
+        )}
+        {!activeQuery.isLoading && !activeQuery.error && activeCompanies.length === 0 && (
+          <p className="px-5 py-4 text-center text-sm text-muted-foreground">
+            {t('dashboard.lifecycle.activeEmpty')}
+          </p>
+        )}
+        {activeCompanies.length > 0 && (
+          <div className="divide-y divide-border/60">
+            {activeCompanies.map((company) => renderCompany(company, false))}
+          </div>
+        )}
+      </Section>
 
-      <Card className="border bg-card/50">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center justify-between gap-3 text-lg">
-            <span>{t('dashboard.lifecycle.archiveTitle')}</span>
-            <span className="text-sm font-normal text-muted-foreground">{archivedCompanies.length}</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {archivedQuery.isLoading && <p className="text-sm text-muted-foreground">{t('dashboard.lifecycle.loading')}</p>}
-          {archivedQuery.error && <p className="text-sm text-destructive">{t('dashboard.lifecycle.loadError')}</p>}
-          {!archivedQuery.isLoading && !archivedQuery.error && archivedCompanies.length === 0 && (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('dashboard.lifecycle.archiveEmpty')}</p>
-          )}
-          {archivedCompanies.map((company) => renderCompany(company, true))}
-        </CardContent>
-      </Card>
+      <Section
+        title={t('dashboard.lifecycle.archiveTitle')}
+        actions={
+          <span className="text-sm text-muted-foreground tabular-nums">{archivedCompanies.length}</span>
+        }
+        className="[&>div:last-child]:p-0"
+      >
+        {archivedQuery.isLoading && (
+          <p className="px-5 py-4 text-sm text-muted-foreground">{t('dashboard.lifecycle.loading')}</p>
+        )}
+        {archivedQuery.error && (
+          <p className="px-5 py-4 text-sm text-destructive">{t('dashboard.lifecycle.loadError')}</p>
+        )}
+        {!archivedQuery.isLoading && !archivedQuery.error && archivedCompanies.length === 0 && (
+          <p className="px-5 py-4 text-center text-sm text-muted-foreground">
+            {t('dashboard.lifecycle.archiveEmpty')}
+          </p>
+        )}
+        {archivedCompanies.length > 0 && (
+          <div className="divide-y divide-border/60">
+            {archivedCompanies.map((company) => renderCompany(company, true))}
+          </div>
+        )}
+      </Section>
     </div>
   )
 }

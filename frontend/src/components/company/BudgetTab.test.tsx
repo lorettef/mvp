@@ -32,7 +32,7 @@ function makeBudget(over: Partial<Budget> = {}): Budget {
 }
 
 describe('BudgetTab', () => {
-  it('renders positive deviation ₽ and % with emerald color', () => {
+  it('renders positive deviation ₽ and % with success color', () => {
     const budgets = [
       makeBudget({ id: 'p', type: 'plan', marketing: 100000, development: 0, fot: 0, gna: 0 }),
       makeBudget({ id: 'f', type: 'fact', marketing: 120000, development: 0, fot: 0, gna: 0 }),
@@ -40,7 +40,7 @@ describe('BudgetTab', () => {
     render(<BudgetTab budgets={budgets} canEdit onSubmit={vi.fn()} isPending={false} />)
     const pct = screen.getByText('+20.0%')
     expect(pct).toBeInTheDocument()
-    expect(pct.parentElement).toHaveClass('text-emerald-500')
+    expect(pct.parentElement).toHaveClass('text-success')
     expect(pct.parentElement).toHaveTextContent(/20\s?000/)
   })
 

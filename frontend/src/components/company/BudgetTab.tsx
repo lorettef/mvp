@@ -4,7 +4,9 @@ import type { Budget, BudgetUpsert } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MonthPicker } from '@/components/ui/month-picker'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Plus, ArrowUpRight, ArrowDownRight, Trash2 } from 'lucide-react'
 import { fmtPeriod, fmtRub } from '@/lib/format'
@@ -79,7 +81,7 @@ export function BudgetTab({
   }
 
   return (
-    <Card className="border bg-card/50">
+    <Card className="border bg-card">
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-semibold text-foreground">{t('company.budget.title')}</h3>
@@ -99,17 +101,18 @@ export function BudgetTab({
                 value={form.period}
                 onChange={(period) => setForm({ ...form, period })}
               />
-              <select
-                aria-label={t('common.type')}
+              <Select
                 value={form.type}
-                onChange={(e) =>
-                  setForm({ ...form, type: e.target.value as 'plan' | 'fact' })
-                }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                onValueChange={(v) => setForm({ ...form, type: v as 'plan' | 'fact' })}
               >
-                <option value="plan">{t('common.plan')}</option>
-                <option value="fact">{t('common.fact')}</option>
-              </select>
+                <SelectTrigger aria-label={t('common.type')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="plan">{t('common.plan')}</SelectItem>
+                  <SelectItem value="fact">{t('common.fact')}</SelectItem>
+                </SelectContent>
+              </Select>
               <Input
                 type="number"
                 min="0"
@@ -156,20 +159,20 @@ export function BudgetTab({
           </div>
         )}
 
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-muted-foreground">
-              <th className="text-left font-medium px-4 py-3">{t('common.period')}</th>
-              <th className="text-left font-medium px-4 py-3">{t('company.budget.article')}</th>
-              <th className="text-left font-medium px-4 py-3">{t('common.plan')}</th>
-              <th className="text-left font-medium px-4 py-3">{t('common.fact')}</th>
-              <th className="text-left font-medium px-4 py-3">{t('company.budget.deviation')}</th>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('common.period')}</TableHead>
+              <TableHead>{t('company.budget.article')}</TableHead>
+              <TableHead className="text-right">{t('common.plan')}</TableHead>
+              <TableHead className="text-right">{t('common.fact')}</TableHead>
+              <TableHead className="text-right">{t('company.budget.deviation')}</TableHead>
               {canEdit && onDelete && (
-                <th className="w-12 px-4 py-3" aria-label={t('common.actions')} />
+                <TableHead className="w-12" aria-label={t('common.actions')} />
               )}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {periods.map((period) => {
               const entry = byPeriod.get(period)!
               return ARTICLES.map((article, i) => {
@@ -183,46 +186,43 @@ export function BudgetTab({
                 }
                 const positive = dev != null && dev >= 0
                 return (
-                  <tr
-                    key={`${period}-${article.key}`}
-                    className="border-b border-border/50 last:border-0 hover:bg-muted/40 transition-colors"
-                  >
+                  <TableRow key={`${period}-${article.key}`}>
                     {i === 0 && (
-                      <td
+                      <TableCell
                         rowSpan={ARTICLES.length}
-                        className="px-4 py-3 font-medium text-foreground align-top"
+                        className="align-top font-medium text-foreground"
                       >
                         {fmtPeriod(period)}
-                      </td>
+                      </TableCell>
                     )}
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {article.label}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <TableCell className="text-muted-foreground">{article.label}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {fmtRub(planVal)}
-                    </td>
-                    <td className="px-4 py-3 text-foreground">{fmtRub(factVal)}</td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-foreground">
+                      {fmtRub(factVal)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
                       {dev == null ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
                         <span
                           className={`inline-flex items-center gap-1 font-medium ${
-                            positive ? 'text-emerald-500' : 'text-destructive'
+                            positive ? 'text-success' : 'text-destructive'
                           }`}
                         >
                           {positive ? (
-                            <ArrowUpRight className="w-4 h-4" />
+                            <ArrowUpRight className="h-4 w-4" />
                           ) : (
-                            <ArrowDownRight className="w-4 h-4" />
+                            <ArrowDownRight className="h-4 w-4" />
                           )}
                           <span>{fmtDevRub(dev)}</span>
                           {devPct != null && <span>{fmtDevPct(devPct)}</span>}
                         </span>
                       )}
-                    </td>
+                    </TableCell>
                     {i === 0 && canEdit && onDelete && (
-                      <td rowSpan={ARTICLES.length} className="px-4 py-3 align-top text-right">
+                      <TableCell rowSpan={ARTICLES.length} className="align-top text-right">
                         <div className="flex flex-col items-end gap-1">
                           {[entry.plan, entry.fact].map((budget) =>
                             budget ? (
@@ -239,24 +239,24 @@ export function BudgetTab({
                             ) : null,
                           )}
                         </div>
-                      </td>
+                      </TableCell>
                     )}
-                  </tr>
+                  </TableRow>
                 )
               })
             })}
             {periods.length === 0 && (
-              <tr>
-                <td
+              <TableRow>
+                <TableCell
                   colSpan={5 + (canEdit && onDelete ? 1 : 0)}
-                  className="px-4 py-8 text-center text-muted-foreground"
+                  className="py-8 text-center text-muted-foreground"
                 >
                   {t('company.budget.empty')}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-            </tbody>
-        </table>
+          </TableBody>
+        </Table>
         <ConfirmDialog
           open={deleteId !== null}
           onOpenChange={(open) => {

@@ -9,6 +9,7 @@ import type {
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const INDUSTRIES: { value: MarketIndustry; label: string }[] = [
   { value: 'saas', label: 'SaaS' },
@@ -61,54 +62,63 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-4">{t('company.market.title')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
             <div>
               <label className="text-xs text-muted-foreground block mb-1">{t('company.market.sphere')}</label>
-              <select
-                aria-label={t('company.market.sphere')}
+              <Select
                 value={form.industry}
-                onChange={(e) => setForm({ ...form, industry: e.target.value as MarketIndustry })}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                onValueChange={(v) => setForm({ ...form, industry: v as MarketIndustry })}
               >
-                {INDUSTRIES_FULL.map((i) => (
-                  <option key={i.value} value={i.value}>
-                    {i.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger aria-label={t('company.market.sphere')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INDUSTRIES_FULL.map((i) => (
+                    <SelectItem key={i.value} value={i.value}>
+                      {i.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-xs text-muted-foreground block mb-1">{t('company.market.geography')}</label>
-              <select
-                aria-label={t('company.market.geography')}
+              <Select
                 value={form.geography}
-                onChange={(e) => setForm({ ...form, geography: e.target.value as MarketGeography })}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                onValueChange={(v) => setForm({ ...form, geography: v as MarketGeography })}
               >
-                {GEOGRAPHIES.map((g) => (
-                  <option key={g.value} value={g.value}>
-                    {g.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger aria-label={t('company.market.geography')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GEOGRAPHIES.map((g) => (
+                    <SelectItem key={g.value} value={g.value}>
+                      {g.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-xs text-muted-foreground block mb-1">{t('company.market.horizon')}</label>
-              <select
-                aria-label={t('company.market.horizon')}
-                value={form.horizon}
-                onChange={(e) => setForm({ ...form, horizon: Number(e.target.value) })}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              <Select
+                value={String(form.horizon)}
+                onValueChange={(v) => setForm({ ...form, horizon: Number(v) })}
               >
-                {[1, 2, 3].map((h) => (
-                  <option key={h} value={h}>
-                    {t('company.market.years', { count: h })}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger aria-label={t('company.market.horizon')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3].map((h) => (
+                    <SelectItem key={h} value={String(h)}>
+                      {t('company.market.years', { count: h })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button size="sm" className="w-full" disabled={isLoading} onClick={handleAnalyze}>
               {isLoading ? t('common.analyzing') : t('company.market.analyze')}
@@ -118,7 +128,7 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
       </Card>
 
       {isLoading && (
-        <Card className="border bg-card/50">
+        <Card className="border bg-card">
           <CardContent className="p-5">
             <Skeleton className="h-6 w-48 mb-4" />
             <Skeleton className="h-24 w-full" />
@@ -129,7 +139,7 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
       {data && !isLoading && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border bg-card/50">
+            <Card className="border bg-card">
               <CardContent className="p-5">
                 <h3 className="font-semibold text-foreground mb-4">{t('company.market.macro')}</h3>
                 <dl className="space-y-2 text-sm">
@@ -149,7 +159,7 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
               </CardContent>
             </Card>
 
-            <Card className="border bg-card/50">
+            <Card className="border bg-card">
               <CardContent className="p-5">
                 <h3 className="font-semibold text-foreground mb-4">
                   {t('company.market.marketSize', { industry: data.industryLabel })}
@@ -172,7 +182,7 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
             </Card>
           </div>
 
-          <Card className="border bg-card/50">
+          <Card className="border bg-card">
             <CardContent className="p-5">
               <h3 className="font-semibold text-foreground mb-4">{t('company.market.impact')}</h3>
               <div className="grid grid-cols-3 gap-3 text-center">
@@ -199,7 +209,7 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
             </CardContent>
           </Card>
 
-          <Card className="border bg-card/50">
+          <Card className="border bg-card">
             <CardContent className="p-5">
               <h3 className="font-semibold text-foreground mb-4">{t('company.market.trends')}</h3>
               <ul className="space-y-2 text-sm">

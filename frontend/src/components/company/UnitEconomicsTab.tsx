@@ -17,7 +17,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
 
   if (isLoading) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <Skeleton className="h-6 w-40 mb-4" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -32,7 +32,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
 
   if (!data) {
     return (
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <p className="text-muted-foreground text-sm">
             {t('company.unit.empty')}
@@ -87,7 +87,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="border bg-card/50">
+      <Card className="border bg-card">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-5">{t('company.unit.title')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -101,7 +101,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
                     s.ok === null
                       ? 'text-foreground'
                       : s.ok
-                        ? 'text-emerald-500'
+                        ? 'text-success'
                         : 'text-destructive'
                   }`}
                 >
@@ -114,7 +114,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border bg-card/50">
+        <Card className="border bg-card">
           <CardContent className="p-5">
             <h3 className="font-semibold text-foreground mb-4">{t('company.unit.basic')}</h3>
             <dl className="space-y-2 text-sm">
@@ -138,7 +138,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
           </CardContent>
         </Card>
 
-        <Card className="border bg-card/50">
+        <Card className="border bg-card">
           <CardContent className="p-5">
             <h3 className="font-semibold text-foreground mb-4">{t('company.unit.retention')}</h3>
             <div className="grid grid-cols-4 gap-2 text-center">
@@ -156,7 +156,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
       </div>
 
       {data.alerts.length > 0 && (
-        <Card className="border bg-card/50">
+        <Card className="border bg-card">
           <CardContent className="p-5">
             <h3 className="font-semibold text-foreground mb-4">{t('company.unit.diagnostics')}</h3>
             <ul className="space-y-2 text-sm">
