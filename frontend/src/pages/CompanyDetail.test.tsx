@@ -1,8 +1,15 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CompanyDetail } from './CompanyDetail'
+
+async function selectMonths(count: string) {
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Месяцев' }))
+  await user.click(await screen.findByRole('option', { name: count }))
+}
 
 const mocks = vi.hoisted(() => ({
   role: 'admin' as string,
@@ -682,7 +689,7 @@ describe('CompanyDetail', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
 
     await chooseBulkStartMonth('Январь 2026')
-    fireEvent.change(screen.getByLabelText('Месяцев'), { target: { value: '2' } })
+    await selectMonths('2')
 
     fireEvent.change(screen.getByLabelText('Выручка 1'), { target: { value: '5000' } })
     fireEvent.change(screen.getByLabelText('Новые юниты 1'), { target: { value: '10' } })
@@ -728,7 +735,7 @@ describe('CompanyDetail', () => {
     renderCompanyDetail()
     fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
 
-    fireEvent.change(screen.getByLabelText('Месяцев'), { target: { value: '2' } })
+    await selectMonths('2')
 
     fireEvent.change(screen.getByLabelText('Выручка 1'), { target: { value: '5000' } })
     fireEvent.change(screen.getByLabelText('Новые юниты 1'), { target: { value: '10' } })

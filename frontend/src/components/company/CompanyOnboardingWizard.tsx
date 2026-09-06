@@ -9,7 +9,9 @@ import { qk } from '@/lib/queryKeys'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface CompanyOnboardingWizardProps {
@@ -124,7 +126,7 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
   ]
 
   return (
-    <Card className="border bg-card/50">
+    <Card className="border bg-card">
       <CardHeader className="pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -166,30 +168,22 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium text-foreground">{t('dashboard.onboarding.location')}</p>
-              <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label={t('dashboard.onboarding.location')}>
-                {REGIONS.map((region) => {
-                  const isSelected = geography === region.label
-                  return (
-                    <button
-                      key={region.label}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      onClick={() => setGeography(region.label)}
-                      className={`rounded-lg border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${
-                        isSelected
-                          ? 'border-primary bg-primary/10 text-foreground'
-                          : 'border-input bg-card hover:border-primary/50 hover:bg-accent'
-                      }`}
-                    >
+              <RadioGroup value={geography} onValueChange={setGeography} aria-label={t('dashboard.onboarding.location')} className="grid grid-cols-1 gap-3">
+                {REGIONS.map((region) => (
+                  <RadioGroupItem
+                    key={region.label}
+                    value={region.label}
+                    className="flex aspect-auto h-auto w-full items-start gap-3 rounded-lg border px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent data-[state=checked]:border-primary data-[state=checked]:bg-primary/10 data-[state=checked]:text-foreground data-[state=unchecked]:border-input data-[state=unchecked]:bg-card"
+                  >
+                    <span className="flex flex-col gap-1">
                       <span className="text-sm font-medium">{region.label}</span>
-                      <span className="mt-2 block text-xs text-muted-foreground">
+                      <span className="block text-xs text-muted-foreground">
                         {t('common.keyRateHint', { rate: region.rate })}
                       </span>
-                    </button>
-                  )
-                })}
-              </div>
+                    </span>
+                  </RadioGroupItem>
+                ))}
+              </RadioGroup>
             </div>
           </div>
         )}
@@ -279,11 +273,10 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
                             checked ? 'border-primary/50 bg-primary/5' : 'border-border'
                           }`}
                         >
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4"
+                          <Checkbox
+                            className="mt-0.5"
                             checked={checked}
-                            onChange={() => toggleMetric(metric.key)}
+                            onCheckedChange={() => toggleMetric(metric.key)}
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-foreground">{metric.label}</p>

@@ -22,6 +22,8 @@ import { MonthPicker } from '@/components/ui/month-picker'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CohortsTab } from '@/components/company/CohortsTab'
 import { BudgetTab } from '@/components/company/BudgetTab'
 import { UnitEconomicsTab } from '@/components/company/UnitEconomicsTab'
@@ -38,7 +40,8 @@ import { AIInsight } from '@/components/company/AIInsight'
 import { CompanyConfigDialog } from '@/components/company/CompanyConfigDialog'
 import { QueryState } from '@/components/common/QueryState'
 import { normalizeApiError } from '@/lib/apiError'
-import { fmtPct, fmtPeriod, fmtRub, formatMonthLabel } from '@/lib/format'
+import { cn } from '@/lib/utils'
+import { fmtPct, fmtPeriod, fmtRub, fmtSignedPct, formatMonthLabel } from '@/lib/format'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw, Trash2, Settings2 } from 'lucide-react'
 
 interface BulkRow {
@@ -396,7 +399,7 @@ export const CompanyDetail = () => {
 
   if (companyQuery.isLoading) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-4 w-40" />
         <Skeleton className="h-64 w-full" />
@@ -437,7 +440,7 @@ export const CompanyDetail = () => {
   const rows = Array.from(periods.entries()).sort((a, b) => b[0].localeCompare(a[0]))
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{company?.name}</h1>
@@ -461,7 +464,7 @@ export const CompanyDetail = () => {
               onClick={() => setConfigOpen(true)}
               title={t('dashboard.config.title')}
             >
-              <Settings2 className="w-4 h-4 mr-2" />
+              <Settings2 className="h-4 w-4" />
               {t('dashboard.config.title')}
             </Button>
           )}
@@ -469,19 +472,20 @@ export const CompanyDetail = () => {
             size="sm"
             variant="outline"
             onClick={() => recalculateMutation.mutate()}
-            disabled={recalculateMutation.isPending}
+            loading={recalculateMutation.isPending}
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${recalculateMutation.isPending ? 'animate-spin' : ''}`} />
+            <RefreshCw className="h-4 w-4" />
             {recalculateMutation.isPending ? t('common.recalculating') : t('common.forceRecalc')}
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => generatePlanMutation.mutate()}
-            disabled={!canEdit || generatePlanMutation.isPending}
+            disabled={!canEdit}
             title={!canEdit ? t('company.insufficientRights') : t('company.generatePlanTitle')}
+            loading={generatePlanMutation.isPending}
           >
-            <Sparkles className={`w-4 h-4 mr-2 ${generatePlanMutation.isPending ? 'animate-spin' : ''}`} />
+            <Sparkles className="h-4 w-4" />
             {generatePlanMutation.isPending ? t('company.generating') : t('company.generatePlan')}
           </Button>
         </div>
@@ -497,21 +501,24 @@ export const CompanyDetail = () => {
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="metrics">{t('company.tabs.metrics')}</TabsTrigger>
-          <TabsTrigger value="cohorts">{t('company.tabs.cohorts')}</TabsTrigger>
-          <TabsTrigger value="budget">{t('company.tabs.budget')}</TabsTrigger>
-          <TabsTrigger value="unit">{t('company.tabs.unit')}</TabsTrigger>
-          <TabsTrigger value="tasks">{t('company.tabs.tasks')}</TabsTrigger>
-          <TabsTrigger value="market">{t('company.tabs.market')}</TabsTrigger>
-          <TabsTrigger value="hiring">{t('company.tabs.hiring')}</TabsTrigger>
-          <TabsTrigger value="pnl">{t('company.tabs.pnl')}</TabsTrigger>
-          <TabsTrigger value="cashflow">{t('company.tabs.cashflow')}</TabsTrigger>
-          <TabsTrigger value="credit">{t('company.tabs.credit')}</TabsTrigger>
-          <TabsTrigger value="valuation">{t('company.tabs.valuation')}</TabsTrigger>
-          <TabsTrigger value="sensitivity">{t('company.tabs.sensitivity')}</TabsTrigger>
-          <TabsTrigger value="reports">{t('company.tabs.reports')}</TabsTrigger>
+        <div className="relative">
+        <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b bg-transparent p-0 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border/70">
+          <TabsTrigger value="metrics" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.metrics')}</TabsTrigger>
+          <TabsTrigger value="cohorts" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.cohorts')}</TabsTrigger>
+          <TabsTrigger value="budget" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.budget')}</TabsTrigger>
+          <TabsTrigger value="unit" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.unit')}</TabsTrigger>
+          <TabsTrigger value="tasks" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.tasks')}</TabsTrigger>
+          <TabsTrigger value="market" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.market')}</TabsTrigger>
+          <TabsTrigger value="hiring" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.hiring')}</TabsTrigger>
+          <TabsTrigger value="pnl" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.pnl')}</TabsTrigger>
+          <TabsTrigger value="cashflow" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.cashflow')}</TabsTrigger>
+          <TabsTrigger value="credit" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.credit')}</TabsTrigger>
+          <TabsTrigger value="valuation" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.valuation')}</TabsTrigger>
+          <TabsTrigger value="sensitivity" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.sensitivity')}</TabsTrigger>
+          <TabsTrigger value="reports" className="whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{t('company.tabs.reports')}</TabsTrigger>
         </TabsList>
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent" aria-hidden="true" />
+        </div>
 
         <TabsContent value="metrics">
           <QueryState
@@ -520,7 +527,7 @@ export const CompanyDetail = () => {
             error={metricsQuery.error}
             onRetry={() => metricsQuery.refetch()}
           >
-          <Card className="border bg-card/50">
+          <Card className="border bg-card">
             <CardContent className="p-5">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                 <h3 className="font-semibold text-foreground">{t('company.metrics.title')}</h3>
@@ -561,7 +568,7 @@ export const CompanyDetail = () => {
                   )}
                   {canEdit && (
                     <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
-                      <Plus className="w-4 h-4 mr-2" />
+                      <Plus className="h-4 w-4" />
                       {t('company.metrics.addMetric')}
                     </Button>
                   )}
@@ -579,10 +586,10 @@ export const CompanyDetail = () => {
                             key={t2}
                             type="button"
                             onClick={() => setBulkType(t2)}
-                            className={`h-10 px-4 text-sm font-medium transition-colors ${
+                            className={`h-9 px-4 text-sm font-medium transition-colors ${
                               bulkType === t2
                                 ? 'bg-primary text-primary-foreground'
-                                : 'bg-background text-muted-foreground hover:bg-muted'
+                                : 'bg-card text-muted-foreground hover:bg-muted'
                             }`}
                           >
                             {t2 === 'plan' ? t('common.plan') : t('common.fact')}
@@ -600,18 +607,18 @@ export const CompanyDetail = () => {
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-muted-foreground">{t('company.metrics.months')}</span>
-                      <select
-                        aria-label={t('company.metrics.months')}
-                        value={bulkCount}
-                        onChange={(e) => handleCountChange(Number(e.target.value))}
-                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      >
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={String(bulkCount)} onValueChange={(v) => handleCountChange(Number(v))}>
+                        <SelectTrigger aria-label={t('company.metrics.months')} className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
@@ -726,29 +733,29 @@ export const CompanyDetail = () => {
                 </div>
               )}
 
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-muted-foreground">
-                    <th className="text-left font-medium px-4 py-3">{t('common.period')}</th>
-                    <th className="text-left font-medium px-4 py-3">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('common.period')}</TableHead>
+                    <TableHead className="text-right">
                       {metricLabel('revenue', t('company.metrics.revenue'))} · {t('common.plan')}
-                    </th>
-                    <th className="text-left font-medium px-4 py-3">
+                    </TableHead>
+                    <TableHead className="text-right">
                       {metricLabel('revenue', t('company.metrics.revenue'))} · {t('common.fact')}
-                    </th>
-                    <th className="text-left font-medium px-4 py-3">{t('company.metrics.deviation')}</th>
-                    <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">
+                    </TableHead>
+                    <TableHead className="text-right">{t('company.metrics.deviation')}</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">
                       {metricLabel('new_units', t('company.metrics.newUnits'))}
-                    </th>
-                    <th className="text-left font-medium px-4 py-3 hidden sm:table-cell">
+                    </TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">
                       {metricLabel('retention_rate', t('company.metrics.retention'))}
-                    </th>
+                    </TableHead>
                     {canEdit && (
-                      <th className="w-12 px-4 py-3" aria-label={t('common.actions')} />
+                      <TableHead className="w-12" aria-label={t('common.actions')} />
                     )}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {rows.map(([period, entry]) => {
                     const planRevenue = entry.plan?.revenue
                     const factRevenue = entry.fact?.revenue
@@ -760,45 +767,43 @@ export const CompanyDetail = () => {
                       dev != null && planRevenue ? (dev / planRevenue) * 100 : null
                     const positive = dev != null && dev >= 0
                     return (
-                      <tr
-                        key={period}
-                        className="border-b border-border/50 last:border-0 hover:bg-muted/40 transition-colors"
-                      >
-                        <td className="px-4 py-3 font-medium text-foreground">
+                      <TableRow key={period}>
+                        <TableCell className="font-medium text-foreground">
                           {fmtPeriod(period)}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
                           {fmtRub(planRevenue)}
-                        </td>
-                        <td className="px-4 py-3 text-foreground">{fmtRub(factRevenue)}</td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-foreground">
+                          {fmtRub(factRevenue)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
                           {dev == null ? (
                             <span className="text-muted-foreground">—</span>
                           ) : (
                             <span
-                              className={`inline-flex items-center gap-1 font-medium ${
-                                positive ? 'text-emerald-500' : 'text-destructive'
-                              }`}
+                              className={cn(
+                                'inline-flex items-center gap-1 font-medium',
+                                positive ? 'text-success' : 'text-destructive'
+                              )}
                             >
                               {positive ? (
-                                <ArrowUpRight className="w-4 h-4" />
+                                <ArrowUpRight className="h-4 w-4" />
                               ) : (
-                                <ArrowDownRight className="w-4 h-4" />
+                                <ArrowDownRight className="h-4 w-4" />
                               )}
-                              {devPct != null
-                                ? `${devPct >= 0 ? '+' : ''}${devPct.toFixed(1)}%`
-                                : ''}
+                              {devPct != null ? fmtSignedPct(devPct) : ''}
                             </span>
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground hidden sm:table-cell">
                           {entry.fact?.newUnits ?? '—'}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground hidden sm:table-cell">
                           {fmtPct(entry.fact?.retentionRate)}
-                        </td>
+                        </TableCell>
                         {canEdit && (
-                          <td className="px-4 py-3 text-right">
+                          <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
                               {[entry.plan, entry.fact].map((metric) =>
                                 metric ? (
@@ -815,20 +820,23 @@ export const CompanyDetail = () => {
                                 ) : null,
                               )}
                             </div>
-                          </td>
+                          </TableCell>
                         )}
-                      </tr>
+                      </TableRow>
                     )
                   })}
                   {rows.length === 0 && (
-                    <tr>
-                      <td colSpan={6 + (canEdit ? 1 : 0)} className="px-4 py-8 text-center text-muted-foreground">
+                    <TableRow>
+                      <TableCell
+                        colSpan={6 + (canEdit ? 1 : 0)}
+                        className="py-8 text-center text-muted-foreground"
+                      >
                         {t('company.metrics.empty')}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
           </QueryState>
@@ -1024,7 +1032,7 @@ export const CompanyDetail = () => {
       </Tabs>
 
       {scenario && (
-        <Card className="border bg-card/50">
+        <Card className="border bg-card">
           <CardContent className="p-5">
             <AIInsight companyId={id} scenario={scenario} />
           </CardContent>

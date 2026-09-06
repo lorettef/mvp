@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
 
 import { catalogApi } from '@/api/catalog'
 import { companiesApi } from '@/api/companies'
@@ -10,7 +8,10 @@ import type { CatalogResponse, Company, MetricProfile } from '@/types/api'
 import { qk } from '@/lib/queryKeys'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface CompanyConfigDialogProps {
@@ -95,18 +96,12 @@ export function CompanyConfigDialog({ open, company, tenantKey, onOpenChange }: 
   })
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-lg outline-none">
-          <div className="flex flex-col space-y-1.5">
-            <DialogPrimitive.Title className="text-lg font-semibold text-foreground">
-              {t('dashboard.config.title')}
-            </DialogPrimitive.Title>
-            <DialogPrimitive.Description className="text-sm text-muted-foreground">
-              {t('dashboard.config.description')}
-            </DialogPrimitive.Description>
-          </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-xl overflow-y-auto" closeLabel={t('common.cancel')}>
+        <DialogHeader>
+          <DialogTitle>{t('dashboard.config.title')}</DialogTitle>
+          <DialogDescription>{t('dashboard.config.description')}</DialogDescription>
+        </DialogHeader>
 
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
@@ -118,27 +113,17 @@ export function CompanyConfigDialog({ open, company, tenantKey, onOpenChange }: 
 
             <div className="space-y-2">
               <p className="text-sm font-medium text-foreground">{t('dashboard.onboarding.location')}</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t('dashboard.onboarding.location')}>
-                {REGIONS.map((region) => {
-                  const selected = geography === region.label
-                  return (
-                    <button
-                      key={region.label}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => setGeography(region.label)}
-                      className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
-                        selected
-                          ? 'border-primary bg-primary/10 text-foreground'
-                          : 'border-input bg-card hover:border-primary/50 hover:bg-accent'
-                      }`}
-                    >
-                      {region.label}
-                    </button>
-                  )
-                })}
-              </div>
+              <RadioGroup value={geography} onValueChange={setGeography} aria-label={t('dashboard.onboarding.location')} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {REGIONS.map((region) => (
+                  <RadioGroupItem
+                    key={region.label}
+                    value={region.label}
+                    className="flex aspect-auto h-auto w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors hover:border-primary/50 hover:bg-accent data-[state=checked]:border-primary data-[state=checked]:bg-primary/10 data-[state=checked]:text-foreground data-[state=unchecked]:border-input data-[state=unchecked]:bg-card"
+                  >
+                    {region.label}
+                  </RadioGroupItem>
+                ))}
+              </RadioGroup>
             </div>
 
             <div className="space-y-2">
@@ -206,11 +191,10 @@ export function CompanyConfigDialog({ open, company, tenantKey, onOpenChange }: 
                     return (
                       <li key={metric.key}>
                         <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${checked ? 'border-primary/50 bg-primary/5' : 'border-border'}`}>
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4"
+                          <Checkbox
+                            className="mt-0.5"
                             checked={checked}
-                            onChange={() => toggleMetric(metric.key)}
+                            onCheckedChange={() => toggleMetric(metric.key)}
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-foreground">{metric.label}</p>
@@ -245,26 +229,15 @@ export function CompanyConfigDialog({ open, company, tenantKey, onOpenChange }: 
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
             <Button type="button" disabled={name.trim() === '' || updateMutation.isPending} onClick={() => updateMutation.mutate()}>
               {updateMutation.isPending ? t('common.saving') : t('common.save')}
             </Button>
-          </div>
-
-          <DialogPrimitive.Close asChild>
-            <button
-              type="button"
-              aria-label={t('common.cancel')}
-              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </DialogPrimitive.Close>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
   )
 }
