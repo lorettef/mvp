@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = "Ты аналитик по юнит-экономике. Отвечай строго в формате JSON."
 
+# Закрытый словарь метрик, которые AI может привязывать к рекомендации.
+_METRIC_SLUGS = {
+    "new_units", "arpu", "revenue", "marketing_spend", "retention_rate",
+    "churn", "ltv", "cac",
+}
+
 class AIService:
     """Сервис для работы с AI-провайдерами (DeepSeek, GigaChat, Demo)."""
     
@@ -26,25 +32,34 @@ class AIService:
     
     async def get_recommendations(self, metrics: MetricsRequest, user_id: str) -> RecommendationResponse:
         """Получить AI-рекомендации на основе метрик."""
-        
+        return await self.get_company_recommendations(metrics.model_dump(), user_id)
+
+    async def get_company_recommendations(self, metrics_dict: dict, user_id: str, context: str = "") -> RecommendationResponse:
+        """Получить AI-рекомендации с учётом профиля компании.
+
+        Переиспользует логику кэша/парсинга/demo из get_recommendations, но
+        дополнительно подмешивает профиль компании (context) в промпт.
+        metrics_dict — метрики в форме MetricsRequest.
+        """
+        metrics = MetricsRequest(**metrics_dict)
         metrics_hash = self._hash_metrics(metrics)
         cached = await self._get_cached(metrics_hash, user_id)
         if cached:
             return cached
-        
+
         logger.info("AI request: provider=%s", settings.AI_PROVIDER)
-        
+
         if settings.AI_PROVIDER == "demo":
             response = self._generate_demo_recommendations(metrics)
             response.provider = "demo"
             await self._cache_response(metrics_hash, response, user_id)
             return response
-        
+
         try:
             if settings.AI_PROVIDER == "deepseek":
-                response = await self._call_deepseek(metrics)
+                response = await self._call_deepseek(metrics, context)
             else:
-                response = await self._call_gigachat(metrics)
+                response = await self._call_gigachat(metrics, context)
             await self._cache_response(metrics_hash, response, user_id)
             return response
         except Exception:
@@ -101,11 +116,12 @@ class AIService:
         except Exception:
             await self.db.rollback()
     
-    def _build_prompt(self, metrics: MetricsRequest) -> str:
+    def _build_prompt(self, metrics: MetricsRequest, context: str = "") -> str:
         """Формирует промпт для AI с метриками компании."""
+        context_line = f"{context}\n\n" if context else ""
         return f"""
 Ты — финансовый аналитик по юнит-экономике SaaS-стартапов.
-Проанализируй следующие метрики компании:
+{context_line}Проанализируй следующие метрики компании:
 
 - MRR: ${metrics.mrr:,.0f}
 - CAC: ${metrics.cac:,.0f}
@@ -123,6 +139,7 @@ class AIService:
 2. Описание (что именно сделать)
 3. Приоритет (high/medium/low)
 4. Категорию (marketing/product/sales/retention)
+5. Метрику (metric) — слаг из списка [new_units, arpu, revenue, marketing_spend, retention_rate, churn, ltv, cac] или null, если рекомендация не привязана к конкретной метрике.
 
 Ответ должен быть в формате JSON:
 {{
@@ -132,12 +149,19 @@ class AIService:
             "title": "Название",
             "description": "Описание",
             "priority": "high",
-            "category": "marketing"
+            "category": "marketing",
+            "metric": "cac"
         }}
     ]
 }}
 """
-    
+
+    def _normalize_metric(self, value) -> Optional[str]:
+        """Возвращает value, если это валидный слаг метрики, иначе None."""
+        if isinstance(value, str) and value in _METRIC_SLUGS:
+            return value
+        return None
+
     def _parse_ai_response(self, content: str, metrics: MetricsRequest) -> RecommendationResponse:
         """Парсит JSON-ответ от AI, с fallback на демо при ошибке."""
         try:
@@ -145,6 +169,9 @@ class AIService:
             json_end = content.rfind('}') + 1
             if json_start >= 0 and json_end > json_start:
                 data = json.loads(content[json_start:json_end])
+                for rec in data.get("recommendations", []):
+                    if isinstance(rec, dict):
+                        rec["metric"] = self._normalize_metric(rec.get("metric"))
                 result = RecommendationResponse(**data)
                 result.provider = settings.AI_PROVIDER
                 return result
@@ -223,14 +250,14 @@ class AIService:
             result = response.json()
             return result["choices"][0]["message"]["content"]
 
-    async def _call_deepseek(self, metrics: MetricsRequest) -> RecommendationResponse:
+    async def _call_deepseek(self, metrics: MetricsRequest, context: str = "") -> RecommendationResponse:
         """Рекомендации через DeepSeek."""
-        content = await self._chat_deepseek(SYSTEM_PROMPT, self._build_prompt(metrics))
+        content = await self._chat_deepseek(SYSTEM_PROMPT, self._build_prompt(metrics, context))
         return self._parse_ai_response(content, metrics)
 
-    async def _call_gigachat(self, metrics: MetricsRequest) -> RecommendationResponse:
+    async def _call_gigachat(self, metrics: MetricsRequest, context: str = "") -> RecommendationResponse:
         """Рекомендации через GigaChat."""
-        content = await self._chat_gigachat(SYSTEM_PROMPT, self._build_prompt(metrics))
+        content = await self._chat_gigachat(SYSTEM_PROMPT, self._build_prompt(metrics, context))
         return self._parse_ai_response(content, metrics)
 
     async def complete(
@@ -272,7 +299,8 @@ class AIService:
                     title="Оптимизация маркетинговых каналов",
                     description="Отключите неэффективные каналы привлечения. Сосредоточьтесь на каналах с самым низким CAC. Проведите A/B-тестирование креативов.",
                     priority="high",
-                    category="marketing"
+                    category="marketing",
+                    metric="cac"
                 )
             )
             recommendations.append(
@@ -280,7 +308,8 @@ class AIService:
                     title="Увеличение LTV через апсейл",
                     description="Внедрите систему апсейлов и кросс-сейлов. Предложите существующим клиентам дополнительные функции или услуги.",
                     priority="high",
-                    category="product"
+                    category="product",
+                    metric="ltv"
                 )
             )
         
@@ -292,7 +321,8 @@ class AIService:
                     title="Снижение оттока клиентов",
                     description=f"Проведите анализ причин оттока. Внедрите NPS-опрос после 30 дней использования. Сделайте персонализированный онбординг.",
                     priority="high",
-                    category="retention"
+                    category="retention",
+                    metric="churn"
                 )
             )
         
@@ -304,7 +334,8 @@ class AIService:
                     title="Увеличение выручки",
                     description="Внедрите годовую подписку со скидкой 15-20% для увеличения денежного потока. Запустите промо-акции для привлечения новых клиентов.",
                     priority="high",
-                    category="sales"
+                    category="sales",
+                    metric="revenue"
                 )
             )
         
@@ -315,7 +346,8 @@ class AIService:
                     title="Масштабирование успешных каналов",
                     description=f"Ваши метрики в норме (LTV/CAC = {ltv_cac:.2f}). Увеличьте бюджет на каналы с лучшей окупаемостью в 1.5-2 раза.",
                     priority="medium",
-                    category="marketing"
+                    category="marketing",
+                    metric="marketing_spend"
                 )
             )
             recommendations.append(
@@ -323,7 +355,8 @@ class AIService:
                     title="Повышение ARPU",
                     description="Внедрите новый премиум-тариф с расширенными функциями. Протестируйте повышение цены на 10-15% для новых клиентов.",
                     priority="medium",
-                    category="product"
+                    category="product",
+                    metric="arpu"
                 )
             )
         

@@ -7,6 +7,7 @@ class RecommendationAction(BaseModel):
     description: str
     priority: str  # high, medium, low
     category: str  # marketing, product, sales, retention
+    metric: Optional[str] = None  # слаг из METRIC_KEYS/DERIVED_KEYS или None
 
 class RecommendationRequest(BaseModel):
     metrics: MetricsRequest
