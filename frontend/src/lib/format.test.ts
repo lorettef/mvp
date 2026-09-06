@@ -7,6 +7,11 @@ describe('fmtRub', () => {
     expect(fmtRub(123456)).toBe('₽123\u00A0456')
   })
 
+  it('rounds fractional rubles to a consistent whole-ruble precision', () => {
+    expect(fmtRub(416341.6)).toBe('₽416\u00A0342')
+    expect(fmtRub(416341.4)).toBe('₽416\u00A0341')
+  })
+
   it('renders an em dash for null/undefined', () => {
     expect(fmtRub(null)).toBe('—')
     expect(fmtRub(undefined)).toBe('—')

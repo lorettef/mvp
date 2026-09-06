@@ -1,7 +1,7 @@
 // Canonical formatters — single source of truth for currency/percent/period display.
 
 export const fmtRub = (v: number | null | undefined) =>
-  v == null ? '—' : `₽${v.toLocaleString('ru-RU')}`
+  v == null ? '—' : `₽${Math.round(v).toLocaleString('ru-RU')}`
 
 export const fmtPeriod = (period: string | null | undefined) =>
   period ? period.slice(0, 7) : '—'
@@ -34,3 +34,16 @@ export const fmtPct = (v: number | null | undefined) =>
 // Does NOT multiply. Use for key_rate, credit_rate, discount_rate, growth_rate.
 export const fmtPercent = (v: number | null | undefined) =>
   v == null ? '—' : `${v.toFixed(1)}%`
+
+// Signed number with explicit sign, e.g. 18.4 → "+18.4", -3.2 → "-3.2".
+// Use for deviations/deltas where sign must always be shown.
+export const fmtSigned = (v: number | null | undefined, decimals = 1) =>
+  v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(decimals)}`
+
+// Signed percentage, e.g. 18.4 → "+18.4%", -3.2 → "-3.2%".
+export const fmtSignedPct = (v: number | null | undefined) =>
+  v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+
+// Multiplier as suffix, e.g. 1.234 → "1.23×".
+export const fmtFactor = (v: number | null | undefined, decimals = 2) =>
+  v == null ? '—' : `${v.toFixed(decimals)}×`
