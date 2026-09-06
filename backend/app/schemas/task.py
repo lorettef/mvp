@@ -22,6 +22,10 @@ STATUS_LABELS = {
     "overdue": "Просрочено",
 }
 
+SOURCES = ["manual", "ai_recommendation"]
+
+PRIORITIES = ["high", "medium", "low"]
+
 
 def _validate_stage(v: Optional[str]) -> Optional[str]:
     if v is not None and v not in STAGES:
@@ -35,15 +39,32 @@ def _validate_status(v: Optional[str]) -> Optional[str]:
     return v
 
 
+def _validate_source(v: Optional[str]) -> Optional[str]:
+    if v is not None and v not in SOURCES:
+        raise ValueError(f"source должен быть одним из: {', '.join(SOURCES)}")
+    return v
+
+
+def _validate_priority(v: Optional[str]) -> Optional[str]:
+    if v is not None and v not in PRIORITIES:
+        raise ValueError(f"priority должен быть одним из: {', '.join(PRIORITIES)}")
+    return v
+
+
 class TaskCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
     stage: str = "metrics"
     status: str = "pending"
     due_date: Optional[date] = None
+    source: str = "manual"
+    metric: Optional[str] = None
+    priority: Optional[str] = None
 
     _validate_stage = field_validator("stage")(_validate_stage)
     _validate_status = field_validator("status")(_validate_status)
+    _validate_source = field_validator("source")(_validate_source)
+    _validate_priority = field_validator("priority")(_validate_priority)
 
 
 class TaskUpdate(BaseModel):
@@ -52,9 +73,14 @@ class TaskUpdate(BaseModel):
     stage: Optional[str] = None
     status: Optional[str] = None
     due_date: Optional[date] = None
+    source: Optional[str] = None
+    metric: Optional[str] = None
+    priority: Optional[str] = None
 
     _validate_stage = field_validator("stage")(_validate_stage)
     _validate_status = field_validator("status")(_validate_status)
+    _validate_source = field_validator("source")(_validate_source)
+    _validate_priority = field_validator("priority")(_validate_priority)
 
 
 class TaskResponse(BaseModel):
@@ -66,6 +92,9 @@ class TaskResponse(BaseModel):
     stage: str
     status: str
     due_date: Optional[date]
+    source: str
+    metric: Optional[str]
+    priority: Optional[str]
     created_at: datetime
     updated_at: datetime
 

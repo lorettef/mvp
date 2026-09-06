@@ -15,5 +15,8 @@ class Task(Base):
     stage = Column(String(30), nullable=False)  # metrics, documents, negotiations, presentation
     status = Column(String(20), nullable=False)  # pending, in_progress, done
     due_date = Column(Date, nullable=True)
+    source = Column(String(30), nullable=False, default="manual", server_default="manual")  # manual | ai_recommendation
+    metric = Column(String(50), nullable=True)  # slug из METRIC_KEYS/DERIVED_KEYS или None
+    priority = Column(String(10), nullable=True)  # high | medium | low
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

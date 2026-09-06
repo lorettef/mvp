@@ -38,6 +38,9 @@ class TaskService:
             stage=data.stage,
             status=data.status,
             due_date=data.due_date,
+            source=data.source,
+            metric=data.metric,
+            priority=data.priority,
         )
         self.db.add(task)
         await self.db.flush()
@@ -54,7 +57,7 @@ class TaskService:
         return task
 
     async def update_task(self, task: Task, data: TaskUpdate) -> Task:
-        for field in ("title", "description", "stage", "status", "due_date"):
+        for field in ("title", "description", "stage", "status", "due_date", "source", "metric", "priority"):
             value = getattr(data, field)
             if value is not None:
                 setattr(task, field, value)
