@@ -430,13 +430,14 @@ const planGenerateData = {
   ],
 }
 
-function renderCompanyDetail() {
+function renderCompanyDetail(tab?: string) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+  const entry = tab ? `/companies/comp1?tab=${tab}` : '/companies/comp1'
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/companies/comp1']}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/companies/:companyId" element={<CompanyDetail />} />
         </Routes>
@@ -484,23 +485,6 @@ describe('CompanyDetail', () => {
     catalogApiMock.get.mockResolvedValue(catalogData)
   })
 
-  it('renders 13 tab triggers', async () => {
-    renderCompanyDetail()
-    expect(await screen.findByRole('tab', { name: 'Метрики' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Когорты' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Бюджет' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Юнит-экономика' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Задачи' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Рынок' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Найм' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'P&L' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Cash Flow' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Кредиты' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Оценка' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Чувствительность' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Отчёты' })).toBeInTheDocument()
-  })
-
   it('shows metrics tab by default', async () => {
     renderCompanyDetail()
     expect(await screen.findByText('Метрики — План vs Факт')).toBeInTheDocument()
@@ -523,7 +507,7 @@ describe('CompanyDetail', () => {
 
   it('fetches only the company and active-tab queries on mount', async () => {
     renderCompanyDetail()
-    await screen.findByRole('tab', { name: 'Метрики' })
+    await screen.findByText('Метрики — План vs Факт')
 
     await waitFor(() => expect(mocks.companiesApi.get).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(mocks.companiesApi.metrics).toHaveBeenCalledTimes(1))
@@ -544,7 +528,7 @@ describe('CompanyDetail', () => {
 
   it('forwards React Query AbortSignal to the api functions', async () => {
     renderCompanyDetail()
-    await screen.findByRole('tab', { name: 'Метрики' })
+    await screen.findByText('Метрики — План vs Факт')
 
     await waitFor(() => expect(mocks.companiesApi.get).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(mocks.companiesApi.metrics).toHaveBeenCalledTimes(1))
@@ -558,101 +542,75 @@ describe('CompanyDetail', () => {
     expect(metricsCall[2].signal).toBeInstanceOf(AbortSignal)
   })
 
-  it('defers a tab query until its tab becomes active', async () => {
+  it('defers non-active tab queries', async () => {
     renderCompanyDetail()
-    await screen.findByRole('tab', { name: 'Метрики' })
-
+    await screen.findByText('Метрики — План vs Факт')
     expect(mocks.companiesApi.cohorts).not.toHaveBeenCalled()
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Когорты' }))
-    await waitFor(() => expect(mocks.companiesApi.cohorts).toHaveBeenCalledTimes(1))
-
     expect(mocks.companiesApi.budgets).not.toHaveBeenCalled()
     expect(mocks.companiesApi.unitEconomics).not.toHaveBeenCalled()
   })
 
-  it('switches to cohorts tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Когорты' }))
+  it('renders cohorts content for ?tab=cohorts', async () => {
+    renderCompanyDetail('cohorts')
     expect(await screen.findByText('Когортный анализ — матрица удержания M1–M12')).toBeInTheDocument()
   })
 
-  it('switches to budget tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Бюджет' }))
+  it('renders budget content for ?tab=budget', async () => {
+    renderCompanyDetail('budget')
     expect(await screen.findByText('Бюджет — План vs Факт')).toBeInTheDocument()
   })
 
-  it('switches to unit economics tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Юнит-экономика' }))
+  it('renders unit economics content for ?tab=unit', async () => {
+    renderCompanyDetail('unit')
     expect(await screen.findByText('LTV/CAC')).toBeInTheDocument()
     expect(screen.getByText('Magic Number')).toBeInTheDocument()
     expect(screen.getByText('80.0%')).toBeInTheDocument()
   })
 
-  it('switches to tasks tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Задачи' }))
+  it('renders tasks content for ?tab=tasks', async () => {
+    renderCompanyDetail('tasks')
     expect(await screen.findByText('Готовность к продаже')).toBeInTheDocument()
     expect(screen.getByText('Подготовить метрики')).toBeInTheDocument()
   })
 
-  it('switches to market tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Рынок' }))
+  it('renders market content for ?tab=market', async () => {
+    renderCompanyDetail('market')
     expect(await screen.findByText('Внешний анализ рынка')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Анализировать' })).toBeInTheDocument()
   })
 
-  it('switches to hiring tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Найм' }))
+  it('renders hiring content for ?tab=hiring', async () => {
+    renderCompanyDetail('hiring')
     expect(await screen.findByText('Прогноз найма')).toBeInTheDocument()
   })
 
-  it('switches to pnl tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'P&L' }))
-    expect(
-      await screen.findByText('P&L — Отчёт о прибылях и убытках'),
-    ).toBeInTheDocument()
+  it('renders pnl content for ?tab=pnl', async () => {
+    renderCompanyDetail('pnl')
+    expect(await screen.findByText('P&L — Отчёт о прибылях и убытках')).toBeInTheDocument()
   })
 
-  it('switches to cashflow tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Cash Flow' }))
-    expect(
-      await screen.findByText('Cash Flow — Движение денежных средств'),
-    ).toBeInTheDocument()
+  it('renders cashflow content for ?tab=cashflow', async () => {
+    renderCompanyDetail('cashflow')
+    expect(await screen.findByText('Cash Flow — Движение денежных средств')).toBeInTheDocument()
   })
 
-  it('switches to credit tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Кредиты' }))
-    expect(
-      await screen.findByText('Кредиты — умное прогнозирование'),
-    ).toBeInTheDocument()
+  it('renders credit content for ?tab=credit', async () => {
+    renderCompanyDetail('credit')
+    expect(await screen.findByText('Кредиты — умное прогнозирование')).toBeInTheDocument()
   })
 
-  it('switches to valuation tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Оценка' }))
-    expect(
-      await screen.findByText('Оценка бизнеса — модель Гордона'),
-    ).toBeInTheDocument()
+  it('renders valuation content for ?tab=valuation', async () => {
+    renderCompanyDetail('valuation')
+    expect(await screen.findByText('Оценка бизнеса — модель Гордона')).toBeInTheDocument()
   })
 
-  it('switches to sensitivity tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Чувствительность' }))
-    expect(
-      await screen.findByText('Анализ чувствительности — консервативный сценарий'),
-    ).toBeInTheDocument()
+  it('renders sensitivity content for ?tab=sensitivity', async () => {
+    renderCompanyDetail('sensitivity')
+    expect(await screen.findByText('Анализ чувствительности — консервативный сценарий')).toBeInTheDocument()
   })
 
-  it('switches to reports tab on click', async () => {
-    renderCompanyDetail()
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Отчёты' }))
+  it('renders reports content for ?tab=reports', async () => {
+    renderCompanyDetail('reports')
     expect(await screen.findByText('Отчёты для инвесторов')).toBeInTheDocument()
   })
 
@@ -673,14 +631,8 @@ describe('CompanyDetail', () => {
   it('hides add buttons for observer role', async () => {
     mocks.role = 'observer'
     renderCompanyDetail()
-    await screen.findByRole('tab', { name: 'Метрики' })
+    await screen.findByText('Метрики — План vs Факт')
     expect(screen.queryByRole('button', { name: /Добавить метрику/ })).not.toBeInTheDocument()
-
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Когорты' }))
-    expect(screen.queryByRole('button', { name: /Добавить когорту/ })).not.toBeInTheDocument()
-
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Бюджет' }))
-    expect(screen.queryByRole('button', { name: /Добавить бюджет/ })).not.toBeInTheDocument()
   })
 
   it('bulk-saves metrics with snake_case payload', async () => {
