@@ -13,6 +13,7 @@ from app.services.budget_service import BudgetService
 from app.services.cashflow_service import CashFlowService
 from app.services.cohort_service import CohortService
 from app.services.credit_service import CreditService
+from app.services.health_service import HealthService
 from app.services.hiring_service import HiringService
 from app.services.pnl_service import PnLService
 from app.services.sensitivity_service import SensitivityService
@@ -28,6 +29,7 @@ INSIGHT_SYSTEM_PROMPT = (
 )
 
 SCENARIO_LABELS = {
+    "overview": "общий обзор бизнеса",
     "unit_economics": "юнит-экономика",
     "cohorts": "когорты и удержание",
     "budget": "бюджет",
@@ -88,7 +90,9 @@ class InsightService:
     ) -> Tuple[str, str, str]:
         label = SCENARIO_LABELS[scenario.value]
 
-        if scenario == InsightScenario.unit_economics:
+        if scenario == InsightScenario.overview:
+            resp = await self._overview_data(company_id)
+        elif scenario == InsightScenario.unit_economics:
             resp = await UnitEconomicsService(self.db).get_unit_economics(company_id)
         elif scenario == InsightScenario.cohorts:
             resp = await CohortService(self.db).list_cohorts(company_id)
@@ -137,6 +141,42 @@ class InsightService:
             "total_cf": cashflow.total_cf,
             "equity_value": valuation.equity_value,
         }
+
+    async def _overview_data(self, company_id: UUID) -> dict:
+        """Общий контекст компании для сценария «overview» (What matters now?)."""
+        unit = await UnitEconomicsService(self.db).get_unit_economics(company_id)
+        health = await HealthService(self.db).get_health(company_id)
+        pnl = await PnLService(self.db).get_pnl(company_id)
+        return {
+            "revenue": unit.revenue,
+            "revenue_growth": unit.revenue_growth,
+            "cac": unit.cac,
+            "ltv": unit.ltv,
+            "ltv_cac": unit.ltv_cac,
+            "churn": unit.churn,
+            "runway_months": unit.runway_months,
+            "cash": unit.cash,
+            "monthly_burn": unit.monthly_burn,
+            "payback_period": unit.payback_period,
+            "retention": unit.retention.model_dump(),
+            "ebitda": pnl.ebitda,
+            "net_profit": pnl.net_profit,
+            "health_status": health.status,
+            "summary": self._overview_demo_text(unit, health),
+        }
+
+    @staticmethod
+    def _overview_demo_text(unit, health) -> str:
+        """Детерминированный фолбэк для «overview» (demo-режим / ошибка провайдера)."""
+        parts: list[str] = []
+        if unit.revenue is not None:
+            parts.append(f"Выручка за последний месяц — {unit.revenue:,.0f} ₽.")
+        if unit.runway_months is not None:
+            parts.append(f"Runway — {unit.runway_months:.1f} мес.")
+        if unit.ltv_cac is not None:
+            parts.append(f"LTV/CAC — {unit.ltv_cac:.2f}.")
+        parts.append(health.summary)
+        return " ".join(parts)
 
     @staticmethod
     def _build_prompt(label: str, data_text: str, context: str) -> str:

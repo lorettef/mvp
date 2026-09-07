@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 
 class InsightScenario(str, Enum):
+    overview = "overview"
     unit_economics = "unit_economics"
     cohorts = "cohorts"
     budget = "budget"

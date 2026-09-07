@@ -90,6 +90,19 @@ async def test_insight_unknown_scenario(client, seeded_company, seeded_admin, db
     assert res.status_code == 422
 
 
+async def test_insight_overview(client, seeded_company, seeded_admin, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
+    await _seed(db_session, seeded_company.id, seeded_admin)
+
+    res = await _post(client, seeded_company.id, seeded_admin, "overview")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["scenario"] == "overview"
+    assert body["provider"] == "demo"
+    assert body["text"]
+    assert "Runway" in body["text"]
+
+
 async def test_insight_observer_forbidden(client, seeded_company, seeded_observer, db_session, monkeypatch):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed(db_session, seeded_company.id, seeded_observer)

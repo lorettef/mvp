@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from .conftest import make_user
 from app.models.ai_cache import AICache
+from app.schemas.ai_metrics import MetricsRequest
 from app.schemas.recommendations import RecommendationResponse
 from app.services.ai_service import AIService
 
@@ -103,3 +104,14 @@ async def test_get_cached_ignores_expired_rows(db_session):
 
     cached = await AIService(db_session)._get_cached("H", str(user.id))
     assert cached is None
+
+
+def test_metrics_hash_includes_company_context():
+    """Two companies with identical metrics but different profiles must not collide."""
+    service = AIService(None)
+    metrics = MetricsRequest(
+        mrr=1000, cac=100, ltv=300, churn=0.05, arpu=50, runway_months=12, stage="seed"
+    )
+    hash_a = service._hash_metrics(metrics, "Компания: отрасль — SaaS; бизнес-модель — Подписка (SaaS).")
+    hash_b = service._hash_metrics(metrics, "Компания: отрасль — E-commerce; бизнес-модель — Онлайн-ритейл.")
+    assert hash_a != hash_b

@@ -42,7 +42,7 @@ class AIService:
         metrics_dict — метрики в форме MetricsRequest.
         """
         metrics = MetricsRequest(**metrics_dict)
-        metrics_hash = self._hash_metrics(metrics)
+        metrics_hash = self._hash_metrics(metrics, context)
         cached = await self._get_cached(metrics_hash, user_id)
         if cached:
             return cached
@@ -69,8 +69,13 @@ class AIService:
             await self._cache_response(metrics_hash, response, user_id)
             return response
     
-    def _hash_metrics(self, metrics: MetricsRequest) -> str:
-        """Создаёт хеш от метрик для кэширования."""
+    def _hash_metrics(self, metrics: MetricsRequest, context: str = "") -> str:
+        """Создаёт хеш от метрик + контекста компании для кэширования.
+
+        `context` (профиль компании: отрасль/бизнес-модель/география/метрики)
+        входит в ключ кэша, чтобы две компании одного пользователя с одинаковым
+        набором скаляров не получили чужой кэшированный ответ (коллизия).
+        """
         data = {
             "mrr": metrics.mrr,
             "cac": metrics.cac,
@@ -78,7 +83,8 @@ class AIService:
             "churn": metrics.churn,
             "arpu": metrics.arpu,
             "runway": metrics.runway_months,
-            "stage": metrics.stage
+            "stage": metrics.stage,
+            "context": context,
         }
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
     
