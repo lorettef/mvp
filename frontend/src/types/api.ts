@@ -196,14 +196,26 @@ export interface MetricBulkUpsert {
 }
 
 // Dashboard
+export interface AttentionSignal {
+  kind: string
+  label: string
+  severity: 'critical' | 'warning' | 'info'
+}
+
 export interface CompanyStatusItem {
   id: string
   name: string
   industry: string | null
   geography: string | null
+  businessModel: string | null
   status: 'on_track' | 'behind' | 'no_plan' | 'no_data'
   latestRevenue: number | null
   latestPlanRevenue: number | null
+  revenueGrowth: number | null
+  runwayMonths: number | null
+  lastUpdate: string | null
+  health: 'healthy' | 'attention' | 'critical' | 'no_data' | 'unknown'
+  attention: AttentionSignal[]
   taskProgress: number | null
 }
 
@@ -213,11 +225,36 @@ export interface DashboardResponse {
   avgCac: number | null
   avgLtv: number | null
   avgChurn: number | null
+  portfolioRevenue: number | null
+  revenueGrowth: number | null
+  companiesAtRisk: number
+  avgRunway: number | null
+  companiesWithoutData: number
   onTrack: number
   behind: number
   noPlan: number
   noData: number
   companies: CompanyStatusItem[]
+}
+
+export interface PerformancePoint {
+  month: string
+  fact: number | null
+  plan: number | null
+}
+
+export interface HealthSignal {
+  key: 'revenue' | 'retention' | 'cac' | 'burn' | 'runway'
+  direction: 'up' | 'down' | 'flat' | 'unknown'
+  status: 'good' | 'bad' | 'neutral' | 'unknown'
+  label: string
+}
+
+export interface BusinessHealthResponse {
+  companyId: string
+  status: 'healthy' | 'attention' | 'critical' | 'no_data'
+  signals: HealthSignal[]
+  summary: string
 }
 
 export interface Cohort {
@@ -627,6 +664,7 @@ export interface PlanGenerateResponse {
 
 // AI insight (narrative) per module (TZ v5.0, section 2.3)
 export type InsightScenario =
+  | 'overview'
   | 'unit_economics'
   | 'cohorts'
   | 'budget'

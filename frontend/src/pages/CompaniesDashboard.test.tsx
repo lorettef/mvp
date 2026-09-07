@@ -6,10 +6,15 @@ import { CompaniesDashboard } from './CompaniesDashboard'
 
 const companiesApiMock = vi.hoisted(() => ({
   create: vi.fn(),
+  list: vi.fn(),
+  archive: vi.fn(),
+  restore: vi.fn(),
+  remove: vi.fn(),
 }))
 
 const dashboardApiMock = vi.hoisted(() => ({
   get: vi.fn(),
+  performance: vi.fn(),
 }))
 
 const catalogApiMock = vi.hoisted(() => ({
@@ -52,6 +57,10 @@ function renderDashboard() {
 describe('CompaniesDashboard startup invites', () => {
   beforeEach(() => {
     companiesApiMock.create.mockReset()
+    companiesApiMock.list.mockReset()
+    companiesApiMock.list.mockResolvedValue([])
+    dashboardApiMock.performance.mockReset()
+    dashboardApiMock.performance.mockResolvedValue([])
     dashboardApiMock.get.mockReset()
     dashboardApiMock.get.mockResolvedValue({
       totalCompanies: 0,
@@ -112,6 +121,10 @@ describe('CompaniesDashboard startup invites', () => {
 describe('CompaniesDashboard create form', () => {
   beforeEach(() => {
     companiesApiMock.create.mockReset()
+    companiesApiMock.list.mockReset()
+    companiesApiMock.list.mockResolvedValue([])
+    dashboardApiMock.performance.mockReset()
+    dashboardApiMock.performance.mockResolvedValue([])
     dashboardApiMock.get.mockReset()
     dashboardApiMock.get.mockResolvedValue({
       totalCompanies: 0,

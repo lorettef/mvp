@@ -13,6 +13,13 @@
  */
 export const qk = {
   dashboard: (tenant: string): readonly string[] => ['tenant', tenant, 'dashboard'],
+  dashboardPerformance: (tenant: string, months: number): readonly string[] => [
+    'tenant',
+    tenant,
+    'dashboard',
+    'performance',
+    String(months),
+  ],
   companies: (tenant: string, archived: boolean): readonly string[] => [
     'tenant',
     tenant,
@@ -21,6 +28,7 @@ export const qk = {
   ],
 
   company: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id],
+  companyHealth: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'health'],
   companyMetrics: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'metrics'],
   companyCohorts: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'cohorts'],
   companyBudgets: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'budgets'],

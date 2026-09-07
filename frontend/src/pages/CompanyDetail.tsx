@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -106,7 +106,8 @@ export const CompanyDetail = () => {
   const { companyId } = useParams<{ companyId: string }>()
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState('metrics')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') ?? 'metrics')
   const [showForm, setShowForm] = useState(false)
   const [bulkType, setBulkType] = useState<'plan' | 'fact'>('fact')
   const [bulkStartMonth, setBulkStartMonth] = useState(currentMonthValue)
@@ -181,6 +182,11 @@ export const CompanyDetail = () => {
     const gm = companyQuery.data?.grossMargin
     setGrossMarginPct(gm != null ? String(Math.round(gm * 10000) / 100) : '75')
   }, [companyQuery.data?.grossMargin, id])
+
+  useEffect(() => {
+    const urlTab = searchParams.get('tab')
+    if (urlTab) setTab(urlTab)
+  }, [searchParams])
 
   const metricsQuery = useQuery({
     queryKey: qk.companyMetrics(tenantKey, id),

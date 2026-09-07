@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '../store/authStore'
 import { CompaniesDashboard } from './CompaniesDashboard'
+import { StartupDashboard } from './StartupDashboard'
 
 export const Dashboard = () => {
   const { t } = useTranslation()
@@ -17,7 +18,7 @@ export const Dashboard = () => {
   }
 
   if (user.companyId) {
-    return <Navigate to={`/companies/${user.companyId}`} replace />
+    return <StartupDashboard companyId={user.companyId} />
   }
 
   // Аутентифицированный пользователь без companyId (наблюдатель без

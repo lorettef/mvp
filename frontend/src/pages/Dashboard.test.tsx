@@ -12,6 +12,9 @@ vi.mock('../store/authStore', () => ({
 vi.mock('./CompaniesDashboard', () => ({
   CompaniesDashboard: () => <div>Portfolio view</div>,
 }))
+vi.mock('./StartupDashboard', () => ({
+  StartupDashboard: () => <div>Startup overview</div>,
+}))
 
 const baseUser: User = {
   id: 'user-1',
@@ -59,7 +62,7 @@ describe('Dashboard routing', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('Company view')).toBeInTheDocument()
+    expect(screen.getByText('Startup overview')).toBeInTheDocument()
   })
 
   it('routes a company user to its company', () => {
@@ -71,7 +74,7 @@ describe('Dashboard routing', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('Company view')).toBeInTheDocument()
+    expect(screen.getByText('Startup overview')).toBeInTheDocument()
   })
 
   it('keeps legacy admins without organizationType on the portfolio', () => {

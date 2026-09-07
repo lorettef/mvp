@@ -20,6 +20,8 @@ import type {
   InsightScenario,
   InsightResponse,
   RecommendationTasksResponse,
+  BusinessHealthResponse,
+  PerformancePoint,
 } from '@/types/api'
 import { api } from './client'
 
@@ -77,8 +79,12 @@ export const companiesApi = {
     api.post(`/companies/${id}/generate-plan`, null, { params: { months }, signal }).then((res) => res.data),
   insight: (id: string, scenario: InsightScenario, { signal }: { signal?: AbortSignal } = {}): Promise<InsightResponse> =>
     api.post(`/companies/${id}/insights/${scenario}`, undefined, { signal }).then((res) => res.data),
+  health: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<BusinessHealthResponse> =>
+    api.get(`/companies/${id}/health`, { signal }).then((res) => res.data),
 }
 
 export const dashboardApi = {
   get: ({ signal }: { signal?: AbortSignal } = {}): Promise<DashboardResponse> => api.get('/dashboard', { signal }).then((res) => res.data),
+  performance: (months = 6, { signal }: { signal?: AbortSignal } = {}): Promise<PerformancePoint[]> =>
+    api.get('/dashboard/performance', { params: { months }, signal }).then((res) => res.data),
 }

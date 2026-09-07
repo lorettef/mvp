@@ -17,7 +17,39 @@ export interface MetricCardProps {
   /** Inverts the good/bad color semantics (e.g. churn where down is good). */
   invert?: boolean
   icon?: ReactNode
+  /** Mini trend line; rendered only when >= 3 numeric points are provided. */
+  sparkline?: (number | null | undefined)[]
+  /** Optional plan/fact breakdown line, e.g. { plan: "1.1M ₽", fact: "1.2M ₽" }. */
+  planFact?: { plan: ReactNode; fact: ReactNode } | null
+  /** Period label shown under the value, e.g. "Май 2026". */
+  period?: string
   className?: string
+}
+
+function Sparkline({ points }: { points: number[] }) {
+  const width = 96
+  const height = 32
+  const min = Math.min(...points)
+  const max = Math.max(...points)
+  const range = max - min || 1
+  const step = width / (points.length - 1)
+  const coords = points.map((v, i) => {
+    const x = i * step
+    const y = height - 3 - ((v - min) / range) * (height - 6)
+    return [x, y] as const
+  })
+  const path = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ")
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="h-8 w-24 shrink-0 overflow-visible"
+      aria-hidden="true"
+      preserveAspectRatio="none"
+    >
+      <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 }
 
 export function MetricCard({
@@ -28,6 +60,9 @@ export function MetricCard({
   context,
   invert = false,
   icon,
+  sparkline,
+  planFact,
+  period,
   className,
 }: MetricCardProps) {
   const hasDelta = delta !== null && delta !== undefined
@@ -40,6 +75,8 @@ export function MetricCard({
       : (delta as number) < 0
         ? "down"
         : "flat"
+
+  const sparkPoints = (sparkline ?? []).filter((v): v is number => typeof v === "number" && Number.isFinite(v))
 
   return (
     <Card className={cn("border bg-card", className)}>
@@ -54,8 +91,20 @@ export function MetricCard({
             </span>
           ) : null}
         </div>
-        <div className="mt-3 text-2xl font-semibold tabular-nums tracking-tight">
-          {value}
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-2xl font-semibold tabular-nums tracking-tight">
+              {value}
+            </div>
+            {period ? (
+              <div className="mt-0.5 text-xs text-muted-foreground">{period}</div>
+            ) : null}
+          </div>
+          {sparkPoints.length >= 3 ? (
+            <span className={cn("text-primary", good ? "text-success" : "text-muted-foreground")}>
+              <Sparkline points={sparkPoints} />
+            </span>
+          ) : null}
         </div>
         <div className="mt-2 flex items-center gap-1.5 text-sm">
           {hasDelta && (
@@ -77,6 +126,16 @@ export function MetricCard({
             <span className="text-muted-foreground">{context}</span>
           ) : null}
         </div>
+        {planFact ? (
+          <div className="mt-2 flex items-center gap-3 border-t border-border pt-2 text-xs text-muted-foreground tabular-nums">
+            <span>
+              <span className="font-medium text-foreground">{planFact.plan}</span> план
+            </span>
+            <span>
+              <span className="font-medium text-foreground">{planFact.fact}</span> факт
+            </span>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   )
