@@ -106,7 +106,7 @@ describe('CompanyOnboardingWizard', () => {
     expect(payload.name).toBe('Acme')
     expect(payload.industry).toBe('saas')
     expect(payload.business_model).toBe('subscription')
-    expect(payload.gross_margin).toBe(70)
+    expect(payload.gross_margin).toBe(0.7)
     expect(payload.selected_metrics).not.toContain('retention_rate')
     expect(payload.selected_metrics).toEqual(
       expect.arrayContaining(['new_units', 'arpu', 'revenue', 'marketing_spend']),

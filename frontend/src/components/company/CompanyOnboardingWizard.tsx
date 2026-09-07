@@ -113,7 +113,7 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
       geography,
       industry,
       business_model: businessModel,
-      gross_margin: grossMarginValue,
+      gross_margin: grossMarginValue / 100,
       selected_metrics: selectedMetrics,
     })
   }

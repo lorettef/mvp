@@ -167,7 +167,7 @@ describe('CompaniesDashboard create form', () => {
         name: 'Новая компания',
         industry: 'saas',
         business_model: 'subscription',
-        gross_margin: 75.5,
+        gross_margin: 0.755,
         geography,
         selected_metrics: [],
       }),
