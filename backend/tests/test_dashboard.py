@@ -82,6 +82,11 @@ async def test_dashboard_snapshot_unchanged(db_session, seeded_organization):
         "avg_cac": 100.0,
         "avg_ltv": 300.0,
         "avg_churn": 0.05,
+        "portfolio_revenue": 2000.0,
+        "revenue_growth": 1.0,
+        "companies_at_risk": 1,
+        "avg_runway": None,
+        "companies_without_data": 1,
         "on_track": 1,
         "behind": 1,
         "no_plan": 0,
@@ -92,9 +97,15 @@ async def test_dashboard_snapshot_unchanged(db_session, seeded_organization):
                 "name": "Alpha Startup",
                 "industry": "SaaS",
                 "geography": "US",
+                "business_model": None,
                 "status": "on_track",
                 "latest_revenue": 1200.0,
                 "latest_plan_revenue": 1100.0,
+                "revenue_growth": 0.2,
+                "runway_months": None,
+                "last_update": "2026-02-01",
+                "health": "healthy",
+                "attention": [],
                 "task_progress": 67,
             },
             {
@@ -102,9 +113,17 @@ async def test_dashboard_snapshot_unchanged(db_session, seeded_organization):
                 "name": "Beta Startup",
                 "industry": "Fintech",
                 "geography": "EU",
+                "business_model": None,
                 "status": "behind",
                 "latest_revenue": 800.0,
                 "latest_plan_revenue": 1000.0,
+                "revenue_growth": None,
+                "runway_months": None,
+                "last_update": "2026-01-01",
+                "health": "attention",
+                "attention": [
+                    {"kind": "behind_plan", "label": "Отстаёт от плана", "severity": "warning"},
+                ],
                 "task_progress": 50,
             },
             {
@@ -112,9 +131,17 @@ async def test_dashboard_snapshot_unchanged(db_session, seeded_organization):
                 "name": "Gamma Startup",
                 "industry": None,
                 "geography": None,
+                "business_model": None,
                 "status": "no_data",
                 "latest_revenue": None,
                 "latest_plan_revenue": None,
+                "revenue_growth": None,
+                "runway_months": None,
+                "last_update": None,
+                "health": "no_data",
+                "attention": [
+                    {"kind": "no_data", "label": "Нет данных", "severity": "info"},
+                ],
                 "task_progress": None,
             },
         ],
@@ -140,4 +167,25 @@ async def test_dashboard_query_count_bound(db_session, seeded_organization):
     finally:
         event.remove(engine.sync_engine, "before_cursor_execute", _count)
 
-    assert len(selects) <= 5, f"expected <= 5 SELECTs, got {len(selects)}"
+    assert len(selects) <= 6, f"expected <= 6 SELECTs, got {len(selects)}"
+
+
+async def test_dashboard_performance_series(db_session, seeded_organization):
+    """Portfolio performance aggregates fact/plan revenue per month."""
+    await _seed_dashboard_data(db_session, seeded_organization)
+
+    points = await DashboardService(db_session).get_performance(
+        seeded_organization.id, months=6
+    )
+    assert [p.model_dump() for p in points] == [
+        {"month": "2026-01", "fact": 1800.0, "plan": 1900.0},
+        {"month": "2026-02", "fact": 1200.0, "plan": 1100.0},
+    ]
+
+
+async def test_dashboard_performance_empty(db_session, seeded_organization):
+    """Empty portfolio → empty performance series."""
+    points = await DashboardService(db_session).get_performance(
+        seeded_organization.id, months=6
+    )
+    assert points == []
