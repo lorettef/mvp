@@ -17,6 +17,7 @@ from app.core.time import utcnow
 from app.models.company import Company
 from app.models.invite import Invite
 from app.models.organization import Organization
+from app.models.subscription import Subscription
 from app.models.user import User
 
 from .conftest import auth_headers, make_user
@@ -227,6 +228,7 @@ async def test_register_with_used_invite_404(client, db_session, fund_org):
         json={
             "email": "first@test.ru",
             "password": "SecurePass1",
+            "full_name": "First Founder",
             "company_name": "First Startup",
             "invite_token": "reuse-token",
         },
@@ -238,6 +240,7 @@ async def test_register_with_used_invite_404(client, db_session, fund_org):
         json={
             "email": "second@test.ru",
             "password": "SecurePass1",
+            "full_name": "Second Founder",
             "company_name": "Second Startup",
             "invite_token": "reuse-token",
         },
@@ -255,6 +258,7 @@ async def test_register_with_unknown_invite_404(client, db_session, fund_org):
         json={
             "email": "ghost@test.ru",
             "password": "SecurePass1",
+            "full_name": "Ghost Founder",
             "company_name": "Ghost Startup",
             "invite_token": "ghost-token",
         },
@@ -276,3 +280,37 @@ async def test_register_with_invite_without_company_name_422(client, db_session,
         },
     )
     assert resp.status_code == 422, resp.text
+
+
+async def test_invite_registration_blocked_at_company_limit(client, db_session, fund_org, fund_admin):
+    """Лимит компаний (starter=2) применяется и к инвайт-регистрации (SEC-002)."""
+    db_session.add(
+        Subscription(user_id=fund_admin.id, plan="starter", status="active")
+    )
+    db_session.add_all(
+        [
+            Company(organization_id=fund_org.id, name="Fund Co 1"),
+            Company(organization_id=fund_org.id, name="Fund Co 2"),
+        ]
+    )
+    await _add_invite(db_session, fund_org, "limit-token")
+    await db_session.flush()
+
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "limit-invite@test.ru",
+            "password": "SecurePass1",
+            "full_name": "Founder",
+            "company_name": "Fund Co 3",
+            "invite_token": "limit-token",
+        },
+    )
+    assert resp.status_code == 403, resp.text
+
+    companies = (
+        await db_session.execute(
+            select(Company).where(Company.organization_id == fund_org.id)
+        )
+    ).scalars().all()
+    assert len(companies) == 2

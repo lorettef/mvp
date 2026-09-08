@@ -4,7 +4,7 @@ from app.core.limiter import limiter
 from app.core.database import get_db
 from app.schemas.forecast import ForecastRequest, ForecastResponse
 from app.services.forecast_service import ForecastService
-from app.api.dependencies import get_current_user, check_subscription_limit, audit_action
+from app.api.dependencies import get_current_user, consume_subscription_limit, audit_action
 
 router = APIRouter()
 
@@ -19,7 +19,7 @@ async def predict(
 ):
     """Прогнозирование MRR на основе истории."""
     # Проверка лимита запросов
-    limit_ok = await check_subscription_limit(current_user["user_id"], db)
+    limit_ok = await consume_subscription_limit(current_user["user_id"], db)
     if not limit_ok:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

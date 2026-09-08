@@ -6,9 +6,11 @@ from app.models.subscription import Subscription
 from app.models.organization import Organization
 from app.models.company import Company
 from app.schemas.auth import UserCreate
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import hash_password, verify_password, create_access_token, dummy_password_hash
 from app.core.time import utcnow
 from app.services.invite_service import InviteService
+from app.services.company_service import CompanyService
+from app.services.subscription_service import SubscriptionService
 
 class AuthService:
     """Сервис аутентификации."""
@@ -57,6 +59,12 @@ class AuthService:
         if data.invite_token:
             invite_service = InviteService(self.db)
             invite = await invite_service.get_valid_invite(data.invite_token)
+
+            # Лимит компаний организации применяется и к инвайт-регистрации:
+            # компания добавляется в организацию администратора, поэтому лимит
+            # берётся по тарифу владельца организации (а не нового пользователя).
+            plan_id = await SubscriptionService(self.db).get_org_plan_id(invite.organization_id)
+            await CompanyService(self.db).enforce_company_limit(invite.organization_id, plan_id)
 
             user.role = "company"
             user.organization_id = invite.organization_id
@@ -142,7 +150,10 @@ class AuthService:
         user = result.scalar_one_or_none()
 
         if not user:
-            verify_password(password, "$2b$12$dummy_hash_for_timing_safety_xxxx")
+            # Timing-safe: прогоняем пароль через bcrypt на валидном dummy-хеше,
+            # чтобы несуществующий email отвечал за то же время, что и неверный
+            # пароль существующего пользователя (защита от user-enumeration).
+            verify_password(password, dummy_password_hash())
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Неверный email или пароль"

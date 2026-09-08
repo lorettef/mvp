@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    # Доверенные reverse-proxy (IP/CIDR), от которых разрешено читать
+    # X-Real-IP / X-Forwarded-For. Пусто — доверяются только loopback и
+    # private-диапазоны (docker-сеть с nginx).
+    TRUSTED_PROXIES: List[str] = []
     
     # AI-провайдер
     AI_PROVIDER: Literal["deepseek", "gigachat", "demo"] = "demo"

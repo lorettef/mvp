@@ -3,6 +3,7 @@ from uuid import UUID
 from app.models.audit_log import AuditLog
 from app.core.security import decode_access_token
 from app.core.time import utcnow
+from app.core.client_ip import get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ async def write_audit_log(db, request, user_id: UUID, action: str) -> None:
         entry = AuditLog(
             user_id=user_id,
             action=action,
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_client_ip(request),
             user_agent=request.headers.get("user-agent"),
             created_at=utcnow(),
         )

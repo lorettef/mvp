@@ -1,6 +1,7 @@
-from sqlalchemy import Column, String, DateTime, Integer, ForeignKey
+from sqlalchemy import Column, String, DateTime, Integer, Date, ForeignKey
 from sqlalchemy import Uuid
 from sqlalchemy.sql import func
+from datetime import date
 from app.core.database import Base
 import uuid
 
@@ -12,6 +13,8 @@ class Subscription(Base):
     plan = Column(String(50), nullable=False, default="free")  # free, pro, business
     status = Column(String(50), nullable=False, default="active")  # active, cancelled, expired
     daily_limit = Column(Integer, nullable=False, default=1)
+    used_today = Column(Integer, nullable=False, default=0)
+    used_date = Column(Date, nullable=False, default=lambda: date(1970, 1, 1))
     start_date = Column(DateTime, server_default=func.now())
     end_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

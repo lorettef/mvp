@@ -68,7 +68,7 @@ def test_alembic_upgrade_head_on_sqlite(tmp_path, monkeypatch):
 
     command.upgrade(_make_config(), "head")
 
-    assert _alembic_version(db_path) == "013_task_ai_fields"
+    assert _alembic_version(db_path) == "014_ai_usage_counter"
     assert EXPECTED_TABLES <= _table_names(db_path)
 
 

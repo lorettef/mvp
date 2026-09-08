@@ -173,6 +173,7 @@ export const Register = () => {
                   <Input
                     id="register-name"
                     type="text"
+                    required
                     placeholder={t('auth.register.name')}
                     value={form.fullName}
                     onChange={(e) => setForm({ ...form, fullName: e.target.value })}
@@ -185,6 +186,7 @@ export const Register = () => {
                   <Input
                     id="register-fund-name"
                     type="text"
+                    required
                     placeholder={t('auth.register.fundName')}
                     value={form.companyName}
                     onChange={(e) => setForm({ ...form, companyName: e.target.value })}

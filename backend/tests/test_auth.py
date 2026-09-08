@@ -74,8 +74,8 @@ async def test_register_fund_default_creates_fund_org(client, db_session):
     assert sub.plan == "starter"
 
 
-async def test_register_fund_without_company_name(client, db_session):
-    """Фонд без company_name: имя организации из full_name, без компании."""
+async def test_register_fund_without_company_name_422(client, db_session):
+    """Фонд без company_name отклоняется схемой (422)."""
     resp = await client.post(
         "/api/v1/auth/register",
         json={
@@ -84,40 +84,20 @@ async def test_register_fund_without_company_name(client, db_session):
             "full_name": "Just Fund",
         },
     )
-    assert resp.status_code == 201, resp.text
-    body = resp.json()
-
-    assert body["organization_type"] == "fund"
-    assert body["company_id"] is None
-    assert body["company_name"] is None
-
-    org = await db_session.get(
-        Organization, uuid.UUID(body["organization_id"])
-    )
-    assert org.name == "Just Fund"
-    assert org.organization_type == "fund"
+    assert resp.status_code == 422, resp.text
 
 
-async def test_register_fund_default_org_name(client, db_session):
-    """Фонд без company_name и full_name: дефолтное имя организации."""
+async def test_register_fund_without_full_name_422(client, db_session):
+    """Фонд без full_name отклоняется схемой (422)."""
     resp = await client.post(
         "/api/v1/auth/register",
         json={
             "email": "fund-anon@test.ru",
             "password": "SecurePass1",
+            "company_name": "Fund Co",
         },
     )
-    assert resp.status_code == 201, resp.text
-    body = resp.json()
-
-    assert body["organization_type"] == "fund"
-    assert body["company_id"] is None
-
-    org = await db_session.get(
-        Organization, uuid.UUID(body["organization_id"])
-    )
-    assert org.name == "Мой акселератор"
-    assert org.organization_type == "fund"
+    assert resp.status_code == 422, resp.text
 
 
 async def test_register_standalone_startup(client, db_session):

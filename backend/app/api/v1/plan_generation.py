@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.limiter import limiter
 from app.core.database import get_db
 from app.api.dependencies import (
-    check_subscription_limit,
+    consume_subscription_limit,
     require_company_access,
     ROLE_ADMIN,
     ROLE_COMPANY,
@@ -33,7 +33,7 @@ async def generate_plan(
             detail="Недостаточно прав",
         )
 
-    if not await check_subscription_limit(user["user_id"], db):
+    if not await consume_subscription_limit(user["user_id"], db):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Превышен дневной лимит AI-запросов",

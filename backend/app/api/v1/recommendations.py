@@ -4,7 +4,7 @@ from app.core.limiter import limiter
 from app.core.database import get_db
 from app.schemas.recommendations import RecommendationRequest, RecommendationResponse
 from app.services.ai_service import AIService
-from app.api.dependencies import get_current_user, check_subscription_limit, audit_action
+from app.api.dependencies import get_current_user, consume_subscription_limit, audit_action
 
 router = APIRouter()
 
@@ -19,7 +19,7 @@ async def get_recommendations(
 ):
     """Получить AI-рекомендации на основе метрик."""
     # Проверка лимита запросов
-    limit_check = await check_subscription_limit(current_user["user_id"], db)
+    limit_check = await consume_subscription_limit(current_user["user_id"], db)
     if not limit_check:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

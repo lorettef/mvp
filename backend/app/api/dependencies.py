@@ -92,13 +92,13 @@ async def audit_action(
     if action:
         await write_audit_log(db, request, current_user["user_id"], action)
 
-async def check_subscription_limit(
+async def consume_subscription_limit(
     user_id: str,
     db: AsyncSession
 ) -> bool:
-    """Проверяет, не превышен ли лимит запросов."""
+    """Атомарно списывает один AI-запрос из дневного лимита (True — разрешено)."""
     service = SubscriptionService(db)
-    return await service.check_limit(user_id)
+    return await service.try_consume_ai_limit(user_id)
 
 async def get_current_user_full(
     current_user: dict = Depends(get_current_user),

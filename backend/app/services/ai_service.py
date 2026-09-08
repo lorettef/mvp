@@ -23,6 +23,11 @@ _METRIC_SLUGS = {
     "churn", "ltv", "cac",
 }
 
+
+def _as_uuid(value) -> UUID:
+    return value if isinstance(value, UUID) else UUID(value)
+
+
 class AIService:
     """Сервис для работы с AI-провайдерами (DeepSeek, GigaChat, Demo)."""
     
@@ -41,6 +46,10 @@ class AIService:
         дополнительно подмешивает профиль компании (context) в промпт.
         metrics_dict — метрики в форме MetricsRequest.
         """
+        # user_id может прийти как str (из внешних вызовов/тестов) или уже как
+        # UUID (из get_current_user). Нормализуем один раз.
+        user_id = _as_uuid(user_id)
+
         metrics = MetricsRequest(**metrics_dict)
         metrics_hash = self._hash_metrics(metrics, context)
         cached = await self._get_cached(metrics_hash, user_id)
@@ -88,14 +97,15 @@ class AIService:
         }
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
     
-    async def _get_cached(self, metrics_hash: str, user_id: str) -> Optional[RecommendationResponse]:
+    async def _get_cached(self, metrics_hash: str, user_id) -> Optional[RecommendationResponse]:
         """Получает ответ из кэша (скоуп по пользователю)."""
+        user_id = _as_uuid(user_id)
         try:
             result = await self.db.execute(
                 select(AICache)
                 .where(
                     AICache.metrics_hash == metrics_hash,
-                    AICache.user_id == UUID(user_id),
+                    AICache.user_id == user_id,
                     AICache.expires_at > utcnow()
                 )
                 .order_by(AICache.created_at.desc())
@@ -108,19 +118,23 @@ class AIService:
             logger.debug("Cache miss or read error")
         return None
     
-    async def _cache_response(self, metrics_hash: str, response: RecommendationResponse, user_id: str) -> None:
-        """Сохраняет ответ в кэш."""
+    async def _cache_response(self, metrics_hash: str, response: RecommendationResponse, user_id) -> None:
+        """Сохраняет ответ в кэш (best-effort, не должен ломать основной ответ)."""
+        user_id = _as_uuid(user_id)
         try:
-            cache_entry = AICache(
-                user_id=UUID(user_id),
-                metrics_hash=metrics_hash,
-                response=json.dumps(response.model_dump()),
-                expires_at=utcnow() + timedelta(hours=self.cache_ttl_hours)
-            )
-            self.db.add(cache_entry)
-            await self.db.flush()
+            # SAVEPOINT: ошибка записи кэша откатывается изолированно и не
+            # затрагивает остальную транзакцию (quota, audit_log).
+            async with self.db.begin_nested():
+                cache_entry = AICache(
+                    user_id=user_id,
+                    metrics_hash=metrics_hash,
+                    response=json.dumps(response.model_dump()),
+                    expires_at=utcnow() + timedelta(hours=self.cache_ttl_hours)
+                )
+                self.db.add(cache_entry)
+                await self.db.flush()
         except Exception:
-            await self.db.rollback()
+            logger.exception("AICache write failed (non-fatal)")
     
     def _build_prompt(self, metrics: MetricsRequest, context: str = "") -> str:
         """Формирует промпт для AI с метриками компании."""

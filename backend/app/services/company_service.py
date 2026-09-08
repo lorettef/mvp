@@ -124,3 +124,21 @@ class CompanyService:
             )
         )
         return result.scalar() or 0
+
+    async def enforce_company_limit(self, organization_id: UUID, plan_id: str) -> None:
+        """Проверяет лимит компаний организации по тарифу (403 при превышении).
+
+        Единая точка проверки для всех путей создания компании (прямое
+        создание администратором и регистрация стартапа по инвайту).
+        """
+        from app.core.plans import company_limit
+
+        limit = company_limit(plan_id)
+        if limit is None:
+            return
+        count = await self.count_companies(organization_id)
+        if count >= limit:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Превышен лимит компаний по тарифу (максимум {limit}).",
+            )

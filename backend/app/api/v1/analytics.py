@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.client_ip import get_client_ip
 from app.api.dependencies import get_current_user_optional
 from app.models.analytics_event import AnalyticsEvent
 from app.schemas.analytics import TrackEventRequest
@@ -24,7 +25,7 @@ async def track_event(
             user_id=current_user["user_id"] if current_user else None,
             event=data.event,
             properties=data.properties,
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_client_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
     )
