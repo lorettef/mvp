@@ -238,13 +238,14 @@ export const Forecast = () => {
                     tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                   />
                   <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'hsl(var(--border))' }} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                   <Line
                     type="monotone"
                     dataKey="historical"
                     stroke="hsl(var(--chart-1))"
                     strokeWidth={2}
                     name={t('forecast.historical')}
+                    legendType="circle"
                     connectNulls
                     dot={false}
                   />
@@ -255,6 +256,7 @@ export const Forecast = () => {
                     strokeWidth={2}
                     strokeDasharray="5 5"
                     name={t('forecast.forecast')}
+                    legendType="circle"
                     connectNulls
                     dot={false}
                   />

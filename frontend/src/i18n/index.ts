@@ -17,10 +17,15 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 })
 
-// Keep the <html lang> attribute in sync with the active locale.
-document.documentElement.lang = i18n.language
-i18n.on('languageChanged', (lng) => {
-  document.documentElement.lang = lng
+// Keep the <html lang> attribute and the document title in sync with the locale.
+const syncDocumentMeta = () => {
+  document.documentElement.lang = i18n.language
+  document.title = i18n.t('app.title')
+}
+
+syncDocumentMeta()
+i18n.on('languageChanged', () => {
+  syncDocumentMeta()
 })
 
 export function switchLanguage(next: 'ru' | 'en') {

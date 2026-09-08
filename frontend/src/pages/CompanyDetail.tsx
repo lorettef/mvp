@@ -76,6 +76,13 @@ const currentMonthValue = (): string => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
+// Стартовый месяц для пакетного ввода метрик с корректной временной семантикой:
+// FACT — исторические месяцы (заканчиваются текущим), PLAN — будущие (со следующего).
+const defaultStartMonth = (type: 'plan' | 'fact', count: number): string => {
+  const current = currentMonthValue()
+  return type === 'fact' ? addMonths(current, -(count - 1)) : addMonths(current, 1)
+}
+
 const deriveMetric = (r: BulkRow) => {
   const retention = Math.min(1, Math.max(0, (Number(r.retentionPct) || 0) / 100))
   const churn = 1 - retention
@@ -110,7 +117,7 @@ export const CompanyDetail = () => {
   const [tab, setTab] = useState(() => searchParams.get('tab') ?? 'metrics')
   const [showForm, setShowForm] = useState(false)
   const [bulkType, setBulkType] = useState<'plan' | 'fact'>('fact')
-  const [bulkStartMonth, setBulkStartMonth] = useState(currentMonthValue)
+  const [bulkStartMonth, setBulkStartMonth] = useState(() => defaultStartMonth('fact', 3))
   const [bulkCount, setBulkCount] = useState(3)
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyBulkRow(), emptyBulkRow(), emptyBulkRow()])
   const [bulkError, setBulkError] = useState<string | null>(null)
@@ -184,8 +191,8 @@ export const CompanyDetail = () => {
   }, [companyQuery.data?.grossMargin, id])
 
   useEffect(() => {
-    const urlTab = searchParams.get('tab')
-    if (urlTab) setTab(urlTab)
+    // URL — источник правды для вкладки; при смене компании ?tab пропадает → дефолт.
+    setTab(searchParams.get('tab') ?? 'metrics')
   }, [searchParams])
 
   const metricsQuery = useQuery({
@@ -310,6 +317,13 @@ export const CompanyDetail = () => {
       queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
     },
   })
+
+  const handleBulkTypeChange = (nextType: 'plan' | 'fact') => {
+    setBulkType(nextType)
+    // При смене типа переставляем стартовый месяц под корректную семантику:
+    // FACT → исторические месяцы, PLAN → будущие.
+    setBulkStartMonth(defaultStartMonth(nextType, bulkCount))
+  }
 
   const handleCountChange = (n: number) => {
     setBulkCount(n)
@@ -590,7 +604,7 @@ export const CompanyDetail = () => {
                           <button
                             key={t2}
                             type="button"
-                            onClick={() => setBulkType(t2)}
+                            onClick={() => handleBulkTypeChange(t2)}
                             className={`h-9 px-4 text-sm font-medium transition-colors ${
                               bulkType === t2
                                 ? 'bg-primary text-primary-foreground'
@@ -718,6 +732,9 @@ export const CompanyDetail = () => {
                       {bulkError}
                     </p>
                   )}
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {t('company.metrics.monthlyHint')}
+                  </p>
                   {bulkMutation.isError && (
                     <p role="alert" className="mt-3 text-sm text-destructive">
                       {normalizeApiError(bulkMutation.error).message}
@@ -911,7 +928,7 @@ export const CompanyDetail = () => {
             tasks={tasks}
             readiness={readiness}
             canEdit={canEdit}
-            onCreate={(d) => createTaskMutation.mutate(d)}
+            onCreate={(d) => createTaskMutation.mutateAsync(d)}
             onUpdate={(taskId, d) => updateTaskMutation.mutate({ taskId, data: d })}
             onDelete={(taskId) => deleteTaskMutation.mutate(taskId)}
             isPending={createTaskMutation.isPending}

@@ -74,7 +74,12 @@ export const CompaniesDashboard = () => {
 
   const total = data?.totalCompanies ?? 0
   const onTrack = data?.onTrack ?? 0
-  const onTrackPct = total > 0 ? Math.round((onTrack / total) * 100) : 0
+  const behind = data?.behind ?? 0
+  // «Выполняют план» — доля компаний С планом, которые его выполняют. Компании
+  // без плана (no_plan) и без данных (no_data) не входят в знаменатель, иначе
+  // пустой портфель показывал бы вводящие в заблуждение «0%».
+  const planCompanies = onTrack + behind
+  const onTrackPct = planCompanies > 0 ? Math.round((onTrack / planCompanies) * 100) : null
 
   const industryLabels = new Map((catalogQuery.data?.industries ?? []).map((i) => [i.slug, i.label]))
   const industryLabel = (slug: string | null) => (slug ? (industryLabels.get(slug) ?? slug) : '—')
@@ -126,7 +131,7 @@ export const CompaniesDashboard = () => {
             }
             icon={<TrendingUp className="h-4 w-4" />}
           />
-          <MetricCard label={t('dashboard.cards.onTrack')} value={`${onTrackPct}%`} icon={<CircleCheck className="h-4 w-4" />} />
+          <MetricCard label={t('dashboard.cards.onTrack')} value={onTrackPct == null ? '—' : `${onTrackPct}%`} icon={<CircleCheck className="h-4 w-4" />} />
           <MetricCard label={t('dashboard.cards.atRisk')} value={String(data?.companiesAtRisk ?? 0)} icon={<AlertTriangle className="h-4 w-4" />} />
           <MetricCard
             label={t('dashboard.cards.avgRunway')}

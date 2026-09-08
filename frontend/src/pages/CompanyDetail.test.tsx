@@ -308,6 +308,7 @@ const pnlData = {
   ebitdaMargin: 0.2204,
   netMargin: 0.0704,
   summary: 'EBITDA = 22 040 ₽.',
+  months: [],
 }
 
 const cashflowData = {
@@ -325,6 +326,7 @@ const cashflowData = {
   openingBalance: 0,
   closingBalance: 307040,
   summary: 'Операционный CF = 7 040 ₽.',
+  months: [],
 }
 
 const creditData = {
