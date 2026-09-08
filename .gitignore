@@ -54,6 +54,7 @@ htmlcov/
 # Internal tooling
 .codegraph/
 .omo/
+.playwright-mcp/
 
 # Project notes (local only, not for version control)
 TZ.md
