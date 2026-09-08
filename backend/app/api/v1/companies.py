@@ -42,14 +42,7 @@ async def create_company(
     """Создание компании в организации администратора."""
     service = CompanyService(db)
     plan_id = await SubscriptionService(db).get_plan_id(user["user_id"])
-    limit = company_limit(plan_id)
-    if limit is not None:
-        count = await service.count_companies(user["organization_id"])
-        if count >= limit:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Превышен лимит компаний по тарифу (максимум {limit}).",
-            )
+    await service.enforce_company_limit(user["organization_id"], plan_id)
     company = await service.create_company(user["organization_id"], data)
     return CompanyResponse.model_validate(company)
 
