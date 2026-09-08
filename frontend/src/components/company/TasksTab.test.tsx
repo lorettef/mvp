@@ -177,4 +177,43 @@ describe('TasksTab', () => {
     expect(screen.queryByRole('button', { name: /Добавить задачу/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'В работу' })).not.toBeInTheDocument()
   })
+
+  it('creates only one task on rapid double-click (re-entrancy guard)', async () => {
+    let resolveCreate: (() => void) | undefined
+    const onCreate = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveCreate = resolve
+        }),
+    )
+
+    render(
+      <TasksTab
+        tasks={[]}
+        readiness={null}
+        canEdit
+        onCreate={onCreate}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+        isPending={false}
+        onGenerateTasks={vi.fn()}
+        isGenerating={false}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Добавить задачу/ }))
+    fireEvent.change(screen.getByLabelText('Название задачи'), {
+      target: { value: 'Дубль' },
+    })
+
+    const saveBtn = screen.getByRole('button', { name: 'Сохранить' })
+    // Двойной клик до разрешения промиса (isPending всё ещё false) — guard
+    // должен заблокировать второй вызов.
+    fireEvent.click(saveBtn)
+    fireEvent.click(saveBtn)
+
+    expect(onCreate).toHaveBeenCalledTimes(1)
+
+    resolveCreate?.()
+  })
 })

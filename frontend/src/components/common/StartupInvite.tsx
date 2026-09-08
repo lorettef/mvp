@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Copy, Link2, CircleCheck } from 'lucide-react'
@@ -13,6 +13,7 @@ export const StartupInvite = () => {
   const { user } = useAuthStore()
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const invitingRef = useRef(false)
 
   const inviteMutation = useMutation({
     mutationFn: () => invitesApi.create(),
@@ -22,9 +23,15 @@ export const StartupInvite = () => {
   })
 
   const handleCreateInvite = () => {
+    if (invitingRef.current) return
+    invitingRef.current = true
     setInviteLink(null)
     setCopied(false)
-    inviteMutation.mutate()
+    inviteMutation.mutate(undefined, {
+      onSettled: () => {
+        invitingRef.current = false
+      },
+    })
   }
 
   const handleCopyInvite = async () => {

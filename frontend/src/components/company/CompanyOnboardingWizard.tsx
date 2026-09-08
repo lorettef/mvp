@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
@@ -34,6 +34,7 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
   const [businessModel, setBusinessModel] = useState('')
   const [grossMargin, setGrossMargin] = useState('')
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([])
+  const submittingRef = useRef(false)
 
   const REGIONS = [
     { label: t('common.geo.ru'), rate: '21' },
@@ -108,14 +109,25 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
 
   const submit = () => {
     if (!canContinue || !profile || !industry || !businessModel) return
-    createMutation.mutate({
-      name: name.trim(),
-      geography,
-      industry,
-      business_model: businessModel,
-      gross_margin: grossMarginValue / 100,
-      selected_metrics: selectedMetrics,
-    })
+    // Re-entrancy guard: двойной клик до re-render React не должен создать
+    // две компании (флаг ставится синхронно до вызова mutate).
+    if (submittingRef.current) return
+    submittingRef.current = true
+    createMutation.mutate(
+      {
+        name: name.trim(),
+        geography,
+        industry,
+        business_model: businessModel,
+        gross_margin: grossMarginValue / 100,
+        selected_metrics: selectedMetrics,
+      },
+      {
+        onSettled: () => {
+          submittingRef.current = false
+        },
+      },
+    )
   }
 
   const stepLabels = [

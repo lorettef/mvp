@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Task, TaskCreate, TaskUpdate, TaskStage, TaskPriority, ReadinessResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
@@ -32,7 +32,7 @@ interface TasksTabProps {
   tasks: Task[]
   readiness: ReadinessResponse | null
   canEdit: boolean
-  onCreate: (d: TaskCreate) => void
+  onCreate: (d: TaskCreate) => Promise<unknown>
   onUpdate: (taskId: string, d: TaskUpdate) => void
   onDelete: (taskId: string) => void
   isPending: boolean
@@ -56,6 +56,7 @@ export function TasksTab({
   const [form, setForm] = useState({ title: '', stage: 'metrics' as TaskStage, dueDate: '' })
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [editForm, setEditForm] = useState({ title: '', description: '', status: 'pending' as Task['status'], priority: '' as TaskPriority | '' })
+  const creatingRef = useRef(false)
 
   const STATUS_LABELS: Record<string, string> = {
     pending: t('company.tasks.status.pending'),
@@ -77,13 +78,25 @@ export function TasksTab({
     low: t('company.tasks.priorityLabel.low'),
   }
 
-  const handleCreate = () => {
-    onCreate({
-      title: form.title,
-      stage: form.stage,
-      status: 'pending',
-      due_date: form.dueDate || undefined,
-    })
+  const handleCreate = async () => {
+    // Re-entrancy guard: двойной клик до re-render React не должен отправить
+    // второй запрос (флаг ставится синхронно, до первого await).
+    if (creatingRef.current) return
+    creatingRef.current = true
+    try {
+      await onCreate({
+        title: form.title,
+        stage: form.stage,
+        status: 'pending',
+        due_date: form.dueDate || undefined,
+      })
+      // Только при успехе сбрасываем форму — иначе повторный Save создал бы дубликат.
+      setForm({ title: '', stage: 'metrics', dueDate: '' })
+    } catch {
+      // Ошибка уже показана глобальным обработчиком; оставляем ввод для повтора.
+    } finally {
+      creatingRef.current = false
+    }
   }
 
   const openEdit = (task: Task) => {
