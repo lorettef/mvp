@@ -93,3 +93,25 @@ async def test_market_unauthenticated(client):
         json={"industry": "saas", "geography": "RU", "horizon": 3},
     )
     assert res.status_code == 401
+
+
+async def test_market_extended_industries_200(client, seeded_admin):
+    """Все отрасли из каталога (marketplaces, foodtech, …) принимаются схемой."""
+    for industry in (
+        "marketplaces",
+        "foodtech",
+        "logistics",
+        "proptech",
+        "media",
+        "hardware",
+        "biotech",
+        "cleantech",
+        "other",
+    ):
+        res = await client.post(
+            "/api/v1/market/analyze",
+            json={"industry": industry, "geography": "RU", "horizon": 3},
+            headers=auth_headers(seeded_admin),
+        )
+        assert res.status_code == 200, f"{industry}: {res.text}"
+        assert res.json()["industry"] == industry

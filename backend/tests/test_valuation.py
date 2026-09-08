@@ -60,12 +60,12 @@ async def test_valuation_happy(client, seeded_company, seeded_admin, db_session)
     assert body["discount_rate"] == pytest.approx(31.0)
     assert body["growth_rate"] == pytest.approx(8.5)
 
-    # FCF = операционный CF = чистая прибыль = 7040
-    assert body["fcf"] == pytest.approx(7040)
+    # FCF = операционный CF = чистая прибыль = 20790 (месячный % 1250)
+    assert body["fcf"] == pytest.approx(20790)
 
     r = 0.31
     g = 0.085
-    expected_tv = 7040 * (1 + g) / (r - g)
+    expected_tv = 20790 * (1 + g) / (r - g)
     assert body["terminal_value"] == pytest.approx(expected_tv, rel=1e-3)
 
     # чистый долг = кредит 100000 - инвестиции 200000 = -100000
@@ -168,18 +168,18 @@ async def test_valuation_result_unchanged_after_memoization(
         "company_id": str(seeded_company.id),
         "debt": 100000.0,
         "discount_rate": 31.0,
-        "equity_value": 133948.44,
-        "fcf": 7040.0,
+        "equity_value": 200254.0,
+        "fcf": 20790.0,
         "geography": "RU",
         "growth_rate": 8.5,
         "headcount": 1,
         "key_rate": 21.0,
         "net_debt": -100000.0,
-        "ps_ratio": 0.1116,
+        "ps_ratio": 0.1669,
         "revenue_annual": 1200000.0,
-        "summary": "Оценка (Equity Value) = 133,948 ₽ (TV = 33,948 ₽). P/S = 0.11×. На сотрудника = 133,948 ₽.",
-        "terminal_value": 33948.44,
-        "value_per_employee": 133948.44,
+        "summary": "Оценка (Equity Value) = 200,254 ₽ (TV = 100,254 ₽). P/S = 0.17×. На сотрудника = 200,254 ₽.",
+        "terminal_value": 100254.0,
+        "value_per_employee": 200254.0,
     }
     assert body == expected
 

@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -14,9 +14,10 @@ router = APIRouter()
 @router.get("/{company_id}/pnl", response_model=PnLResponse)
 async def get_pnl(
     company_id: uuid.UUID,
+    months: int = Query(12, ge=1, le=36),
     user: dict = Depends(require_company_access()),
     db: AsyncSession = Depends(get_db),
 ):
-    """Отчёт о прибылях и убытках (P&L)."""
+    """Отчёт о прибылях и убытках (P&L) за N последних месяцев."""
     service = PnLService(db)
-    return await service.get_pnl(company_id)
+    return await service.get_pnl(company_id, months=months)

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { PnLResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
 
 interface PnLTabProps {
@@ -142,6 +143,40 @@ export function PnLTab({ data, isLoading }: PnLTabProps) {
           </div>
         </CardContent>
       </Card>
+
+      {data.months.length > 0 && (
+        <Card className="border bg-card">
+          <CardContent className="p-5">
+            <h3 className="font-semibold text-foreground mb-4">{t('company.pnl.monthly')}</h3>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('common.period')}</TableHead>
+                    <TableHead className="text-right">{t('company.pnl.revenue')}</TableHead>
+                    <TableHead className="text-right">{t('company.pnl.totalOpex')}</TableHead>
+                    <TableHead className="text-right">EBITDA</TableHead>
+                    <TableHead className="text-right">{t('company.pnl.netProfit')}</TableHead>
+                    <TableHead className="text-right">EBITDA margin</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.months.map((m) => (
+                    <TableRow key={m.period}>
+                      <TableCell className="font-medium text-foreground">{fmtPeriod(m.period)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.revenue)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.totalOpex)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-foreground">{fmtRub(m.ebitda)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-foreground">{fmtRub(m.netProfit)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtPct(m.ebitdaMargin)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

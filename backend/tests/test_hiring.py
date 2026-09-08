@@ -195,3 +195,34 @@ async def test_post_hiring_generate_persists_and_requires_role(
     # POST /hiring/generate — персистит 12 строк плана в hiring_plans.
     assert after > before
     assert after - before == len(body["months"])
+
+
+async def test_hiring_plan_extended_industry_no_500(client, db_session, seeded_organization):
+    """Компания с отраслью из полного каталога не должна ронять 500 (KeyError в INDUSTRY_LABELS)."""
+    from app.models.company import Company
+
+    company = Company(
+        organization_id=seeded_organization.id,
+        name="Marketplace Co",
+        industry="marketplaces",
+        geography="RU",
+    )
+    db_session.add(company)
+    await db_session.flush()
+
+    from .conftest import make_user
+    admin = await make_user(
+        db_session,
+        "mkt-admin@test.ru",
+        "admin",
+        seeded_organization.id,
+        company.id,
+    )
+
+    res = await client.get(
+        f"/api/v1/companies/{company.id}/hiring",
+        headers=auth_headers(admin),
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["industry"] == "marketplaces"
+    assert res.json()["industry_label"] == "Маркетплейсы"

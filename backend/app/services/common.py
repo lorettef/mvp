@@ -64,6 +64,74 @@ async def latest_budget(
     return None
 
 
+async def metric_for_period(
+    db: AsyncSession, company_id, period: date
+) -> Optional[Metric]:
+    """Metric за конкретный период (fact предпочтителен, иначе plan)."""
+    for type_ in (PlanFact.FACT.value, PlanFact.PLAN.value):
+        result = await db.execute(
+            select(Metric).where(
+                Metric.company_id == company_id,
+                Metric.period == period,
+                Metric.type == type_,
+            )
+        )
+        row = result.scalar_one_or_none()
+        if row is not None:
+            return row
+    return None
+
+
+async def budget_for_period(
+    db: AsyncSession, company_id, period: date
+) -> Optional[Budget]:
+    """Budget за конкретный период (fact предпочтителен, иначе plan)."""
+    for type_ in (PlanFact.FACT.value, PlanFact.PLAN.value):
+        result = await db.execute(
+            select(Budget).where(
+                Budget.company_id == company_id,
+                Budget.period == period,
+                Budget.type == type_,
+            )
+        )
+        row = result.scalar_one_or_none()
+        if row is not None:
+            return row
+    return None
+
+
+async def distinct_periods(
+    db: AsyncSession, company_id, *, limit: int = 12
+) -> List[date]:
+    """Уникальные периоды (по метрикам и бюджетам), desc, не более `limit`.
+
+    Период отсекается текущим месяцем (first-of-month): будущие PLAN-периоды
+    (бюджет/план будущих месяцев) не должны вытеснять исторические FACT-месяцы
+    из окна отчёта P&L/Cash Flow.
+    """
+    current_month = date.today().replace(day=1)
+    metric_periods = await db.execute(
+        select(Metric.period)
+        .where(
+            Metric.company_id == company_id,
+            Metric.period <= current_month,
+        )
+        .distinct()
+    )
+    budget_periods = await db.execute(
+        select(Budget.period)
+        .where(
+            Budget.company_id == company_id,
+            Budget.period <= current_month,
+        )
+        .distinct()
+    )
+    periods = {p for p in metric_periods.scalars().all()}
+    periods.update(budget_periods.scalars().all())
+    return sorted(periods, reverse=True)[:limit]
+
+
+
 def f(value, default: float = 0.0) -> float:
     """float(value) with a default when value is None."""
     return float(value) if value is not None else default

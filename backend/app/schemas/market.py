@@ -2,7 +2,23 @@ from typing import List, Literal
 
 from pydantic import BaseModel, Field
 
-Industry = Literal["saas", "fintech", "ecommerce", "edtech", "healthtech", "ai", "other"]
+Industry = Literal[
+    "saas",
+    "fintech",
+    "ecommerce",
+    "edtech",
+    "healthtech",
+    "ai",
+    "marketplaces",
+    "foodtech",
+    "logistics",
+    "proptech",
+    "media",
+    "hardware",
+    "biotech",
+    "cleantech",
+    "other",
+]
 Geography = Literal["RU", "KZ", "global"]
 
 

@@ -22,6 +22,7 @@ function makePnl(over: Partial<PnLResponse> = {}): PnLResponse {
     ebitdaMargin: 0.2204,
     netMargin: 0.0704,
     summary: 'EBITDA = 22 040 ₽ (маржа 22.0%). Чистая прибыль = 7 040 ₽.',
+    months: [],
     ...over,
   }
 }

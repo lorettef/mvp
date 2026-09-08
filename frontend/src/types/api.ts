@@ -513,6 +513,23 @@ export interface HiringPlanResponse {
 }
 
 // P&L (profit & loss statement)
+export interface PnLMonth {
+  period: string
+  mrr: number | null
+  revenue: number | null
+  fot: number | null
+  socialPayments: number | null
+  marketing: number | null
+  development: number | null
+  gna: number | null
+  totalOpex: number | null
+  ebitda: number | null
+  financialExpenses: number
+  netProfit: number | null
+  ebitdaMargin: number | null
+  netMargin: number | null
+}
+
 export interface PnLResponse {
   companyId: string
   period: string | null
@@ -531,9 +548,20 @@ export interface PnLResponse {
   ebitdaMargin: number | null
   netMargin: number | null
   summary: string
+  months: PnLMonth[]
 }
 
 // Cash flow statement
+export interface CashFlowMonth {
+  period: string
+  netProfit: number | null
+  operatingCf: number | null
+  investingCf: number
+  financingCf: number
+  totalCf: number | null
+  closingBalance: number | null
+}
+
 export interface CashFlowResponse {
   companyId: string
   period: string | null
@@ -549,6 +577,7 @@ export interface CashFlowResponse {
   openingBalance: number
   closingBalance: number | null
   summary: string
+  months: CashFlowMonth[]
 }
 
 // Credit forecasting (cash gap detection)

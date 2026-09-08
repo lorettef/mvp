@@ -52,10 +52,11 @@ async def test_pnl_happy(client, seeded_company, seeded_admin, db_session):
     assert body["social_payments"] == pytest.approx(12960)
     assert body["total_opex"] == pytest.approx(77960)
     assert body["ebitda"] == pytest.approx(22040)
-    assert body["financial_expenses"] == pytest.approx(15000)
-    assert body["net_profit"] == pytest.approx(7040)
+    # годовой % по кредиту 100000×15%=15000 → месячный = 1250
+    assert body["financial_expenses"] == pytest.approx(1250)
+    assert body["net_profit"] == pytest.approx(22040 - 1250)
     assert body["ebitda_margin"] == pytest.approx(0.2204)
-    assert body["net_margin"] == pytest.approx(0.0704)
+    assert body["net_margin"] == pytest.approx(20790 / 100000)
 
 
 async def test_pnl_empty(client, seeded_company, seeded_admin):
@@ -165,3 +166,98 @@ async def test_pnl_falls_back_to_plan_when_no_fact(db_session, seeded_company):
     assert pnl.ebitda_margin is not None
     assert pnl.net_margin is not None
     assert pnl.period == date(2026, 2, 1)
+
+
+async def test_pnl_multi_month_returns_all_periods(client, seeded_company, seeded_admin, db_session):
+    """P&L должен возвращать месячную разбивку по всем периодам с данными (не только последний)."""
+    from app.models.metric import Metric
+    from app.models.budget import Budget
+
+    for i, m in enumerate((1, 2, 3)):
+        db_session.add(
+            Metric(
+                company_id=seeded_company.id,
+                period=date(2026, m, 1),
+                type="fact",
+                revenue=100000 + i * 10000,
+                cac=1000,
+                ltv=5000,
+                churn=0.03,
+            )
+        )
+        db_session.add(
+            Budget(
+                company_id=seeded_company.id,
+                period=date(2026, m, 1),
+                type="fact",
+                marketing=10000,
+                development=20000,
+                fot=30000,
+                gna=5000,
+            )
+        )
+    await db_session.flush()
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/pnl?months=3",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+
+    assert len(body["months"]) == 3
+    # Периоды отсортированы по убыванию (последний месяц первым).
+    periods = [m["period"] for m in body["months"]]
+    assert periods == ["2026-03-01", "2026-02-01", "2026-01-01"]
+    # Выручка по месяцам соответствует факту.
+    assert body["months"][0]["mrr"] == 120000
+    assert body["months"][2]["mrr"] == 100000
+
+
+async def test_pnl_excludes_future_plan_periods(client, seeded_company, seeded_admin, db_session):
+    """Будущие PLAN-периоды не должны вытеснять исторические FACT-месяцы из окна P&L."""
+    from datetime import date as _date
+    from app.models.metric import Metric
+    from app.models.budget import Budget
+
+    # FACT за июль и будущий PLAN-бюджет на декабрь.
+    db_session.add(
+        Metric(
+            company_id=seeded_company.id,
+            period=_date(2026, 7, 1),
+            type="fact",
+            revenue=100000,
+            cac=1000,
+            ltv=5000,
+            churn=0.03,
+        )
+    )
+    db_session.add(
+        Budget(
+            company_id=seeded_company.id,
+            period=_date(2026, 7, 1),
+            type="fact",
+            marketing=0, development=0, fot=0, gna=60000,
+        )
+    )
+    db_session.add(
+        Budget(
+            company_id=seeded_company.id,
+            period=_date(2026, 12, 1),  # будущий месяц
+            type="plan",
+            marketing=0, development=0, fot=0, gna=999999,
+        )
+    )
+    await db_session.flush()
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/pnl?months=3",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+
+    # В окно попадает только исторический июль, но не будущий декабрь.
+    periods = [m["period"] for m in body["months"]]
+    assert "2026-07-01" in periods
+    assert "2026-12-01" not in periods

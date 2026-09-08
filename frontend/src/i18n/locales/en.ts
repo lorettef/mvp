@@ -1,4 +1,7 @@
 export const en = {
+  app: {
+    title: 'Startup Engine — Operating system for SaaS',
+  },
   landing: {
     badge: 'B2B platform for accelerators and funds',
     title: 'Manage your startup portfolio like a professional',
@@ -340,6 +343,7 @@ export const en = {
       cacRub: 'CAC (₽)',
       churn: 'Churn %',
       bulkError: 'Row {{row}}: field «{{field}}» is required and must be a number.',
+      monthlyHint: 'All values are per-month (not cumulative): revenue, costs and metrics refer to their period.',
       saveMetrics: 'Save metrics',
       rowNewUnits: 'New units {{row}}',
       rowArpu: 'ARPU {{row}}',
@@ -484,6 +488,7 @@ export const en = {
       financial: 'Financial expenses',
       netProfit: 'Net profit',
       margin: 'Margin',
+      monthly: 'Monthly',
       empty: 'P&L data is not calculated yet.',
     },
     cashflow: {
@@ -502,6 +507,7 @@ export const en = {
       totalCf: 'Total CF',
       opening: 'Opening balance',
       closing: 'Closing balance',
+      monthly: 'Monthly',
       empty: 'Cash Flow data is not calculated yet.',
     },
     credit: {

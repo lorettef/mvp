@@ -66,8 +66,14 @@ class CreditService:
                 ),
             )
 
+        # Ежемесячное обслуживание существующего долга (проценты) учитывается
+        # в прогнозе денежного потока: существующие кредиты увеличивают
+        # потребность в финансировании через процентные платежи.
+        # pnl.financial_expenses уже ежемесячное (годовой % / 12).
+        monthly_debt_service = pnl.financial_expenses
+
         months, gaps = self._project(
-            base_revenue, base_opex, opening_cash, credit_rate
+            base_revenue, base_opex, opening_cash, credit_rate, monthly_debt_service
         )
         total_credit = round(sum(g.credit_amount for g in gaps), 2)
 
@@ -104,6 +110,7 @@ class CreditService:
         base_opex: float,
         opening_cash: float,
         credit_rate: float,
+        monthly_debt_service: float = 0.0,
     ) -> Tuple[List[CashProjectionMonth], List[CreditGap]]:
         balance = opening_cash
         months: List[CashProjectionMonth] = []
@@ -112,7 +119,7 @@ class CreditService:
             period = period_for_month(m)
             revenue = round(base_revenue * (1 + MONTHLY_REVENUE_GROWTH) ** m, 2)
             opex = round(base_opex * (1 + OPEX_GROWTH) ** m, 2)
-            net_cf = round(revenue - opex, 2)
+            net_cf = round(revenue - opex - monthly_debt_service, 2)
             balance_before = round(balance + net_cf, 2)
             balance_after = balance_before
             if balance_before < 0:

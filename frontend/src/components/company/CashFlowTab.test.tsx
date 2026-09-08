@@ -19,6 +19,7 @@ function makeCashFlow(over: Partial<CashFlowResponse> = {}): CashFlowResponse {
     openingBalance: 0,
     closingBalance: 307040,
     summary: 'Операционный CF = 7 040 ₽, финансовый CF = 300 000 ₽.',
+    months: [],
     ...over,
   }
 }

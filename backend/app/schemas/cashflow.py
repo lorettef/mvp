@@ -1,8 +1,20 @@
 from datetime import date
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
+
+
+class CashFlowMonth(BaseModel):
+    """Cash Flow за один месяц (период)."""
+
+    period: date
+    net_profit: Optional[float] = None
+    operating_cf: Optional[float] = None
+    investing_cf: float = 0.0
+    financing_cf: float = 0.0
+    total_cf: Optional[float] = None
+    closing_balance: Optional[float] = None
 
 
 class CashFlowResponse(BaseModel):
@@ -31,3 +43,6 @@ class CashFlowResponse(BaseModel):
     closing_balance: Optional[float] = None
 
     summary: str
+
+    # Помесячная разбивка (horizon)
+    months: List[CashFlowMonth] = []

@@ -1,4 +1,7 @@
 export const ru = {
+  app: {
+    title: 'Startup Engine — Операционная система для SaaS',
+  },
   landing: {
     badge: 'B2B-платформа для акселераторов и фондов',
     title: 'Управляйте портфелем стартапов как профессионал',
@@ -340,6 +343,7 @@ export const ru = {
       cacRub: 'CAC (₽)',
       churn: 'Churn %',
       bulkError: 'Строка {{row}}: поле «{{field}}» обязательно и должно быть числом.',
+      monthlyHint: 'Все значения — за месяц (не накопительно): выручка, расходы и метрики относятся к соответствующему периоду.',
       saveMetrics: 'Сохранить метрики',
       rowNewUnits: 'Новые юниты {{row}}',
       rowArpu: 'ARPU {{row}}',
@@ -484,6 +488,7 @@ export const ru = {
       financial: 'Финансовые расходы',
       netProfit: 'Чистая прибыль',
       margin: 'Маржа',
+      monthly: 'Помесячно',
       empty: 'Данные P&L ещё не рассчитаны.',
     },
     cashflow: {
@@ -502,6 +507,7 @@ export const ru = {
       totalCf: 'Итого CF',
       opening: 'Остаток на начало',
       closing: 'Остаток на конец месяца',
+      monthly: 'Помесячно',
       empty: 'Данные Cash Flow ещё не рассчитаны.',
     },
     credit: {
