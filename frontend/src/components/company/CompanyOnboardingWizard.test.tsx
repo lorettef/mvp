@@ -31,7 +31,7 @@ const catalog: CatalogResponse = {
         metrics: [
           metric('new_units', 'Новые платящие клиенты'),
           metric('arpu', 'Средняя выручка на клиента'),
-          metric('revenue', 'Повторяющаяся выручка (MRR/ARR)'),
+          metric('revenue', 'Выручка (Revenue)'),
           metric('marketing_spend', 'Расходы на привлечение'),
           metric('retention_rate', 'Удержание подписчиков'),
         ],
@@ -95,7 +95,7 @@ describe('CompanyOnboardingWizard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
 
     // Step 4: metric checkboxes are all pre-checked; uncheck one.
-    await waitFor(() => expect(screen.getByText('Повторяющаяся выручка (MRR/ARR)')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Выручка (Revenue)')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('checkbox', { name: /Удержание подписчиков/ }))
 
     fireEvent.change(screen.getByLabelText('Валовая маржа (%)'), { target: { value: '70' } })

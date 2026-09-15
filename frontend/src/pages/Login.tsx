@@ -46,7 +46,7 @@ export const Login = () => {
               <BrandMark className="h-14 w-14 rounded-2xl shadow-lg shadow-primary-500/25" />
             </div>
             <h2 className="text-center text-2xl font-bold text-foreground">
-              Startup Engine
+              Startup Investment Bridge
             </h2>
             <p className="mt-1 text-center text-sm text-muted-foreground">
               {t('auth.login.subtitle')}

@@ -43,7 +43,7 @@ export function CreditTab({ data, isLoading }: CreditTabProps) {
     { label: t('company.credit.openingCash'), value: fmtRub(data.openingCash) },
     {
       label: t('company.credit.needed'),
-      value: fmtRub(data.totalCreditNeeded),
+      value: fmtRub(data.fundingNeed),
       accent: data.gaps.length > 0,
     },
   ]

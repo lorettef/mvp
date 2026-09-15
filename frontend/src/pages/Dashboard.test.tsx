@@ -20,7 +20,7 @@ const baseUser: User = {
   id: 'user-1',
   email: 'admin@example.com',
   fullName: 'Admin',
-  companyName: 'Startup Engine',
+  companyName: 'Startup Investment Bridge',
   role: 'admin',
   organizationId: 'org-1',
   companyId: null,

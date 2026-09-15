@@ -187,7 +187,7 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
               <h3 className="font-semibold text-foreground mb-4">{t('company.market.impact')}</h3>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-lg border border-border p-3">
-                  <p className="text-xs text-muted-foreground">MRR</p>
+                  <p className="text-xs text-muted-foreground">Выручка</p>
                   <p className="text-lg font-semibold text-foreground mt-1">
                     {fmtFactor(data.impact.mrrFactor)}
                   </p>

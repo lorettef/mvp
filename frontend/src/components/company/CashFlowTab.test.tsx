@@ -16,6 +16,7 @@ function makeCashFlow(over: Partial<CashFlowResponse> = {}): CashFlowResponse {
     credits: 100000,
     financingCf: 300000,
     totalCf: 307040,
+    netCashFlow: 307040,
     openingBalance: 0,
     closingBalance: 307040,
     summary: 'Операционный CF = 7 040 ₽, финансовый CF = 300 000 ₽.',

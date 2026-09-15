@@ -92,7 +92,7 @@ describe('CompanyContextBar', () => {
     expect(await screen.findByText('Бюджет')).toBeInTheDocument()
     expect(screen.getByText('P&L')).toBeInTheDocument()
     expect(screen.getByText('Cash Flow')).toBeInTheDocument()
-    expect(screen.getByText('Кредиты')).toBeInTheDocument()
+    expect(screen.getByText('Кассовый разрыв')).toBeInTheDocument()
     expect(screen.getByText('Оценка')).toBeInTheDocument()
     expect(screen.getByText('Чувствительность')).toBeInTheDocument()
   })

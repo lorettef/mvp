@@ -31,7 +31,7 @@ const catalog: CatalogResponse = {
         metrics: [
           metric('new_units', 'Новые платящие клиенты'),
           metric('arpu', 'Средняя выручка на клиента'),
-          metric('revenue', 'Повторяющаяся выручка (MRR/ARR)'),
+          metric('revenue', 'Выручка (Revenue)'),
           metric('marketing_spend', 'Расходы на привлечение'),
           metric('retention_rate', 'Удержание подписчиков'),
         ],
@@ -119,9 +119,9 @@ describe('CompanyConfigDialog', () => {
 
   it('allows unchecking a metric so it is dropped from the selection', async () => {
     renderDialog()
-    await waitFor(() => expect(screen.getByText('Повторяющаяся выручка (MRR/ARR)')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Выручка (Revenue)')).toBeInTheDocument())
 
-    const revenueCheckbox = screen.getByRole('checkbox', { name: /Повторяющаяся выручка/ })
+    const revenueCheckbox = screen.getByRole('checkbox', { name: /Revenue/ })
     fireEvent.click(revenueCheckbox)
 
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))

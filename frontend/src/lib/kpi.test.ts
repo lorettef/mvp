@@ -6,6 +6,7 @@ import {
   latestPlan,
   metricNumber,
   monthSeries,
+  planForPeriod,
   relativeDeltaPct,
   selectKpiSpecs,
 } from './kpi'
@@ -92,6 +93,12 @@ describe('series helpers', () => {
   it('extracts the latest fact and plan rows', () => {
     expect(latestFact(metrics)?.revenue).toBe(1400)
     expect(latestPlan(metrics)?.revenue).toBe(1300)
+  })
+
+  it('finds a plan for the exact fact period (PF-1 alignment)', () => {
+    expect(planForPeriod(metrics, '2026-02-01')?.revenue).toBe(1300)
+    expect(planForPeriod(metrics, '2026-03-01')).toBeNull()
+    expect(planForPeriod(metrics, undefined)).toBeNull()
   })
 
   it('builds an ascending fact series for a metric key', () => {

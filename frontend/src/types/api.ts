@@ -477,6 +477,7 @@ export interface HiringSettingsResponse {
   insuranceRate: number
   injuryRate: number
   totalRate: number
+  employerRate: number
 }
 
 export interface HiringSettingsUpsert {
@@ -486,35 +487,100 @@ export interface HiringSettingsUpsert {
 }
 
 export interface HiringMonthRow {
-  month: number
   period: string
-  revenue: number
-  fot: number
-  socialPayments: number
-  totalCost: number
+  roles: HiringRolePlan[]
+  totalRequired: number
+  totalApproved: number
+  payroll: number
+  hiresPayroll: number
+}
+
+export interface HiringRolePlan {
+  roleKey: string
+  label: string
+  group: string
+  requiredHeadcount: number
+  recommendedHires: number
+  approvedHires: number
+  salary: number
+  employerCost: number
+}
+
+export interface HiringTeamRow {
+  roleKey: string
   headcount: number
-  devCount: number
-  salesCount: number
-  marketingCount: number
+  salary: number
+}
+
+export interface HiringTeamUpsert {
+  role_key: string
+  headcount: number
+  salary?: number
 }
 
 export interface HiringPlanResponse {
   companyId: string
-  industry: string
-  industryLabel: string
-  baseRevenue: number | null
-  fotShare: number
-  avgSalary: number
-  monthlyGrowth: number
+  forecastStart: string | null
   settings: HiringSettingsResponse
+  team: HiringTeamRow[]
   months: HiringMonthRow[]
   finalHeadcount: number
   summary: string
 }
 
+// Financing (investments + loans)
+export type FinancingType = 'investment' | 'loan'
+export type InvestorType = 'founder' | 'fund'
+
+export interface FinancingResponse {
+  id: string
+  companyId: string
+  type: FinancingType
+  investorType: InvestorType | null
+  counterpartyName: string | null
+  amount: number
+  currency: string
+  issuedDate: string | null
+  annualRate: number | null
+  termMonths: number | null
+  repaymentType: string | null
+  firstPaymentDate: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FinancingCreate {
+  type: FinancingType
+  investor_type?: InvestorType
+  counterparty_name?: string
+  amount: number
+  currency?: string
+  issued_date?: string
+  annual_rate?: number
+  term_months?: number
+  repayment_type?: string
+  first_payment_date?: string
+  notes?: string
+}
+
+export interface FinancingUpdate {
+  investor_type?: InvestorType
+  counterparty_name?: string
+  amount?: number
+  currency?: string
+  issued_date?: string
+  annual_rate?: number
+  term_months?: number
+  repayment_type?: string
+  first_payment_date?: string
+  notes?: string
+}
+
 // P&L (profit & loss statement)
 export interface PnLMonth {
   period: string
+  source: string | null
   mrr: number | null
   revenue: number | null
   fot: number | null
@@ -526,6 +592,7 @@ export interface PnLMonth {
   ebitda: number | null
   financialExpenses: number
   netProfit: number | null
+  profitTax: number
   ebitdaMargin: number | null
   netMargin: number | null
 }
@@ -545,6 +612,7 @@ export interface PnLResponse {
   ebitda: number | null
   financialExpenses: number
   netProfit: number | null
+  profitTax: number
   ebitdaMargin: number | null
   netMargin: number | null
   summary: string
@@ -559,6 +627,7 @@ export interface CashFlowMonth {
   investingCf: number
   financingCf: number
   totalCf: number | null
+  netCashFlow: number | null
   closingBalance: number | null
 }
 
@@ -574,6 +643,7 @@ export interface CashFlowResponse {
   credits: number
   financingCf: number
   totalCf: number | null
+  netCashFlow: number | null
   openingBalance: number
   closingBalance: number | null
   summary: string
@@ -608,8 +678,11 @@ export interface CreditForecastResponse {
   openingCash: number
   baseRevenue: number | null
   baseOpex: number | null
+  revenueGrowth: number
+  opexGrowth: number
   months: CashProjectionMonth[]
   gaps: CreditGap[]
+  fundingNeed: number
   totalCreditNeeded: number
   summary: string
 }
@@ -647,6 +720,13 @@ export interface Scenario {
   ltvCac: number | null
 }
 
+export interface StressItem {
+  name: string
+  equityValue: number | null
+  equityDelta: number | null
+  equityDeltaPct: number | null
+}
+
 export interface SensitivityResponse {
   companyId: string
   geography: string
@@ -654,6 +734,7 @@ export interface SensitivityResponse {
   discountRate: number
   base: Scenario
   conservative: Scenario
+  stresses: StressItem[]
   equityDelta: number | null
   equityDeltaPct: number | null
   summary: string

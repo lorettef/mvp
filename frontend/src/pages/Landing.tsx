@@ -43,7 +43,7 @@ export const Landing = () => {
         <div className="mx-auto max-w-6xl px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BrandMark className="h-9 w-9 rounded-xl shadow-md shadow-primary-500/20" />
-            <span className="text-lg font-semibold text-white">Startup Engine</span>
+            <span className="text-lg font-semibold text-white">Startup Investment Bridge</span>
           </div>
 
           <div className="flex items-center gap-3">

@@ -6,8 +6,8 @@ import { fmtPct, fmtRub } from '@/lib/format'
 import {
   factSeries,
   latestFact,
-  latestPlan,
   metricNumber,
+  planForPeriod,
   relativeDeltaPct,
   selectKpiSpecs,
 } from '@/lib/kpi'
@@ -38,7 +38,7 @@ export function StartupKpi({
   const { t } = useTranslation()
   const specs = selectKpiSpecs(company, catalog)
   const fact = latestFact(metrics)
-  const plan = latestPlan(metrics)
+  const plan = planForPeriod(metrics, fact?.period)
 
   const cards = specs.map((spec) => {
     const series = factSeries(metrics, spec.key)

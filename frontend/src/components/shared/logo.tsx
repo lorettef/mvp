@@ -41,7 +41,7 @@ export function Logo({
     <div className={cn("flex items-center gap-3", className)}>
       <BrandMark className={markClassName} />
       <div className="flex min-w-0 flex-col">
-        <span className="truncate text-sm font-semibold leading-none">Startup Engine</span>
+        <span className="truncate text-sm font-semibold leading-none">Startup Investment Bridge</span>
         {subtitle ? (
           <span className="mt-1 truncate text-xs text-muted-foreground">{subtitle}</span>
         ) : null}

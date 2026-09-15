@@ -12,6 +12,8 @@ function makeCredit(over: Partial<CreditForecastResponse> = {}): CreditForecastR
     openingCash: 100000,
     baseRevenue: 50000,
     baseOpex: 77960,
+    revenueGrowth: 0,
+    opexGrowth: 0,
     months: [
       {
         month: 1,
@@ -34,6 +36,7 @@ function makeCredit(over: Partial<CreditForecastResponse> = {}): CreditForecastR
       },
     ],
     totalCreditNeeded: 110,
+    fundingNeed: 110,
     summary: 'Обнаружено кассовых разрывов: 1.',
     ...over,
   }
@@ -42,10 +45,10 @@ function makeCredit(over: Partial<CreditForecastResponse> = {}): CreditForecastR
 describe('CreditTab', () => {
   it('renders stats and summary', () => {
     render(<CreditTab data={makeCredit()} />)
-    expect(screen.getByText('Кредиты — умное прогнозирование')).toBeInTheDocument()
+    expect(screen.getByText('Кассовый разрыв — прогнозирование')).toBeInTheDocument()
     expect(screen.getByText('Ключевая ставка')).toBeInTheDocument()
     expect(screen.getByText('21.0%')).toBeInTheDocument()
-    expect(screen.getByText('Требуется кредит')).toBeInTheDocument()
+    expect(screen.getByText('Потребность в финансировании')).toBeInTheDocument()
   })
 
   it('renders cash gaps', () => {

@@ -35,6 +35,13 @@ function makeSensitivity(
     },
     equityDelta: -200000,
     equityDeltaPct: -20.0,
+    stresses: [
+      { name: 'revenue', equityValue: 800000, equityDelta: -200000, equityDeltaPct: -20.0 },
+      { name: 'cac', equityValue: 950000, equityDelta: -50000, equityDeltaPct: -5.0 },
+      { name: 'ltv', equityValue: 1000000, equityDelta: 0, equityDeltaPct: 0 },
+      { name: 'churn', equityValue: 900000, equityDelta: -100000, equityDeltaPct: -10.0 },
+      { name: 'combined', equityValue: 800000, equityDelta: -200000, equityDeltaPct: -20.0 },
+    ],
     summary: 'Консервативный сценарий снижает оценку.',
     ...over,
   }

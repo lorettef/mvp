@@ -68,6 +68,11 @@ export function latestPlan(metrics: Metric[]): Metric | null {
   return plans[0] ?? null
 }
 
+export function planForPeriod(metrics: Metric[], period: string | undefined): Metric | null {
+  if (!period) return null
+  return metrics.find((m) => m.type === 'plan' && m.period === period) ?? null
+}
+
 export function factSeries(metrics: Metric[], key: string): number[] {
   const field = fieldOf(key)
   return metrics

@@ -34,7 +34,7 @@ export function AppHeader() {
       <div className="flex min-w-0 items-center gap-6">
         <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
           <BrandMark className="h-7 w-7 rounded-md" />
-          <span className="truncate text-sm font-semibold">Startup Engine</span>
+          <span className="truncate text-sm font-semibold">Startup Investment Bridge</span>
         </Link>
 
         <nav aria-label={t('nav.globalLabel')} className="hidden items-center gap-1 md:flex">

@@ -133,7 +133,7 @@ const catalogData = {
         metrics: [
           { key: 'new_units', label: 'Новые платящие клиенты', required: true, why: '' },
           { key: 'arpu', label: 'Средняя выручка на клиента', required: true, why: '' },
-          { key: 'revenue', label: 'Повторяющаяся выручка (MRR/ARR)', required: true, why: '' },
+          { key: 'revenue', label: 'Выручка (Revenue)', required: true, why: '' },
           { key: 'marketing_spend', label: 'Расходы на привлечение', required: true, why: '' },
           { key: 'retention_rate', label: 'Удержание подписчиков', required: true, why: '' },
         ],
@@ -259,35 +259,38 @@ const marketData = {
 
 const hiringPlanData = {
   companyId: 'comp1',
-  industry: 'saas',
-  industryLabel: 'SaaS',
-  baseRevenue: 100000,
-  fotShare: 0.35,
-  avgSalary: 150000,
-  monthlyGrowth: 0.05,
+  forecastStart: '2026-09-01',
   settings: {
     companyId: 'comp1',
     ndflRate: 0.13,
     insuranceRate: 0.3,
     injuryRate: 0.002,
     totalRate: 0.432,
+    employerRate: 0.302,
   },
+  team: [{ roleKey: 'backend', headcount: 1, salary: 150000 }],
   months: [
     {
-      month: 1,
       period: '2026-09-01',
-      revenue: 105000,
-      fot: 36750,
-      socialPayments: 15876,
-      totalCost: 52626,
-      headcount: 3,
-      devCount: 1,
-      salesCount: 1,
-      marketingCount: 1,
+      roles: [
+        {
+          roleKey: 'backend',
+          label: 'Backend',
+          group: 'engineering',
+          requiredHeadcount: 2,
+          recommendedHires: 1,
+          approvedHires: 0,
+          salary: 150000,
+          employerCost: 45300,
+        },
+      ],
+      totalRequired: 2,
+      totalApproved: 0,
+      payroll: 300000,
     },
   ],
-  finalHeadcount: 3,
-  summary: 'Целевой штат «SaaS» через 12 мес.',
+  finalHeadcount: 2,
+  summary: 'Целевой штат через 12 мес.',
 }
 
 const pnlData = {
@@ -391,6 +394,10 @@ const sensitivityData = {
   },
   equityDelta: -200000,
   equityDeltaPct: -20.0,
+  stresses: [
+    { name: 'revenue', equityValue: 800000, equityDelta: -200000, equityDeltaPct: -20.0 },
+    { name: 'combined', equityValue: 800000, equityDelta: -200000, equityDeltaPct: -20.0 },
+  ],
   summary: 'Консервативный сценарий снижает оценку.',
 }
 
@@ -497,8 +504,8 @@ describe('CompanyDetail', () => {
     renderCompanyDetail()
     await screen.findByText('Метрики — План vs Факт')
 
-    expect(await screen.findByText('Повторяющаяся выручка (MRR/ARR) · План')).toBeInTheDocument()
-    expect(screen.getByText('Повторяющаяся выручка (MRR/ARR) · Факт')).toBeInTheDocument()
+    expect(await screen.findByText('Выручка (Revenue) · План')).toBeInTheDocument()
+    expect(screen.getByText('Выручка (Revenue) · Факт')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Добавить метрику' }))
     expect(await screen.findByText('Средняя выручка на клиента')).toBeInTheDocument()
@@ -598,7 +605,7 @@ describe('CompanyDetail', () => {
 
   it('renders credit content for ?tab=credit', async () => {
     renderCompanyDetail('credit')
-    expect(await screen.findByText('Кредиты — умное прогнозирование')).toBeInTheDocument()
+    expect(await screen.findByText('Кассовый разрыв — прогнозирование')).toBeInTheDocument()
   })
 
   it('renders valuation content for ?tab=valuation', async () => {

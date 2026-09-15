@@ -9,13 +9,14 @@ import { marketApi } from '../api/market'
 import { hiringApi } from '../api/hiring'
 import { pnlApi } from '../api/pnl'
 import { cashflowApi } from '../api/cashflow'
+import { financingApi } from '../api/financing'
 import { creditApi } from '../api/credit'
 import { valuationApi } from '../api/valuation'
 import { sensitivityApi } from '../api/sensitivity'
 import { useAuthStore } from '../store/authStore'
 import { getTenantKey } from '../auth/authSession'
 import { qk } from '../lib/queryKeys'
-import type { Metric, MetricUpsert, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, InsightScenario } from '@/types/api'
+import type { Metric, MetricUpsert, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, InsightScenario, FinancingCreate, FinancingUpdate } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +34,7 @@ import { MarketTab } from '@/components/company/MarketTab'
 import { HiringTab } from '@/components/company/HiringTab'
 import { PnLTab } from '@/components/company/PnLTab'
 import { CashFlowTab } from '@/components/company/CashFlowTab'
+import { FinancingTab } from '@/components/company/FinancingTab'
 import { CreditTab } from '@/components/company/CreditTab'
 import { ValuationTab } from '@/components/company/ValuationTab'
 import { SensitivityTab } from '@/components/company/SensitivityTab'
@@ -242,6 +244,41 @@ export const CompanyDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.companyHiring(tenantKey, id) })
     },
+  })
+
+  const financingQuery = useQuery({
+    queryKey: qk.companyFinancing(tenantKey, id),
+    queryFn: ({ signal }) => financingApi.list(id, { signal }),
+    enabled: Boolean(id) && tab === 'financing',
+  })
+
+  const invalidateFinancingDependents = () => {
+    queryClient.invalidateQueries({ queryKey: qk.companyFinancing(tenantKey, id) })
+    queryClient.invalidateQueries({ queryKey: qk.companyPnl(tenantKey, id) })
+    queryClient.invalidateQueries({ queryKey: qk.companyCashflow(tenantKey, id) })
+    queryClient.invalidateQueries({ queryKey: qk.companyValuation(tenantKey, id) })
+    queryClient.invalidateQueries({ queryKey: qk.companySensitivity(tenantKey, id) })
+    queryClient.invalidateQueries({ queryKey: qk.companyCredit(tenantKey, id) })
+    queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
+  }
+
+  const financingCreateMutation = useMutation({
+    mutationFn: (d: FinancingCreate) => financingApi.create(id, d),
+    onSuccess: () => {
+      invalidateFinancingDependents()
+      toast.success(t('company.financing.created'))
+    },
+  })
+
+  const financingUpdateMutation = useMutation({
+    mutationFn: (d: { fid: string; data: FinancingUpdate }) =>
+      financingApi.update(id, d.fid, d.data),
+    onSuccess: invalidateFinancingDependents,
+  })
+
+  const financingDeleteMutation = useMutation({
+    mutationFn: (fid: string) => financingApi.remove(id, fid),
+    onSuccess: invalidateFinancingDependents,
   })
 
   const pnlQuery = useQuery({
@@ -1001,6 +1038,17 @@ export const CompanyDetail = () => {
             isLoading={cashflowQuery.isLoading}
           />
           </QueryState>
+        </TabsContent>
+
+        <TabsContent value="financing">
+          <FinancingTab
+            data={financingQuery.data}
+            isLoading={financingQuery.isLoading}
+            canEdit={canEdit}
+            onCreate={(d) => financingCreateMutation.mutate(d)}
+            onUpdate={(fid, d) => financingUpdateMutation.mutate({ fid, data: d })}
+            onDelete={(fid) => financingDeleteMutation.mutate(fid)}
+          />
         </TabsContent>
 
         <TabsContent value="credit">
