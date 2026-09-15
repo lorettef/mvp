@@ -8,6 +8,8 @@ from app.models.invite import Invite
 from app.models.company import Company
 from app.models.metric import Metric
 from app.models.hiring_plan import HiringPlan
+from app.models.hiring_plan_row import HiringPlanRow
+from app.models.hiring_team import HiringTeam
 from app.models.hiring_settings import HiringSettings
 from app.models.financing import Financing
 from app.models.valuation import Valuation
@@ -16,4 +18,4 @@ from app.models.budget import Budget
 from app.models.task import Task
 from app.models.analytics_event import AnalyticsEvent
 
-__all__ = ["Base", "User", "Subscription", "AICache", "AuditLog", "Organization", "Invite", "Company", "Metric", "HiringPlan", "HiringSettings", "Financing", "Valuation", "Cohort", "Budget", "Task", "AnalyticsEvent"]
+__all__ = ["Base", "User", "Subscription", "AICache", "AuditLog", "Organization", "Invite", "Company", "Metric", "HiringPlan", "HiringPlanRow", "HiringTeam", "HiringSettings", "Financing", "Valuation", "Cohort", "Budget", "Task", "AnalyticsEvent"]

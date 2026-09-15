@@ -38,6 +38,7 @@ export const qk = {
   companyHiring: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'hiring'],
   companyPnl: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'pnl'],
   companyCashflow: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'cashflow'],
+  companyFinancing: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'financing'],
   companyCredit: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'credit'],
   companyValuation: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'valuation'],
   companySensitivity: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'sensitivity'],

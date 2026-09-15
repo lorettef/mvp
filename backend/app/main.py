@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.database import engine
-from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin, invites, catalog, company_recommendations, health
+from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, financing, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin, invites, catalog, company_recommendations, health
 
 # Настройка логирования
 logging.basicConfig(
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Управление жизненным циклом приложения."""
-    logger.info("Startup Engine API starting")
+    logger.info("Startup Investment Bridge API starting")
     yield
     try:
         await engine.dispose()
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
 # Создание приложения
 app = FastAPI(
-    title="Startup Engine API",
+    title="Startup Investment Bridge API",
     version="1.0.0",
     description="Гибридная платформа для управления юнит-экономикой",
     lifespan=lifespan
@@ -85,6 +85,7 @@ app.include_router(
 app.include_router(hiring.router, prefix="/api/v1/companies", tags=["hiring"])
 app.include_router(pnl.router, prefix="/api/v1/companies", tags=["pnl"])
 app.include_router(cashflow.router, prefix="/api/v1/companies", tags=["cashflow"])
+app.include_router(financing.router, prefix="/api/v1/companies", tags=["financing"])
 app.include_router(credit.router, prefix="/api/v1/companies", tags=["credit"])
 app.include_router(valuation.router, prefix="/api/v1/companies", tags=["valuation"])
 app.include_router(sensitivity.router, prefix="/api/v1/companies", tags=["sensitivity"])
@@ -109,7 +110,7 @@ async def health_check():
     """Проверка работоспособности."""
     return {
         "status": "ok",
-        "service": "Startup Engine API",
+        "service": "Startup Investment Bridge API",
         "version": "1.0.0",
         "demo_mode": settings.DEMO_MODE
     }
@@ -118,7 +119,7 @@ async def health_check():
 async def root():
     """Корневой эндпоинт."""
     return {
-        "service": "Startup Engine",
+        "service": "Startup Investment Bridge",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health"
