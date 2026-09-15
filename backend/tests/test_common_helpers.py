@@ -133,7 +133,7 @@ def test_f_and_div():
 
 async def test_financing_sums(db_session, seeded_company):
     cid = seeded_company.id
-    db_session.add(Financing(company_id=cid, type="credit", amount=100.0))
+    db_session.add(Financing(company_id=cid, type="loan", amount=100.0))
     db_session.add(Financing(company_id=cid, type="investment", amount=200.0))
     await db_session.flush()
 

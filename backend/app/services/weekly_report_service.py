@@ -145,7 +145,7 @@ class WeeklyReportService:
         for cid, type_, total in fin_rows:
             if total is None:
                 continue
-            if type_ == "credit":
+            if type_ == "loan":
                 debt[cid] = debt.get(cid, 0.0) + float(total)
             else:
                 cash[cid] = cash.get(cid, 0.0) + float(total)
@@ -186,7 +186,7 @@ class WeeklyReportService:
             sections.append(
                 f"<h3>{html.escape(company.name)}</h3>"
                 "<ul>"
-                f"<li>MRR: {_money(unit.revenue)}</li>"
+                f"<li>Выручка: {_money(unit.revenue)}</li>"
                 f"<li>CAC: {_money(unit.cac)}</li>"
                 f"<li>LTV: {_money(unit.ltv)}</li>"
                 f"<li>Churn: {_pct(unit.churn)}</li>"

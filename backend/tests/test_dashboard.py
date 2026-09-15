@@ -170,6 +170,31 @@ async def test_dashboard_query_count_bound(db_session, seeded_organization):
     assert len(selects) <= 6, f"expected <= 6 SELECTs, got {len(selects)}"
 
 
+async def test_dashboard_plan_fact_period_alignment(db_session, seeded_organization):
+    """PF-1: FACT за месяц сравнивается с PLAN за тот же месяц, а не с последним планом."""
+    company = Company(
+        organization_id=seeded_organization.id,
+        name="Misaligned",
+        industry="SaaS",
+        geography="US",
+    )
+    db_session.add(company)
+    await db_session.flush()
+    db_session.add_all([
+        # Факт за февраль, план только за январь → нет плана за февраль → no_plan.
+        Metric(company_id=company.id, period=date(2026, 2, 1), type="fact",
+               revenue=1000, cac=100, ltv=300, churn=0.05),
+        Metric(company_id=company.id, period=date(2026, 1, 1), type="plan",
+               revenue=900, cac=100, ltv=300, churn=0.05),
+    ])
+    await db_session.commit()
+
+    response = await DashboardService(db_session).get_dashboard(seeded_organization.id)
+    item = next(c for c in response.companies if c.name == "Misaligned")
+    assert item.status == "no_plan"
+    assert item.latest_plan_revenue is None
+
+
 async def test_dashboard_performance_series(db_session, seeded_organization):
     """Portfolio performance aggregates fact/plan revenue per month."""
     await _seed_dashboard_data(db_session, seeded_organization)

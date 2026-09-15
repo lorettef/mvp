@@ -14,7 +14,7 @@ from app.services.weekly_report_service import WeeklyReportService
 # portfolio seeded by _seed_fact_company("Test Startup") +
 # _seed_plan_only_company("Beta Labs"). Captured as characterization BEFORE the
 # DB-batching refactor; the refactored build must reproduce it byte-for-byte.
-LEGACY_SNAPSHOT_HTML = '<html><body><h2>Еженедельный отчёт по портфелю</h2><h3>Beta Labs</h3><ul><li>MRR: 80,000 ₽</li><li>CAC: 600 ₽</li><li>LTV: 3,000 ₽</li><li>Churn: 2.0%</li><li>Runway: 5.1 мес.</li></ul><ul><li>✅ LTV/CAC = 5.00 — отличный показатель.</li><li>✅ Churn = 2.0% — в норме.</li><li>⚠️ Runway = 5.1 мес. (критично &lt; 6).</li><li>✅ Magic Number = 1.11 — эффективные продажи.</li></ul><h3>Test Startup</h3><ul><li>MRR: 200,000 ₽</li><li>CAC: 1,000 ₽</li><li>LTV: 5,000 ₽</li><li>Churn: 3.5%</li><li>Runway: 7.1 мес.</li></ul><ul><li>✅ LTV/CAC = 5.00 — отличный показатель.</li><li>✅ Churn = 3.5% — в норме.</li><li>📊 Runway = 7.1 мес. (рекомендуется &gt; 12).</li><li>✅ Magic Number = 2.50 — эффективные продажи.</li></ul></body></html>'
+LEGACY_SNAPSHOT_HTML = '<html><body><h2>Еженедельный отчёт по портфелю</h2><h3>Beta Labs</h3><ul><li>Выручка: 80,000 ₽</li><li>CAC: 600 ₽</li><li>LTV: 3,000 ₽</li><li>Churn: 2.0%</li><li>Runway: 4.5 мес.</li></ul><ul><li>✅ LTV/CAC = 5.00 — отличный показатель.</li><li>✅ Churn = 2.0% — в норме.</li><li>⚠️ Runway = 4.5 мес. (критично &lt; 6).</li><li>✅ Magic Number = 1.11 — эффективные продажи.</li></ul><h3>Test Startup</h3><ul><li>Выручка: 200,000 ₽</li><li>CAC: 1,000 ₽</li><li>LTV: 5,000 ₽</li><li>Churn: 3.5%</li><li>Runway: 6.3 мес.</li></ul><ul><li>✅ LTV/CAC = 5.00 — отличный показатель.</li><li>✅ Churn = 3.5% — в норме.</li><li>📊 Runway = 6.3 мес. (рекомендуется &gt; 12).</li><li>✅ Magic Number = 2.50 — эффективные продажи.</li></ul></body></html>'
 
 
 async def _make_company(db_session, organization_id, name: str) -> Company:
@@ -132,7 +132,7 @@ async def _seed_plan_only_company(db_session, company: Company) -> None:
                 fot=25000,
                 gna=5000,
             ),
-            Financing(company_id=company.id, type="credit", amount=300000),
+            Financing(company_id=company.id, type="loan", amount=300000),
         ]
     )
     await db_session.flush()
@@ -155,7 +155,7 @@ async def test_weekly_report_html(client, seeded_company, db_session):
     svc = WeeklyReportService(db_session)
     html = await svc.build_report_html(seeded_company.organization_id)
     assert "Test Startup" in html
-    assert "MRR" in html
+    assert "Выручка" in html
 
 
 async def test_build_report_html_matches_legacy_snapshot(db_session, seeded_company):

@@ -38,7 +38,10 @@ class CreditForecastResponse(BaseModel):
     opening_cash: float
     base_revenue: Optional[float] = None
     base_opex: Optional[float] = None
+    revenue_growth: float = 0.0
+    opex_growth: float = 0.0
     months: List[CashProjectionMonth]
     gaps: List[CreditGap]
+    funding_need: float
     total_credit_needed: float
     summary: str

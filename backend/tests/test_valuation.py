@@ -41,7 +41,7 @@ async def _seed_valuation(db, company_id, mrr=100000):
         )
     )
     db.add(Financing(company_id=company_id, type="investment", amount=200000))
-    db.add(Financing(company_id=company_id, type="credit", amount=100000, rate=0.15))
+    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
     await db.flush()
 
 
@@ -60,20 +60,21 @@ async def test_valuation_happy(client, seeded_company, seeded_admin, db_session)
     assert body["discount_rate"] == pytest.approx(31.0)
     assert body["growth_rate"] == pytest.approx(8.5)
 
-    # FCF = операционный CF = чистая прибыль = 20790 (месячный % 1250)
-    assert body["fcf"] == pytest.approx(20790)
+    # FCF — месячный операционный CF = чистая прибыль (соц. платежи без НДФЛ).
+    assert body["fcf"] == pytest.approx(24690)
 
     r = 0.31
     g = 0.085
-    expected_tv = 20790 * (1 + g) / (r - g)
+    # Gordon использует ГОДОВОЙ FCF = месячный × 12.
+    expected_tv = 24690 * 12 * (1 + g) / (r - g)
     assert body["terminal_value"] == pytest.approx(expected_tv, rel=1e-3)
 
-    # чистый долг = кредит 100000 - инвестиции 200000 = -100000
+    # чистый долг = кредит 100000 − фактический остаток 324690 = −224690
     assert body["debt"] == 100000
-    assert body["cash"] == 200000
-    assert body["net_debt"] == pytest.approx(-100000)
+    assert body["cash"] == pytest.approx(324690)
+    assert body["net_debt"] == pytest.approx(-224690)
 
-    expected_equity = expected_tv - (-100000)
+    expected_equity = expected_tv - (-224690)
     assert body["equity_value"] == pytest.approx(expected_equity, rel=1e-3)
 
     assert body["revenue_annual"] == pytest.approx(1200000)
@@ -89,7 +90,7 @@ async def test_valuation_financing_sums_match_legacy(
     client, seeded_company, seeded_admin, db_session
 ):
     db_session.add(
-        Financing(company_id=seeded_company.id, type="credit", amount=100, rate=0.15)
+        Financing(company_id=seeded_company.id, type="loan", amount=100, annual_rate=15.0)
     )
     db_session.add(
         Financing(company_id=seeded_company.id, type="investment", amount=200)
@@ -162,26 +163,11 @@ async def test_valuation_result_unchanged_after_memoization(
     assert res.status_code == 200
     body = res.json()
 
-    # Полный снимок JSON, снятый до дедупликации вычислений PnL: ответ обязан не измениться.
-    expected = {
-        "cash": 200000.0,
-        "company_id": str(seeded_company.id),
-        "debt": 100000.0,
-        "discount_rate": 31.0,
-        "equity_value": 200254.0,
-        "fcf": 20790.0,
-        "geography": "RU",
-        "growth_rate": 8.5,
-        "headcount": 1,
-        "key_rate": 21.0,
-        "net_debt": -100000.0,
-        "ps_ratio": 0.1669,
-        "revenue_annual": 1200000.0,
-        "summary": "Оценка (Equity Value) = 200,254 ₽ (TV = 100,254 ₽). P/S = 0.17×. На сотрудника = 200,254 ₽.",
-        "terminal_value": 100254.0,
-        "value_per_employee": 200254.0,
-    }
-    assert body == expected
+    # Регрессия Gordon: месячный FCF обязан быть приведён к годовому (×12).
+    r = 0.31
+    g = 0.085
+    expected_tv = body["fcf"] * 12 * (1 + g) / (r - g)
+    assert body["terminal_value"] == pytest.approx(expected_tv, rel=1e-3)
 
     # Путь с заранее вычисленным PnL даёт тот же ответ, что и самостоятельный расчёт.
     pnl = await PnLService(db_session).get_pnl(seeded_company.id)

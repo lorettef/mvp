@@ -1,3 +1,4 @@
+from app.core.config import settings
 from app.schemas.market import (
     MarketAnalysisRequest,
     MarketAnalysisResponse,
@@ -6,9 +7,9 @@ from app.schemas.market import (
 )
 
 GEOGRAPHIES = {
-    "RU": {"label": "Россия", "gdp_growth": 3.5, "inflation": 8.5, "key_rate": 21.0, "scale": 1.0},
-    "KZ": {"label": "Казахстан", "gdp_growth": 4.5, "inflation": 8.0, "key_rate": 16.0, "scale": 0.08},
-    "global": {"label": "Глобальный рынок", "gdp_growth": 3.0, "inflation": 4.5, "key_rate": 4.0, "scale": 25.0},
+    "RU": {"label": "Россия", "gdp_growth": 3.5, "inflation": 8.5, "key_rate": settings.KEY_RATE_RU, "scale": 1.0},
+    "KZ": {"label": "Казахстан", "gdp_growth": 4.5, "inflation": 8.0, "key_rate": settings.KEY_RATE_KZ, "scale": 0.08},
+    "global": {"label": "Глобальный рынок", "gdp_growth": 3.0, "inflation": 4.5, "key_rate": settings.KEY_RATE_GLOBAL, "scale": 25.0},
 }
 
 

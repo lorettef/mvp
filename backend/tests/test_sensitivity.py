@@ -32,7 +32,7 @@ async def _seed_sensitivity(db, company_id, mrr=200000):
         )
     )
     db.add(Financing(company_id=company_id, type="investment", amount=200000))
-    db.add(Financing(company_id=company_id, type="credit", amount=100000, rate=0.15))
+    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
     await db.flush()
 
 
@@ -113,6 +113,29 @@ async def test_sensitivity_conservative_unprofitable(
     body = res.json()
     assert body["conservative"]["fcf"] <= 0
     assert body["conservative"]["equity_value"] is None
+
+
+async def test_sensitivity_stresses_separate(
+    client, seeded_company, seeded_admin, db_session
+):
+    """Раздельные стресс-сценарии: revenue/cac/ltv/churn/combined."""
+    await _seed_sensitivity(db_session, seeded_company.id)
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/sensitivity",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    body = res.json()
+
+    names = [s["name"] for s in body["stresses"]]
+    assert names == ["revenue", "cac", "churn", "combined"]
+
+    by_name = {s["name"]: s for s in body["stresses"]}
+    assert by_name["revenue"]["equity_delta"] < 0
+    assert by_name["cac"]["equity_delta"] < 0
+    assert by_name["churn"]["equity_delta"] < 0
+    assert by_name["combined"]["equity_delta"] < 0
 
 
 async def test_sensitivity_empty(client, seeded_company, seeded_admin):

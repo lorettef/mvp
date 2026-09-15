@@ -134,10 +134,12 @@ class MetricService:
                         and prev_active is not None
                         and _consecutive_months(prev_period, data.period)
                     ):
+                        # Явное округление вниз (не banker's round): долю клиента не удержать.
                         metric.active_units = (
-                            round(prev_active * data.retention_rate) + data.new_units
+                            int(prev_active * data.retention_rate) + data.new_units
                         )
                     else:
+                        # Разрыв в периодах (или первый месяц) — retention не проецируется.
                         metric.active_units = data.new_units
                     prev_active = metric.active_units
                     prev_period = data.period

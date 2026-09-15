@@ -33,7 +33,7 @@ async def send_weekly_reports(
         if not admin.organization_id or not admin.email:
             continue
         html = await WeeklyReportService(db).build_report_html(admin.organization_id)
-        if await send_email(admin.email, "Еженедельный отчёт Startup Engine", html):
+        if await send_email(admin.email, "Еженедельный отчёт Startup Investment Bridge", html):
             sent += 1
 
     return {"sent": sent, "total": len(admins)}

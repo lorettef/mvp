@@ -32,7 +32,7 @@ async def _seed_pnl(db, company_id):
             gna=5000,
         )
     )
-    db.add(Financing(company_id=company_id, type="credit", amount=100000, rate=0.15))
+    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
     await db.flush()
 
 
@@ -49,14 +49,15 @@ async def test_pnl_happy(client, seeded_company, seeded_admin, db_session):
     assert body["mrr"] == 100000
     assert body["revenue"] == 100000
     assert body["fot"] == 30000
-    assert body["social_payments"] == pytest.approx(12960)
-    assert body["total_opex"] == pytest.approx(77960)
-    assert body["ebitda"] == pytest.approx(22040)
+    # соц. платежи = ФОТ × employer_rate (30% + 0.2%), БЕЗ НДФЛ
+    assert body["social_payments"] == pytest.approx(9060)
+    assert body["total_opex"] == pytest.approx(74060)
+    assert body["ebitda"] == pytest.approx(25940)
     # годовой % по кредиту 100000×15%=15000 → месячный = 1250
     assert body["financial_expenses"] == pytest.approx(1250)
-    assert body["net_profit"] == pytest.approx(22040 - 1250)
-    assert body["ebitda_margin"] == pytest.approx(0.2204)
-    assert body["net_margin"] == pytest.approx(20790 / 100000)
+    assert body["net_profit"] == pytest.approx(25940 - 1250)
+    assert body["ebitda_margin"] == pytest.approx(0.2594)
+    assert body["net_margin"] == pytest.approx(24690 / 100000)
 
 
 async def test_pnl_empty(client, seeded_company, seeded_admin):
@@ -106,9 +107,9 @@ async def test_pnl_no_credits_net_equals_ebitda(
     )
     body = res.json()
     assert body["financial_expenses"] == 0
-    # social = 10000 * 0.432 = 4320; opex = 10000+4320+5000+5000+2000 = 26320
-    assert body["total_opex"] == pytest.approx(26320)
-    assert body["ebitda"] == pytest.approx(50000 - 26320)
+    # social = 10000 × 0.302 = 3020; opex = 10000+3020+5000+5000+2000 = 25020
+    assert body["total_opex"] == pytest.approx(25020)
+    assert body["ebitda"] == pytest.approx(50000 - 25020)
     assert body["net_profit"] == body["ebitda"]
 
 
@@ -212,6 +213,63 @@ async def test_pnl_multi_month_returns_all_periods(client, seeded_company, seede
     # Выручка по месяцам соответствует факту.
     assert body["months"][0]["mrr"] == 120000
     assert body["months"][2]["mrr"] == 100000
+
+
+async def test_pnl_source_metadata(db_session, seeded_company):
+    """source: fact/plan/mixed — период раскрывает источник данных."""
+    db_session.add(Metric(
+        company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
+        revenue=100000, cac=1000, ltv=5000, churn=0.03,
+    ))
+    db_session.add(Budget(
+        company_id=seeded_company.id, period=date(2026, 2, 1), type="plan",
+        marketing=10000, development=20000, fot=30000, gna=5000,
+    ))
+    await db_session.flush()
+
+    pnl = await PnLService(db_session).get_pnl(seeded_company.id)
+    assert pnl.months[0].source == "mixed"
+
+
+async def test_loan_interest_starts_at_issued_date(db_session, seeded_company):
+    """Проценты по кредиту не начисляются до issued_date."""
+    for m in (1, 2, 3):
+        db_session.add(Metric(
+            company_id=seeded_company.id, period=date(2026, m, 1), type="fact",
+            revenue=100000, cac=1000, ltv=5000, churn=0.03,
+        ))
+        db_session.add(Budget(
+            company_id=seeded_company.id, period=date(2026, m, 1), type="fact",
+            marketing=0, development=0, fot=0, gna=0,
+        ))
+    db_session.add(Financing(
+        company_id=seeded_company.id, type="loan", amount=1200000,
+        annual_rate=15.0, issued_date=date(2026, 2, 1),
+    ))
+    await db_session.flush()
+
+    pnl = await PnLService(db_session).get_pnl(seeded_company.id, months=3)
+    by_period = {m.period: m for m in pnl.months}
+    # Январь (до выдачи) — 0; Февраль/Март — 1200000×0.15/12 = 15000
+    assert by_period[date(2026, 1, 1)].financial_expenses == 0
+    assert by_period[date(2026, 2, 1)].financial_expenses == pytest.approx(15000)
+    assert by_period[date(2026, 3, 1)].financial_expenses == pytest.approx(15000)
+
+
+def test_loan_interest_amortization():
+    """Аннуитет: проценты снижаются с погашением principal; после срока — 0."""
+    loan = Financing(
+        company_id=None, type="loan", amount=1200000, annual_rate=15.0,
+        term_months=12, issued_date=date(2026, 2, 1),
+        first_payment_date=date(2026, 3, 1),
+    )
+    assert PnLService._loan_interest(loan, date(2026, 1, 1)) == 0  # до выдачи
+    assert PnLService._loan_interest(loan, date(2026, 2, 1)) == pytest.approx(15000)
+    mar = PnLService._loan_interest(loan, date(2026, 3, 1))
+    apr = PnLService._loan_interest(loan, date(2026, 4, 1))
+    assert mar == pytest.approx(15000)  # первый платёж — полный principal
+    assert apr < mar  # амортизация: проценты снижаются
+    assert PnLService._loan_interest(loan, date(2027, 3, 1)) == 0  # после срока
 
 
 async def test_pnl_excludes_future_plan_periods(client, seeded_company, seeded_admin, db_session):

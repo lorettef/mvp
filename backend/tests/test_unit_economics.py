@@ -1,5 +1,7 @@
 from datetime import date
 
+import pytest
+
 from .conftest import auth_headers
 from app.models.metric import Metric
 from app.models.cohort import Cohort
@@ -26,7 +28,7 @@ async def _seed_unit_economics(db, company_id):
         marketing=4000, development=8000, fot=6000, gna=2000,
     ))
     db.add(Financing(company_id=company_id, type="investment", amount=200000))
-    db.add(Financing(company_id=company_id, type="credit", amount=100000, rate=0.15))
+    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
     await db.flush()
 
 
@@ -45,10 +47,11 @@ async def test_unit_economics_happy(client, seeded_company, seeded_admin, db_ses
     assert body["ltv"] == 5000
     assert body["churn"] == 0.03
     assert body["ltv_cac"] == 5.0
-    # cash = 200000 + 100000 = 300000; burn = 4000+8000+6000+2000 = 20000
+    # cash = 200000 + 100000 = 300000
+    # burn = 4000+8000+6000+2000 + соц.платежи (6000×0.302=1812) = 21812
     assert body["cash"] == 300000
-    assert body["monthly_burn"] == 20000
-    assert body["runway_months"] == 15.0
+    assert body["monthly_burn"] == pytest.approx(21812)
+    assert body["runway_months"] == pytest.approx(13.8)
     # ΔRevenue = 120000 - 100000 = 20000; marketing = 4000
     assert body["revenue_growth"] == 20000
     assert body["marketing_spend"] == 4000

@@ -17,6 +17,7 @@ from app.schemas.dashboard import (
     DashboardResponse,
     PerformancePoint,
 )
+from app.schemas.hiring import DEFAULT_EMPLOYER_RATE
 
 
 def _mean(values: list[float]) -> Optional[float]:
@@ -116,12 +117,22 @@ class DashboardService:
             plans = sorted((m for m in rows if m.type == "plan"), key=lambda m: m.period)
             fact = facts[-1] if facts else None
             prev_fact = facts[-2] if len(facts) >= 2 else None
-            plan = plans[-1] if plans else None
+            # PF-1: план сравнивается с ФАКТОМ за ТОТ ЖЕ период (не «последний план»).
+            plan = (
+                next((p for p in reversed(plans) if p.period == fact.period), None)
+                if fact else None
+            )
 
             budget, prev_budget = self._latest_two_budgets(budgets_by_company.get(cid, []))
             burn = self._burn(budget)
             prev_burn = self._burn(prev_budget)
-            cash = cash_by_company.get(cid, 0.0)
+            # Cash для runway = финансирование + накопленная операционная прибыль
+            # (та же экономика, что и closing balance в Cash Flow, но batched).
+            financing = cash_by_company.get(cid, 0.0)
+            profit = self._accumulated_profit(
+                metrics_by_company.get(cid, []), budgets_by_company.get(cid, [])
+            )
+            cash = financing + profit
             cash = cash if cash != 0.0 else None
 
             if fact is None:
@@ -270,9 +281,36 @@ class DashboardService:
     def _burn(budget: Optional[Budget]) -> Optional[float]:
         if budget is None:
             return None
+        fot = float(budget.fot)
+        social = fot * DEFAULT_EMPLOYER_RATE  # соц. платежи работодателя (как в P&L)
         return (
             float(budget.marketing)
             + float(budget.development)
-            + float(budget.fot)
+            + fot
             + float(budget.gna)
+            + social
         )
+
+    @staticmethod
+    def _accumulated_profit(metrics: list[Metric], budgets: list[Budget]) -> float:
+        """Накопленная операционная прибыль (выручка − OPEX) по факт-периодам."""
+        revenue = sum(
+            float(m.revenue) for m in metrics if m.type == "fact" and m.revenue is not None
+        )
+        if revenue == 0.0:
+            revenue = sum(
+                float(m.revenue) for m in metrics if m.type == "plan" and m.revenue is not None
+            )
+        opex = 0.0
+        for b in budgets:
+            if b.type != "fact":
+                continue
+            fot = float(b.fot)
+            opex += (
+                float(b.marketing)
+                + float(b.development)
+                + fot
+                + float(b.gna)
+                + fot * DEFAULT_EMPLOYER_RATE
+            )
+        return round(revenue - opex, 2)

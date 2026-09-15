@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.cohort import Cohort
 from app.models.budget import Budget
 from app.models.company import Company
+from app.schemas.hiring import DEFAULT_EMPLOYER_RATE
 from app.schemas.unit_economics import UnitEconomicsResponse, RetentionBreakdown
 from app.services.common import (
     div,
@@ -132,11 +133,14 @@ class UnitEconomicsService:
     def _monthly_burn(budget: Optional[Budget]) -> Optional[float]:
         if budget is None:
             return None
+        fot = float(budget.fot)
+        social = fot * DEFAULT_EMPLOYER_RATE  # соц. платежи работодателя
         return (
             float(budget.marketing)
             + float(budget.development)
-            + float(budget.fot)
+            + fot
             + float(budget.gna)
+            + social
         )
 
     @staticmethod

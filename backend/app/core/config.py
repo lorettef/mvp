@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     """Настройки приложения из .env."""
     
     # Общие
-    APP_NAME: str = "Startup Engine"
+    APP_NAME: str = "Startup Investment Bridge"
     DEBUG: bool = False
     SECRET_KEY: SecretStr = Field(..., min_length=32)
     ALGORITHM: str = "HS256"
@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    # Ключевые ставки по гео (в %, годовых) — переопределяемы через .env
+    KEY_RATE_RU: float = 21.0
+    KEY_RATE_KZ: float = 16.0
+    KEY_RATE_GLOBAL: float = 4.0
 
     # Доверенные reverse-proxy (IP/CIDR), от которых разрешено читать
     # X-Real-IP / X-Forwarded-For. Пусто — доверяются только loopback и
@@ -46,7 +51,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM: str = "Startup Engine <noreply@poicho.ru>"
+    SMTP_FROM: str = "Startup Investment Bridge <noreply@poicho.ru>"
     SMTP_USE_TLS: bool = True
     
     model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)

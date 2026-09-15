@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company import Company
 from app.schemas.pnl import PnLResponse
-from app.schemas.sensitivity import Scenario, SensitivityResponse
+from app.schemas.sensitivity import Scenario, SensitivityResponse, StressItem
 from app.services.common import div, f, latest_metrics
 from app.services.market_service import GEOGRAPHIES, normalize_geography
 from app.services.pnl_service import PnLService
@@ -16,6 +16,7 @@ SALES_STRESS = 0.9
 CAC_STRESS = 1.1
 LTV_STRESS = 0.95
 CHURN_STRESS = 1.1
+CHURN_GROWTH_SENSITIVITY = 2.0  # +1 п.п. churn → −2 п.п. годового роста
 
 
 class SensitivityService:
@@ -66,7 +67,7 @@ class SensitivityService:
                 discount_rate=discount_rate,
                 base=Scenario(),
                 conservative=Scenario(),
-                summary="Недостаточно данных: добавьте метрики (MRR).",
+                summary="Недостаточно данных: добавьте метрики (выручка).",
             )
 
         base = Scenario(
@@ -96,15 +97,23 @@ class SensitivityService:
             round(min(churn * CHURN_STRESS, 1.0), 4) if churn is not None else None
         )
 
+        delta_churn_pp = (
+            (stressed_churn - churn) * 100.0
+            if stressed_churn is not None and churn is not None
+            else 0.0
+        )
         stressed_growth = round(
-            valuation.growth_rate
-            * LTV_STRESS
-            * (1 - (stressed_churn if stressed_churn is not None else 0.0)),
+            max(0.0, valuation.growth_rate - CHURN_GROWTH_SENSITIVITY * delta_churn_pp),
             2,
         )
 
+        stressed_fcf_annual = (
+            round(stressed_net_profit * 12, 2)
+            if stressed_net_profit is not None
+            else None
+        )
         stressed_tv, stressed_equity = ValuationService._gordon(
-            stressed_net_profit,
+            stressed_fcf_annual,
             discount_rate,
             stressed_growth,
             valuation.net_debt,
@@ -126,6 +135,43 @@ class SensitivityService:
             base.equity_value, stressed_equity
         )
 
+        # Раздельные стресс-сценарии: каждый фактор по отдельности + combined.
+        base_net = valuation.fcf
+        base_equity = valuation.equity_value
+        base_growth = valuation.growth_rate
+        net_debt = valuation.net_debt
+
+        def _eq(net_profit, growth):
+            fcf_annual = round(net_profit * 12, 2) if net_profit is not None else None
+            _, eq = ValuationService._gordon(fcf_annual, discount_rate, growth, net_debt)
+            return eq
+
+        opex_without_marketing = round(development + fot + gna + social, 2)
+        rev_net = round(
+            stressed_mrr - (marketing + opex_without_marketing) - financial_expenses, 2
+        )
+        cac_net = round(
+            mrr - (stressed_marketing + opex_without_marketing) - financial_expenses, 2
+        )
+
+        stresses: List[StressItem] = []
+        for name, net, growth in [
+            ("revenue", rev_net, base_growth),
+            ("cac", cac_net, base_growth),
+            ("churn", base_net, stressed_growth),
+            ("combined", stressed_net_profit, stressed_growth),
+        ]:
+            eq = _eq(net, growth)
+            delta, pct = self._delta(base_equity, eq)
+            stresses.append(
+                StressItem(
+                    name=name,
+                    equity_value=eq,
+                    equity_delta=delta,
+                    equity_delta_pct=pct,
+                )
+            )
+
         return SensitivityResponse(
             company_id=company_id,
             geography=geography,
@@ -133,6 +179,7 @@ class SensitivityService:
             discount_rate=discount_rate,
             base=base,
             conservative=conservative,
+            stresses=stresses,
             equity_delta=equity_delta,
             equity_delta_pct=equity_delta_pct,
             summary=self._summary(base.equity_value, stressed_equity, equity_delta, equity_delta_pct),

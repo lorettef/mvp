@@ -14,6 +14,7 @@ class CashFlowMonth(BaseModel):
     investing_cf: float = 0.0
     financing_cf: float = 0.0
     total_cf: Optional[float] = None
+    net_cash_flow: Optional[float] = None
     closing_balance: Optional[float] = None
 
 
@@ -39,6 +40,7 @@ class CashFlowResponse(BaseModel):
 
     # Итого
     total_cf: Optional[float] = None
+    net_cash_flow: Optional[float] = None
     opening_balance: float = 0.0
     closing_balance: Optional[float] = None
 

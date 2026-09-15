@@ -128,7 +128,7 @@ _BM_METRICS: dict[str, list[dict]] = {
         },
         {
             "key": "revenue",
-            "label": "Повторяющаяся выручка (MRR/ARR)",
+            "label": "Выручка (Revenue)",
             "required": True,
             "why": "Повторяющаяся выручка — ключевой показатель устойчивости подписки.",
         },

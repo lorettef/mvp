@@ -81,6 +81,19 @@ async def test_bulk_gap_resets_active_units(db_session, seeded_company):
     assert [m.active_units for m in saved] == [100, 50]
 
 
+async def test_bulk_active_units_floor_rounding(db_session, seeded_company):
+    """Явное округление вниз: 35 × 0.1 = 3.5 → 3 (не banker's round → 4)."""
+    svc = MetricService(db_session)
+    items = [
+        _fact(date(2026, 1, 1), new_units=35, arpu=10.0, retention=0.9),
+        _fact(date(2026, 2, 1), new_units=0, arpu=10.0, retention=0.1),
+    ]
+
+    saved = await svc.bulk_upsert(seeded_company.id, items)
+
+    assert [m.active_units for m in saved] == [35, 3]
+
+
 async def test_bulk_plan_leaves_active_units_none(db_session, seeded_company):
     svc = MetricService(db_session)
     items = [

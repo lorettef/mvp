@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import health as health_rules
 from app.models.budget import Budget
 from app.schemas.health import BusinessHealthResponse, HealthSignal
+from app.schemas.hiring import DEFAULT_EMPLOYER_RATE
 from app.services.common import financing_sums, latest_budget, latest_metrics
 
 
@@ -84,9 +85,12 @@ class HealthService:
     def _burn(budget: Budget | None) -> float | None:
         if budget is None:
             return None
+        fot = float(budget.fot)
+        social = fot * DEFAULT_EMPLOYER_RATE  # соц. платежи работодателя
         return (
             float(budget.marketing)
             + float(budget.development)
-            + float(budget.fot)
+            + fot
             + float(budget.gna)
+            + social
         )

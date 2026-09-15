@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -18,6 +18,15 @@ class Scenario(BaseModel):
     ltv_cac: Optional[float] = None
 
 
+class StressItem(BaseModel):
+    """Отдельный стресс-сценарий: один фактор (revenue/cac/ltv/churn) или combined."""
+
+    name: str
+    equity_value: Optional[float] = None
+    equity_delta: Optional[float] = None
+    equity_delta_pct: Optional[float] = None
+
+
 class SensitivityResponse(BaseModel):
     """Анализ чувствительности (TZ v5.0, раздел 15)."""
 
@@ -27,6 +36,7 @@ class SensitivityResponse(BaseModel):
     discount_rate: float
     base: Scenario
     conservative: Scenario
+    stresses: List[StressItem] = []
     equity_delta: Optional[float] = None
     equity_delta_pct: Optional[float] = None
     summary: str

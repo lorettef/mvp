@@ -9,6 +9,7 @@ class PnLMonth(BaseModel):
     """P&L за один месяц (период)."""
 
     period: date
+    source: Optional[str] = None  # fact | plan | mixed | None (missing)
     mrr: Optional[float] = None
     revenue: Optional[float] = None
     fot: Optional[float] = None
@@ -20,6 +21,7 @@ class PnLMonth(BaseModel):
     ebitda: Optional[float] = None
     financial_expenses: float = 0.0
     net_profit: Optional[float] = None
+    profit_tax: float = 0.0  # налог на прибыль НЕ моделируется (net_profit — до налога)
     ebitda_margin: Optional[float] = None
     net_margin: Optional[float] = None
 
@@ -47,6 +49,7 @@ class PnLResponse(BaseModel):
     ebitda: Optional[float] = None
     financial_expenses: float = 0.0
     net_profit: Optional[float] = None
+    profit_tax: float = 0.0  # налог на прибыль НЕ моделируется (net_profit — до налога)
 
     # Маржа
     ebitda_margin: Optional[float] = None

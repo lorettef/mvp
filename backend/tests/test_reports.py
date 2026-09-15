@@ -30,7 +30,7 @@ async def _seed_report(db, company_id):
         )
     )
     db.add(Financing(company_id=company_id, type="investment", amount=200000))
-    db.add(Financing(company_id=company_id, type="credit", amount=100000, rate=0.15))
+    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
     await db.flush()
 
 

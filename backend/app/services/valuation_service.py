@@ -41,10 +41,16 @@ class ValuationService:
         if pnl is None:
             pnl = await PnLService(self.db).get_pnl(company_id)
         cashflow = await CashFlowService(self.db).compute(pnl, company_id)
-        fcf = cashflow.operating_cf
+        fcf = cashflow.operating_cf  # месячный операционный CF
 
         sums = await financing_sums(self.db, company_id)
-        debt, cash = sums.debt, sums.cash
+        debt = sums.debt
+        # G-2: cash = фактический остаток (closing balance), а не сумма инвестиций.
+        cash = (
+            float(cashflow.closing_balance)
+            if cashflow.closing_balance is not None
+            else sums.cash
+        )
         net_debt = round(debt - cash, 2)
 
         revenue_annual = round(pnl.mrr * MONTHS_IN_YEAR, 2) if pnl.mrr is not None else None
@@ -52,8 +58,11 @@ class ValuationService:
         hiring = await HiringService(self.db).build_plan(company_id)
         headcount = hiring.final_headcount
 
+        # Gordon требует ОДИНАКОВОЙ размерности: годовой FCF (месячный × 12)
+        # с годовыми r и g. Иначе месячный FCF занижает TV ~ в 12 раз.
+        fcf_annual = round(fcf * MONTHS_IN_YEAR, 2) if fcf is not None else None
         terminal_value, equity_value = self._gordon(
-            fcf, discount_rate, growth_rate, net_debt
+            fcf_annual, discount_rate, growth_rate, net_debt
         )
 
         ps_ratio = div(equity_value, revenue_annual, default=None)
@@ -89,6 +98,11 @@ class ValuationService:
         growth_rate: float,
         net_debt: float,
     ):
+        """TV = FCF * (1 + g) / (r - g).
+
+        Контракт размерностей: `fcf` — ГОДОВОЙ свободный денежный поток,
+        `discount_rate` и `growth_rate` — годовые ставки в процентах.
+        """
         if fcf is None or fcf <= 0:
             return None, None
         r = discount_rate / 100.0

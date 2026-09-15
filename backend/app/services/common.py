@@ -6,6 +6,7 @@ from typing import List, Literal, Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import today
 from app.models.budget import Budget
 from app.models.financing import Financing
 from app.models.metric import Metric
@@ -109,7 +110,7 @@ async def distinct_periods(
     (бюджет/план будущих месяцев) не должны вытеснять исторические FACT-месяцы
     из окна отчёта P&L/Cash Flow.
     """
-    current_month = date.today().replace(day=1)
+    current_month = today().replace(day=1)
     metric_periods = await db.execute(
         select(Metric.period)
         .where(
@@ -168,7 +169,7 @@ async def financing_sums(db: AsyncSession, company_id) -> FinancingSums:
     for type_, total in result.all():
         if total is None:
             continue
-        if type_ == "credit":
+        if type_ == "loan":
             debt += float(total)
         else:
             cash += float(total)
@@ -179,8 +180,8 @@ async def financing_sums(db: AsyncSession, company_id) -> FinancingSums:
 
 def period_for_month(m: int) -> date:
     """First day of the month m months from now (m=1 → next month)."""
-    today = date.today()
-    zero_month = today.month - 1 + m
-    year = today.year + zero_month // 12
+    now = today()
+    zero_month = now.month - 1 + m
+    year = now.year + zero_month // 12
     month = zero_month % 12 + 1
     return date(year, month, 1)
