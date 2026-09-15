@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { RefreshCw } from 'lucide-react'
-import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
+import { fmtPeriod, fmtRub } from '@/lib/format'
 
 interface HiringTabProps {
   data?: HiringPlanResponse
@@ -62,9 +62,7 @@ export function HiringTab({
     return (
       <Card className="border bg-card">
         <CardContent className="p-5">
-          <p className="text-muted-foreground text-sm">
-            {t('company.hiring.empty')}
-          </p>
+          <p className="text-muted-foreground text-sm">{t('company.hiring.empty')}</p>
         </CardContent>
       </Card>
     )
@@ -80,6 +78,8 @@ export function HiringTab({
       injury_rate: Number(form.injury) / 100,
     })
   }
+
+  const latest = data.months[data.months.length - 1]
 
   return (
     <div className="space-y-6">
@@ -100,18 +100,12 @@ export function HiringTab({
 
           <p className="text-sm text-muted-foreground">{data.summary}</p>
 
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                {t('company.hiring.baseRevenue')}
+                {t('company.hiring.forecastStart')}
               </p>
-              <p className="text-xl font-bold mt-1">{fmtRub(data.baseRevenue)}</p>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                {t('company.hiring.industry')}
-              </p>
-              <p className="text-xl font-bold mt-1">{data.industryLabel}</p>
+              <p className="text-xl font-bold mt-1">{fmtPeriod(data.forecastStart)}</p>
             </div>
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -121,11 +115,9 @@ export function HiringTab({
             </div>
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                {t('company.hiring.socialPayments')}
+                {t('company.hiring.team')}
               </p>
-              <p className="text-xl font-bold mt-1">
-                {fmtPct(data.settings?.totalRate)}
-              </p>
+              <p className="text-xl font-bold mt-1">{data.team.length}</p>
             </div>
           </div>
         </CardContent>
@@ -139,10 +131,7 @@ export function HiringTab({
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
-                <label
-                  htmlFor="ndfl"
-                  className="block text-xs font-medium text-muted-foreground mb-1"
-                >
+                <label htmlFor="ndfl" className="block text-xs font-medium text-muted-foreground mb-1">
                   {t('company.hiring.ndfl')}
                 </label>
                 <Input
@@ -156,10 +145,7 @@ export function HiringTab({
                 />
               </div>
               <div>
-                <label
-                  htmlFor="insurance"
-                  className="block text-xs font-medium text-muted-foreground mb-1"
-                >
+                <label htmlFor="insurance" className="block text-xs font-medium text-muted-foreground mb-1">
                   {t('company.hiring.insurance')}
                 </label>
                 <Input
@@ -169,16 +155,11 @@ export function HiringTab({
                   max="100"
                   step="0.1"
                   value={form.insurance}
-                  onChange={(e) =>
-                    setForm({ ...form, insurance: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, insurance: e.target.value })}
                 />
               </div>
               <div>
-                <label
-                  htmlFor="injury"
-                  className="block text-xs font-medium text-muted-foreground mb-1"
-                >
+                <label htmlFor="injury" className="block text-xs font-medium text-muted-foreground mb-1">
                   {t('company.hiring.injury')}
                 </label>
                 <Input
@@ -209,6 +190,38 @@ export function HiringTab({
         </Card>
       )}
 
+      {latest && (
+        <Card className="border bg-card">
+          <CardContent className="p-5">
+            <h3 className="font-semibold text-foreground mb-4">
+              {t('company.hiring.rolePlan', { period: fmtPeriod(latest.period) })}
+            </h3>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('company.hiring.role')}</TableHead>
+                    <TableHead className="text-right">{t('company.hiring.required')}</TableHead>
+                    <TableHead className="text-right">{t('company.hiring.recommended')}</TableHead>
+                    <TableHead className="text-right">{t('company.hiring.approved')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {latest.roles.map((r) => (
+                    <TableRow key={r.roleKey}>
+                      <TableCell className="font-medium text-foreground">{r.label}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">{r.requiredHeadcount}</TableCell>
+                      <TableCell className="text-right tabular-nums text-foreground">{r.recommendedHires}</TableCell>
+                      <TableCell className="text-right tabular-nums text-foreground">{r.approvedHires}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border bg-card">
         <CardContent className="p-5">
           <h3 className="font-semibold text-foreground mb-4">{t('company.hiring.monthlyPlan')}</h3>
@@ -216,35 +229,25 @@ export function HiringTab({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('common.month')}</TableHead>
                   <TableHead>{t('common.period')}</TableHead>
-                  <TableHead className="text-right">{t('company.hiring.revenue')}</TableHead>
-                  <TableHead className="text-right">{t('company.hiring.fot')}</TableHead>
-                  <TableHead className="text-right">{t('company.hiring.socialPayments')}</TableHead>
-                  <TableHead className="text-right">{t('company.hiring.totalCost')}</TableHead>
-                  <TableHead>{t('company.hiring.headcountCol')}</TableHead>
+                  <TableHead className="text-right">{t('company.hiring.required')}</TableHead>
+                  <TableHead className="text-right">{t('company.hiring.approved')}</TableHead>
+                  <TableHead className="text-right">{t('company.hiring.payroll')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.months.map((m) => (
-                  <TableRow key={m.month}>
-                    <TableCell className="text-muted-foreground">{m.month}</TableCell>
+                  <TableRow key={m.period}>
                     <TableCell className="font-medium text-foreground">{fmtPeriod(m.period)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.revenue)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.fot)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.socialPayments)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-foreground">{fmtRub(m.totalCost)}</TableCell>
-                    <TableCell className="text-foreground">
-                      {m.headcount} ({m.devCount}/{m.salesCount}/{m.marketingCount})
-                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{m.totalRequired}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{m.totalApproved}</TableCell>
+                    <TableCell className="text-right tabular-nums text-foreground">{fmtRub(m.payroll)}</TableCell>
                   </TableRow>
                 ))}
                 {data.months.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                      {data.baseRevenue == null
-                        ? t('company.hiring.emptyAddRevenue')
-                        : t('company.hiring.emptyNotCalculated')}
+                    <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                      {t('company.hiring.emptyAddRevenue')}
                     </TableCell>
                   </TableRow>
                 )}

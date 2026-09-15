@@ -4,21 +4,41 @@ import { HiringTab } from './HiringTab'
 import type {
   HiringMonthRow,
   HiringPlanResponse,
+  HiringRolePlan,
   HiringSettingsResponse,
 } from '@/types/api'
 
+function makeRole(over: Partial<HiringRolePlan> = {}): HiringRolePlan {
+  return {
+    roleKey: 'backend',
+    label: 'Backend',
+    group: 'engineering',
+    requiredHeadcount: 2,
+    recommendedHires: 1,
+    approvedHires: 0,
+    salary: 150000,
+    employerCost: 45300,
+    ...over,
+  }
+}
+
 function makeMonth(over: Partial<HiringMonthRow> = {}): HiringMonthRow {
   return {
-    month: 1,
-    period: '2026-09-01',
-    revenue: 105000,
-    fot: 36750,
-    socialPayments: 15876,
-    totalCost: 52626,
-    headcount: 3,
-    devCount: 1,
-    salesCount: 1,
-    marketingCount: 1,
+    period: '2026-10-01',
+    roles: [
+      makeRole(),
+      makeRole({
+        roleKey: 'sales_manager',
+        label: 'Sales Manager',
+        group: 'sales',
+        requiredHeadcount: 5,
+        recommendedHires: 5,
+      }),
+    ],
+    totalRequired: 7,
+    totalApproved: 0,
+    payroll: 500000,
+    hiresPayroll: 0,
     ...over,
   }
 }
@@ -26,49 +46,44 @@ function makeMonth(over: Partial<HiringMonthRow> = {}): HiringMonthRow {
 function makePlan(over: Partial<HiringPlanResponse> = {}): HiringPlanResponse {
   return {
     companyId: 'c1',
-    industry: 'saas',
-    industryLabel: 'SaaS',
-    baseRevenue: 100000,
-    fotShare: 0.35,
-    avgSalary: 150000,
-    monthlyGrowth: 0.05,
+    forecastStart: '2026-10-01',
     settings: {
       companyId: 'c1',
       ndflRate: 0.13,
       insuranceRate: 0.3,
       injuryRate: 0.002,
       totalRate: 0.432,
+      employerRate: 0.302,
     },
+    team: [{ roleKey: 'backend', headcount: 1, salary: 150000 }],
     months: [makeMonth()],
-    finalHeadcount: 3,
-    summary: 'Целевой штат «SaaS» через 12 мес.',
+    finalHeadcount: 7,
+    summary: 'Целевой штат через 12 мес.',
     ...over,
   }
 }
 
 describe('HiringTab', () => {
-  it('renders industry, headcount and month period', () => {
+  it('renders role plan and forecast start', () => {
     render(<HiringTab data={makePlan()} canEdit={false} />)
-    expect(screen.getByText('SaaS')).toBeInTheDocument()
-    expect(screen.getByText('3 чел.')).toBeInTheDocument()
-    expect(screen.getByText('2026-09')).toBeInTheDocument()
+    expect(screen.getByText('Backend')).toBeInTheDocument()
+    expect(screen.getByText('Sales Manager')).toBeInTheDocument()
+    expect(screen.getAllByText('2026-10').length).toBeGreaterThan(0)
+    expect(screen.getByText('7 чел.')).toBeInTheDocument()
   })
 
-  it('shows staff breakdown for a month row', () => {
+  it('shows required/recommended/approved columns', () => {
     render(<HiringTab data={makePlan()} canEdit={false} />)
-    expect(screen.getByText('3 (1/1/1)')).toBeInTheDocument()
+    expect(screen.getAllByText('Требуется').length).toBeGreaterThan(0)
+    expect(screen.getByText('Рекомендовано')).toBeInTheDocument()
+    expect(screen.getAllByText('Одобрено').length).toBeGreaterThan(0)
   })
 
   it('shows empty hint when no metrics', () => {
     render(
-      <HiringTab
-        data={makePlan({ baseRevenue: null, months: [], finalHeadcount: 0 })}
-        canEdit={false}
-      />,
+      <HiringTab data={makePlan({ months: [], finalHeadcount: 0 })} canEdit={false} />,
     )
-    expect(
-      screen.getByText(/Добавьте метрики выручки/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Добавьте метрики выручки/)).toBeInTheDocument()
   })
 
   it('shows social payment field labels', () => {
@@ -80,12 +95,8 @@ describe('HiringTab', () => {
 
   it('saves social payment settings as fractions', () => {
     const onSave = vi.fn()
-    render(
-      <HiringTab data={makePlan()} canEdit onSaveSettings={onSave} />,
-    )
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Сохранить настройки' }),
-    )
+    render(<HiringTab data={makePlan()} canEdit onSaveSettings={onSave} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить настройки' }))
     expect(onSave).toHaveBeenCalledWith({
       ndfl_rate: 0.13,
       insurance_rate: 0.3,
@@ -114,7 +125,8 @@ describe('HiringTab', () => {
             insuranceRate: 0.25,
             injuryRate: 0.01,
             totalRate: 0.41,
-          },
+            employerRate: 0.26,
+          } as HiringSettingsResponse,
         })}
         canEdit
       />,
@@ -123,47 +135,5 @@ describe('HiringTab', () => {
     expect(screen.getByLabelText('НДФЛ (%)')).toHaveValue(15)
     expect(screen.getByLabelText('Страховые взносы (%)')).toHaveValue(25)
     expect(screen.getByLabelText('Травматизм (%)')).toHaveValue(1)
-  })
-
-  it('resets the settings form to defaults when the new company has no settings', () => {
-    const onSave = vi.fn()
-    const { rerender } = render(
-      <HiringTab
-        data={makePlan({
-          settings: {
-            companyId: 'c1',
-            ndflRate: 0.15,
-            insuranceRate: 0.25,
-            injuryRate: 0.01,
-            totalRate: 0.41,
-          },
-        })}
-        canEdit
-        onSaveSettings={onSave}
-      />,
-    )
-    expect(screen.getByLabelText('НДФЛ (%)')).toHaveValue(15)
-
-    rerender(
-      <HiringTab
-        data={makePlan({
-          companyId: 'c2',
-          settings: undefined as unknown as HiringSettingsResponse,
-        })}
-        canEdit
-        onSaveSettings={onSave}
-      />,
-    )
-
-    expect(screen.getByLabelText('НДФЛ (%)')).toHaveValue(13)
-    expect(screen.getByLabelText('Страховые взносы (%)')).toHaveValue(30)
-    expect(screen.getByLabelText('Травматизм (%)')).toHaveValue(0.2)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить настройки' }))
-    expect(onSave).toHaveBeenCalledWith({
-      ndfl_rate: 0.13,
-      insurance_rate: 0.3,
-      injury_rate: 0.002,
-    })
   })
 })

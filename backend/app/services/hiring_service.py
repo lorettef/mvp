@@ -1,83 +1,94 @@
 from datetime import date
-from typing import List, Optional
+from math import ceil
+from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import today
 from app.models.company import Company
-from app.models.hiring_plan import HiringPlan
+from app.models.hiring_plan_row import HiringPlanRow
 from app.models.hiring_settings import HiringSettings
+from app.models.hiring_team import HiringTeam
 from app.schemas.hiring import (
-    HiringMonthRow,
-    HiringPlanResponse,
-    HiringSettingsResponse,
-    HiringSettingsUpsert,
     DEFAULT_NDFL_RATE,
     DEFAULT_INSURANCE_RATE,
     DEFAULT_INJURY_RATE,
+    HiringApproveUpsert,
+    HiringMonthPlan,
+    HiringPlanResponse,
+    HiringRolePlan,
+    HiringSettingsResponse,
+    HiringSettingsUpsert,
+    HiringTeamRow,
+    HiringTeamUpsert,
 )
-from app.services.common import latest_metrics, period_for_month
+from app.services.common import latest_metrics
 
-# Отраслевые коэффициенты распределения штата (доля от общего числа сотрудников).
-INDUSTRY_STAFF_MIX = {
-    "saas": {"dev": 0.40, "sales": 0.25, "marketing": 0.35},
-    "fintech": {"dev": 0.45, "sales": 0.20, "marketing": 0.35},
-    "ecommerce": {"dev": 0.30, "sales": 0.30, "marketing": 0.40},
-    "edtech": {"dev": 0.40, "sales": 0.30, "marketing": 0.30},
-    "healthtech": {"dev": 0.45, "sales": 0.25, "marketing": 0.30},
-    "ai": {"dev": 0.60, "sales": 0.15, "marketing": 0.25},
-    "marketplaces": {"dev": 0.30, "sales": 0.25, "marketing": 0.45},
-    "foodtech": {"dev": 0.30, "sales": 0.35, "marketing": 0.35},
-    "logistics": {"dev": 0.35, "sales": 0.25, "marketing": 0.40},
-    "proptech": {"dev": 0.40, "sales": 0.30, "marketing": 0.30},
-    "media": {"dev": 0.35, "sales": 0.30, "marketing": 0.35},
-    "hardware": {"dev": 0.55, "sales": 0.20, "marketing": 0.25},
-    "biotech": {"dev": 0.55, "sales": 0.15, "marketing": 0.30},
-    "cleantech": {"dev": 0.50, "sales": 0.20, "marketing": 0.30},
-    "other": {"dev": 0.40, "sales": 0.30, "marketing": 0.30},
+# Каталог ролей (TZ, раздел 19). Порядок = порядок отображения.
+ROLE_GROUPS: Dict[str, str] = {
+    "backend": "engineering",
+    "frontend": "engineering",
+    "qa": "engineering",
+    "devops": "engineering",
+    "sales_manager": "sales",
+    "sdr": "sales",
+    "support": "customer",
+    "customer_success": "customer",
+    "marketing": "marketing",
+    "management": "management",
 }
 
-INDUSTRY_LABELS = {
-    "saas": "SaaS",
-    "fintech": "Fintech",
-    "ecommerce": "E-commerce",
-    "edtech": "EdTech",
-    "healthtech": "HealthTech",
-    "ai": "AI/ML",
-    "marketplaces": "Маркетплейсы",
-    "foodtech": "FoodTech",
-    "logistics": "Логистика",
-    "proptech": "PropTech",
-    "media": "Медиа и развлечения",
-    "hardware": "Hardware / IoT",
-    "biotech": "Biotech",
-    "cleantech": "CleanTech",
-    "other": "Другое",
+ROLE_LABELS: Dict[str, str] = {
+    "backend": "Backend",
+    "frontend": "Frontend",
+    "qa": "QA",
+    "devops": "DevOps",
+    "sales_manager": "Sales Manager",
+    "sdr": "SDR",
+    "support": "Support",
+    "customer_success": "Customer Success",
+    "marketing": "Marketing",
+    "management": "Management / Operations",
 }
 
-# Согласованные параметры алгоритма (TZ v5.0, раздел 10).
-FOT_SHARE = 0.35        # Бюджет на ФОТ = 35% от прогнозного MRR (диапазон 30–40%)
-AVG_SALARY = 150000.0   # Средняя зарплата сотрудника в месяц, ₽
-MONTHLY_GROWTH = 0.05   # Ежемесячный рост прогнозного MRR (5%)
-HORIZON_MONTHS = 12     # Горизонт прогноза, месяцев
+ALL_ROLES = list(ROLE_GROUPS.keys())
+
+# Capacity-предположения (TZ, раздел 21): документированные domain-константы.
+SALES_CAPACITY = 50.0         # новых клиентов на 1 Sales Manager в месяц
+SDR_CAPACITY = 120.0          # новых клиентов (new_units) на 1 SDR в месяц
+SUPPORT_CAPACITY = 200.0      # активных клиентов на 1 Support
+SUCCESS_CAPACITY = 100.0      # активных клиентов на 1 Customer Success
+MARKETING_BASELINE = 1.0      # минимальный состав маркетинга
+MARKETING_CAPACITY = 300.0    # новых клиентов на 1 маркетолога
+MANAGEMENT_BASELINE = 1.0     # минимальный менеджмент
+ENGINEERING_BASELINE = 2.0    # минимальный инженерный состав
+ENGINEERING_REVENUE_PER_HEAD = 500000.0  # ₽/мес выручки на 1 инженера
+ENGINEERING_MIX = {"backend": 0.40, "frontend": 0.30, "qa": 0.15, "devops": 0.15}
+
+DEFAULT_SALARY = 150000.0
+MONTHLY_GROWTH = 0.05  # ежемесячный рост драйверов прогноза
+HORIZON_MONTHS = 12
+
+
+def _add_months(period: date, n: int) -> date:
+    zero = period.month - 1 + n
+    year = period.year + zero // 12
+    month = zero % 12 + 1
+    return date(year, month, 1)
 
 
 class HiringService:
-    """Прогноз найма сотрудников на 12 месяцев с учётом соц. платежей."""
+    """Role-based прогноз найма: драйверы → required → recommended/approved."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
 
     @staticmethod
-    def _normalize_industry(industry: Optional[str]) -> str:
-        key = (industry or "other").strip().lower()
-        return key if key in INDUSTRY_STAFF_MIX else "other"
-
-    @staticmethod
-    def _sum_rate(ndfl: float, insurance: float, injury: float) -> float:
-        return round(ndfl + insurance + injury, 4)
+    def _sum_rate(*rates: float) -> float:
+        return round(sum(rates), 4)
 
     async def get_settings(self, company_id: UUID) -> HiringSettingsResponse:
         result = await self.db.execute(
@@ -93,6 +104,7 @@ class HiringService:
             insurance_rate=insurance,
             injury_rate=injury,
             total_rate=self._sum_rate(ndfl, insurance, injury),
+            employer_rate=self._sum_rate(insurance, injury),
         )
 
     async def upsert_settings(
@@ -117,10 +129,86 @@ class HiringService:
             total_rate=self._sum_rate(
                 data.ndfl_rate, data.insurance_rate, data.injury_rate
             ),
+            employer_rate=self._sum_rate(data.insurance_rate, data.injury_rate),
         )
 
-    async def build_plan(self, company_id: UUID) -> HiringPlanResponse:
-        """Рассчитать целевой штат на 12 месяцев (без сохранения в БД)."""
+    async def list_team(self, company_id: UUID) -> List[HiringTeamRow]:
+        result = await self.db.execute(
+            select(HiringTeam).where(HiringTeam.company_id == company_id)
+        )
+        rows = list(result.scalars().all())
+        return [
+            HiringTeamRow(
+                role_key=r.role_key,
+                headcount=r.headcount,
+                salary=float(r.salary),
+            )
+            for r in rows
+        ]
+
+    async def upsert_team(self, company_id: UUID, data: HiringTeamUpsert) -> HiringTeamRow:
+        result = await self.db.execute(
+            select(HiringTeam).where(
+                HiringTeam.company_id == company_id,
+                HiringTeam.role_key == data.role_key,
+            )
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            row = HiringTeam(company_id=company_id, role_key=data.role_key)
+            self.db.add(row)
+        row.headcount = data.headcount
+        row.salary = data.salary
+        await self.db.flush()
+        await self.db.refresh(row)
+        return HiringTeamRow(
+            role_key=row.role_key,
+            headcount=row.headcount,
+            salary=float(row.salary),
+        )
+
+    async def _load_team(self, company_id: UUID) -> Dict[str, Tuple[int, float]]:
+        result = await self.db.execute(
+            select(HiringTeam).where(HiringTeam.company_id == company_id)
+        )
+        return {
+            r.role_key: (r.headcount, float(r.salary))
+            for r in result.scalars().all()
+        }
+
+    async def _load_approved(
+        self, company_id: UUID, start: date
+    ) -> Dict[Tuple[date, str], int]:
+        result = await self.db.execute(
+            select(HiringPlanRow).where(HiringPlanRow.company_id == company_id)
+        )
+        return {
+            (r.period, r.role_key): r.approved_hires
+            for r in result.scalars().all()
+        }
+
+    @staticmethod
+    def _required_headcount(role_key: str, nu: float, au: float, revenue: float) -> int:
+        if role_key == "sales_manager":
+            return max(0, ceil(nu / SALES_CAPACITY))
+        if role_key == "sdr":
+            return max(0, ceil(nu / SDR_CAPACITY))
+        if role_key == "support":
+            return max(0, ceil(au / SUPPORT_CAPACITY))
+        if role_key == "customer_success":
+            return max(0, ceil(au / SUCCESS_CAPACITY))
+        if role_key == "marketing":
+            return max(MARKETING_BASELINE, ceil(nu / MARKETING_CAPACITY))
+        if role_key == "management":
+            return MANAGEMENT_BASELINE
+        eng_total = max(
+            ENGINEERING_BASELINE, ceil(revenue / ENGINEERING_REVENUE_PER_HEAD)
+        )
+        return max(0, round(eng_total * ENGINEERING_MIX[role_key]))
+
+    async def build_plan(
+        self, company_id: UUID, forecast_start: Optional[date] = None
+    ) -> HiringPlanResponse:
         company = await self.db.get(Company, company_id)
         if not company:
             raise HTTPException(
@@ -128,24 +216,28 @@ class HiringService:
                 detail="Компания не найдена",
             )
 
-        industry = self._normalize_industry(company.industry)
-        mix = INDUSTRY_STAFF_MIX[industry]
         settings = await self.get_settings(company_id)
+        team = await self._load_team(company_id)
         rows = await latest_metrics(
             self.db, company_id, prefer="plan", fallback=True, limit=1
         )
-        base_revenue = float(rows[0].revenue) if rows else None
+        metric = rows[0] if rows else None
+        revenue = float(metric.revenue) if metric and metric.revenue is not None else None
 
-        if base_revenue is None:
+        start = forecast_start or _add_months(today().replace(day=1), 1)
+        approved_map = await self._load_approved(company_id, start)
+
+        team_rows = [
+            HiringTeamRow(role_key=k, headcount=v[0], salary=v[1])
+            for k, v in team.items()
+        ]
+
+        if revenue is None:
             return HiringPlanResponse(
                 company_id=company_id,
-                industry=industry,
-                industry_label=INDUSTRY_LABELS[industry],
-                base_revenue=None,
-                fot_share=FOT_SHARE,
-                avg_salary=AVG_SALARY,
-                monthly_growth=MONTHLY_GROWTH,
+                forecast_start=start,
                 settings=settings,
+                team=team_rows,
                 months=[],
                 final_headcount=0,
                 summary=(
@@ -154,91 +246,148 @@ class HiringService:
                 ),
             )
 
-        months: List[HiringMonthRow] = []
-        for m in range(1, HORIZON_MONTHS + 1):
-            period = period_for_month(m)
-            revenue = round(base_revenue * (1 + MONTHLY_GROWTH) ** m, 2)
-            fot = round(revenue * FOT_SHARE, 2)
-            social = round(fot * settings.total_rate, 2)
-            total_cost = round(fot + social, 2)
-            headcount = max(1, int(fot / AVG_SALARY))
-            dev = round(headcount * mix["dev"])
-            sales = round(headcount * mix["sales"])
-            marketing = headcount - dev - sales  # гарантирует сумму = headcount
+        nu = float(metric.new_units or 0) if metric else 0.0
+        au = float(metric.active_units or nu) if metric else 0.0
+
+        months: List[HiringMonthPlan] = []
+        cumulative_approved: Dict[str, int] = {role: 0 for role in ALL_ROLES}
+        for m in range(HORIZON_MONTHS):
+            period = _add_months(start, m)
+            growth = (1 + MONTHLY_GROWTH) ** (m + 1)
+            m_nu = nu * growth
+            m_au = au * growth
+            m_revenue = revenue * growth
+
+            roles: List[HiringRolePlan] = []
+            for role_key in ALL_ROLES:
+                current, salary = team.get(role_key, (0, DEFAULT_SALARY))
+                required = self._required_headcount(role_key, m_nu, m_au, m_revenue)
+                recommended = max(0, required - current)
+                approved = approved_map.get((period, role_key), 0)
+                cumulative_approved[role_key] += approved
+                employer_cost = round(salary * settings.employer_rate, 2)
+                roles.append(
+                    HiringRolePlan(
+                        role_key=role_key,
+                        label=ROLE_LABELS[role_key],
+                        group=ROLE_GROUPS[role_key],
+                        required_headcount=required,
+                        recommended_hires=recommended,
+                        approved_hires=approved,
+                        salary=salary,
+                        employer_cost=employer_cost,
+                    )
+                )
+
+            total_required = sum(r.required_headcount for r in roles)
+            total_approved = sum(r.approved_hires for r in roles)
+            payroll = round(
+                sum(
+                    (team.get(r.role_key, (0, r.salary))[0] + cumulative_approved[r.role_key])
+                    * (r.salary + r.employer_cost)
+                    for r in roles
+                ),
+                2,
+            )
+            hires_payroll = round(
+                sum(
+                    cumulative_approved[r.role_key] * (r.salary + r.employer_cost)
+                    for r in roles
+                ),
+                2,
+            )
             months.append(
-                HiringMonthRow(
-                    month=m,
+                HiringMonthPlan(
                     period=period,
-                    revenue=revenue,
-                    fot=fot,
-                    social_payments=social,
-                    total_cost=total_cost,
-                    headcount=headcount,
-                    dev_count=dev,
-                    sales_count=sales,
-                    marketing_count=marketing,
+                    roles=roles,
+                    total_required=total_required,
+                    total_approved=total_approved,
+                    payroll=payroll,
+                    hires_payroll=hires_payroll,
                 )
             )
 
         final = months[-1]
         summary = (
-            f"Целевой штат «{INDUSTRY_LABELS[industry]}» через {HORIZON_MONTHS} мес. — "
-            f"{final.headcount} чел. (ФОТ ≈ {final.fot:,.0f} ₽/мес). "
-            f"Бюджет ФОТ = {FOT_SHARE:.0%} от выручки, соц. платежи {settings.total_rate:.1%}."
+            f"Целевой штат через {HORIZON_MONTHS} мес. — {final.total_required} чел. "
+            f"Одобрено к найму: {final.total_approved} чел. "
+            f"ФОТ (approved) ≈ {final.payroll:,.0f} ₽/мес."
         )
 
         return HiringPlanResponse(
             company_id=company_id,
-            industry=industry,
-            industry_label=INDUSTRY_LABELS[industry],
-            base_revenue=base_revenue,
-            fot_share=FOT_SHARE,
-            avg_salary=AVG_SALARY,
-            monthly_growth=MONTHLY_GROWTH,
+            forecast_start=start,
             settings=settings,
+            team=team_rows,
             months=months,
-            final_headcount=final.headcount,
+            final_headcount=final.total_required,
             summary=summary,
         )
 
-    async def generate_plan(self, company_id: UUID) -> HiringPlanResponse:
-        """Рассчитать целевой штат и сохранить его в hiring_plans."""
-        plan = await self.build_plan(company_id)
-        for m in plan.months:
-            await self._upsert_plan_row(
-                company_id,
-                m.period,
-                m.dev_count,
-                m.sales_count,
-                m.marketing_count,
-                m.fot,
-                m.social_payments,
+    async def generate_plan(
+        self, company_id: UUID, forecast_start: Optional[date] = None
+    ) -> HiringPlanResponse:
+        """Рассчитать и сохранить рекомендацию (approved по умолчанию = recommended)."""
+        plan = await self.build_plan(company_id, forecast_start)
+        for month in plan.months:
+            for role in month.roles:
+                await self._upsert_plan_row(
+                    company_id,
+                    month.period,
+                    role.role_key,
+                    role.required_headcount,
+                    role.recommended_hires,
+                    role.approved_hires or role.recommended_hires,
+                )
+        return await self.build_plan(company_id, forecast_start)
+
+    async def approve_plan(
+        self, company_id: UUID, data: HiringApproveUpsert
+    ) -> HiringPlanResponse:
+        """Сохранить утверждённые наймы (approved_hires) пользователем."""
+        for item in data.items:
+            result = await self.db.execute(
+                select(HiringPlanRow).where(
+                    HiringPlanRow.company_id == company_id,
+                    HiringPlanRow.period == item.period,
+                    HiringPlanRow.role_key == item.role_key,
+                )
             )
-        return plan
+            row = result.scalar_one_or_none()
+            if row is None:
+                row = HiringPlanRow(
+                    company_id=company_id,
+                    period=item.period,
+                    role_key=item.role_key,
+                    required_headcount=0,
+                    recommended_hires=0,
+                )
+                self.db.add(row)
+            row.approved_hires = item.approved_hires
+            await self.db.flush()
+        return await self.build_plan(company_id)
 
     async def _upsert_plan_row(
         self,
         company_id: UUID,
         period: date,
-        dev: int,
-        sales: int,
-        marketing: int,
-        fot: float,
-        social: float,
+        role_key: str,
+        required: int,
+        recommended: int,
+        approved: int,
     ) -> None:
         result = await self.db.execute(
-            select(HiringPlan).where(
-                HiringPlan.company_id == company_id,
-                HiringPlan.period == period,
+            select(HiringPlanRow).where(
+                HiringPlanRow.company_id == company_id,
+                HiringPlanRow.period == period,
+                HiringPlanRow.role_key == role_key,
             )
         )
         row = result.scalar_one_or_none()
         if row is None:
-            row = HiringPlan(company_id=company_id, period=period)
+            row = HiringPlanRow(company_id=company_id, period=period, role_key=role_key)
             self.db.add(row)
-        row.dev_count = dev
-        row.sales_count = sales
-        row.marketing_count = marketing
-        row.total_fot = fot
-        row.social_payments = social
+        row.required_headcount = required
+        row.recommended_hires = recommended
+        row.approved_hires = approved
         await self.db.flush()

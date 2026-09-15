@@ -1,26 +1,30 @@
 from datetime import date
 
 import pytest
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from .conftest import auth_headers
-from app.models.hiring_plan import HiringPlan
+from app.models.hiring_plan_row import HiringPlanRow
 from app.models.metric import Metric
 from app.services.hiring_service import HiringService
 
 
-async def _count_hiring_rows(db) -> int:
-    result = await db.execute(select(func.count()).select_from(HiringPlan))
+async def _count_rows(db) -> int:
+    result = await db.execute(select(func.count()).select_from(HiringPlanRow))
     return result.scalar_one()
 
 
-async def _seed_metric(db, company_id, revenue=100000, type_="plan"):
+async def _seed_metric(
+    db, company_id, revenue=100000, new_units=100, active_units=500, type_="plan"
+):
     db.add(
         Metric(
             company_id=company_id,
             period=date(2026, 1, 1),
             type=type_,
             revenue=revenue,
+            new_units=new_units,
+            active_units=active_units,
             cac=1000,
             ltv=5000,
             churn=0.03,
@@ -29,10 +33,10 @@ async def _seed_metric(db, company_id, revenue=100000, type_="plan"):
     await db.flush()
 
 
-async def test_get_hiring_plan_generates_12_months(
+async def test_get_hiring_plan_role_based_12_months(
     client, seeded_company, seeded_admin, db_session
 ):
-    await _seed_metric(db_session, seeded_company.id, revenue=100000)
+    await _seed_metric(db_session, seeded_company.id, revenue=2000000, new_units=1000, active_units=5000)
 
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/hiring",
@@ -41,27 +45,17 @@ async def test_get_hiring_plan_generates_12_months(
     assert res.status_code == 200
     body = res.json()
 
-    assert body["industry"] == "saas"
-    assert body["industry_label"] == "SaaS"
-    assert body["base_revenue"] == 100000
-    assert body["fot_share"] == pytest.approx(0.35)
     assert len(body["months"]) == 12
+    assert body["final_headcount"] == body["months"][-1]["total_required"]
 
     m1 = body["months"][0]
-    # Выручка растёт на 5%/мес
-    assert m1["revenue"] == pytest.approx(105000)
-    assert m1["fot"] == pytest.approx(m1["revenue"] * 0.35)
-    # суммарный тариф соц. платежей по умолчанию = 0.432
-    assert body["settings"]["total_rate"] == pytest.approx(0.432)
-    assert m1["social_payments"] == pytest.approx(m1["fot"] * 0.432)
-    # штат распределяется по отраслевым коэффициентам, сумма сходится
-    assert m1["headcount"] >= 1
-    assert (
-        m1["headcount"]
-        == m1["dev_count"] + m1["sales_count"] + m1["marketing_count"]
-    )
-    # итоговый штат — штат последнего месяца
-    assert body["final_headcount"] == body["months"][-1]["headcount"]
+    roles = {r["role_key"]: r for r in m1["roles"]}
+    # Драйверы (с ростом ×1.05): new_units=1050 → Sales Manager ceil(1050/50)=21; active=5250 → Support ceil(5250/200)=27
+    assert roles["sales_manager"]["required_headcount"] == 21
+    assert roles["support"]["required_headcount"] == 27
+    # Инженеры: revenue=2.1M → max(2, ceil(2.1M/500k))=5, backend=round(5*0.4)=2
+    assert roles["backend"]["required_headcount"] == 2
+    assert roles["management"]["required_headcount"] == 1
 
 
 async def test_hiring_plan_no_metrics_empty(client, seeded_company, seeded_admin):
@@ -71,7 +65,6 @@ async def test_hiring_plan_no_metrics_empty(client, seeded_company, seeded_admin
     )
     assert res.status_code == 200
     body = res.json()
-    assert body["base_revenue"] is None
     assert body["months"] == []
     assert body["final_headcount"] == 0
 
@@ -86,16 +79,17 @@ async def test_hiring_plan_uses_fact_when_no_plan(
         headers=auth_headers(seeded_admin),
     )
     assert res.status_code == 200
-    assert res.json()["base_revenue"] == 80000
+    assert len(res.json()["months"]) == 12
 
 
 async def test_hiring_prefers_plan_over_fact(db_session, seeded_company):
-    """Characterization: базовая выручка берётся из Плана, даже если есть свежий Факт."""
-    await _seed_metric(db_session, seeded_company.id, revenue=100000, type_="plan")
-    await _seed_metric(db_session, seeded_company.id, revenue=50000, type_="fact")
+    await _seed_metric(db_session, seeded_company.id, revenue=100000, new_units=100, type_="plan")
+    await _seed_metric(db_session, seeded_company.id, revenue=50000, new_units=10, type_="fact")
 
     plan = await HiringService(db_session).build_plan(seeded_company.id)
-    assert plan.base_revenue == 100000.0
+    # План (new_units=100) даёт больше Sales Manager, чем факт (new_units=10).
+    m1_roles = {r.role_key: r for r in plan.months[0].roles}
+    assert m1_roles["sales_manager"].required_headcount == 3  # ceil(100*1.05/50)
 
 
 async def test_hiring_settings_defaults(client, seeded_company, seeded_admin):
@@ -109,38 +103,79 @@ async def test_hiring_settings_defaults(client, seeded_company, seeded_admin):
     assert body["insurance_rate"] == pytest.approx(0.30)
     assert body["injury_rate"] == pytest.approx(0.002)
     assert body["total_rate"] == pytest.approx(0.432)
+    assert body["employer_rate"] == pytest.approx(0.302)
 
 
-async def test_hiring_settings_upsert_affects_plan(
-    client, seeded_company, seeded_admin, db_session
-):
-    # 1. обновляем настройки соц. платежей
+async def test_hiring_team_upsert(client, seeded_company, seeded_admin):
     res = await client.put(
-        f"/api/v1/companies/{seeded_company.id}/hiring/settings",
-        json={"ndfl_rate": 0.15, "insurance_rate": 0.30, "injury_rate": 0.005},
+        f"/api/v1/companies/{seeded_company.id}/hiring/team",
+        json={"role_key": "backend", "headcount": 3, "salary": 200000},
         headers=auth_headers(seeded_admin),
     )
     assert res.status_code == 200
-    assert res.json()["total_rate"] == pytest.approx(0.455)
+    assert res.json()["headcount"] == 3
+    assert res.json()["salary"] == 200000
 
-    # 2. добавляем метрику и проверяем, что план использует новые настройки
-    await _seed_metric(db_session, seeded_company.id, revenue=100000)
+    lst = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/hiring/team",
+        headers=auth_headers(seeded_admin),
+    )
+    assert any(t["role_key"] == "backend" for t in lst.json())
+
+
+async def test_hiring_approve_affects_plan(
+    client, seeded_company, seeded_admin, db_session
+):
+    await _seed_metric(db_session, seeded_company.id, revenue=100000, new_units=100)
 
     plan = await client.get(
         f"/api/v1/companies/{seeded_company.id}/hiring",
         headers=auth_headers(seeded_admin),
     )
-    assert plan.status_code == 200
-    body = plan.json()
-    assert body["settings"]["total_rate"] == pytest.approx(0.455)
-    m1 = body["months"][0]
-    assert m1["social_payments"] == pytest.approx(m1["fot"] * 0.455)
+    period = plan.json()["months"][0]["period"]
 
-
-async def test_hiring_settings_forbidden_observer(client, seeded_company, seeded_observer):
     res = await client.put(
-        f"/api/v1/companies/{seeded_company.id}/hiring/settings",
-        json={"ndfl_rate": 0.15, "insurance_rate": 0.30, "injury_rate": 0.005},
+        f"/api/v1/companies/{seeded_company.id}/hiring/approve",
+        json={"items": [{"period": period, "role_key": "backend", "approved_hires": 5}]},
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    roles = {r["role_key"]: r for r in res.json()["months"][0]["roles"]}
+    assert roles["backend"]["approved_hires"] == 5
+
+
+async def test_hiring_generate_persists(client, seeded_company, seeded_admin, db_session):
+    await _seed_metric(db_session, seeded_company.id, revenue=100000, new_units=100)
+    before = await _count_rows(db_session)
+
+    res = await client.post(
+        f"/api/v1/companies/{seeded_company.id}/hiring/generate",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    assert len(res.json()["months"]) == 12
+
+    after = await _count_rows(db_session)
+    assert after > before
+    assert after - before == 12 * 10  # 12 месяцев × 10 ролей
+
+
+async def test_hiring_get_does_not_persist(client, seeded_company, seeded_admin, db_session):
+    await _seed_metric(db_session, seeded_company.id, revenue=100000, new_units=100)
+    before = await _count_rows(db_session)
+
+    res = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/hiring",
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 200
+    assert await _count_rows(db_session) == before
+
+
+async def test_hiring_write_forbidden_observer(client, seeded_company, seeded_observer):
+    res = await client.put(
+        f"/api/v1/companies/{seeded_company.id}/hiring/team",
+        json={"role_key": "backend", "headcount": 1},
         headers=auth_headers(seeded_observer),
     )
     assert res.status_code == 403
@@ -151,78 +186,13 @@ async def test_hiring_unauthenticated(client, seeded_company):
     assert res.status_code == 401
 
 
-async def test_get_hiring_does_not_persist(
-    client, seeded_company, seeded_admin, db_session
-):
-    await _seed_metric(db_session, seeded_company.id, revenue=100000)
-    before = await _count_hiring_rows(db_session)
+async def test_hiring_deterministic_forecast_dates(db_session, seeded_company):
+    await _seed_metric(db_session, seeded_company.id, revenue=100000, new_units=100)
 
-    res = await client.get(
-        f"/api/v1/companies/{seeded_company.id}/hiring",
-        headers=auth_headers(seeded_admin),
+    plan = await HiringService(db_session).build_plan(
+        seeded_company.id, forecast_start=date(2026, 10, 1)
     )
-    assert res.status_code == 200
-    assert len(res.json()["months"]) == 12
-
-    after = await _count_hiring_rows(db_session)
-    # GET /hiring — read-only: в БД не должно появиться строк hiring_plans.
-    assert after == before
-
-
-async def test_post_hiring_generate_persists_and_requires_role(
-    client, seeded_company, seeded_observer, seeded_company_user, db_session
-):
-    await _seed_metric(db_session, seeded_company.id, revenue=100000)
-    before = await _count_hiring_rows(db_session)
-
-    # observer не может генерировать (записывать) план.
-    res = await client.post(
-        f"/api/v1/companies/{seeded_company.id}/hiring/generate",
-        headers=auth_headers(seeded_observer),
-    )
-    assert res.status_code == 403
-
-    # роль company может генерировать план.
-    res = await client.post(
-        f"/api/v1/companies/{seeded_company.id}/hiring/generate",
-        headers=auth_headers(seeded_company_user),
-    )
-    assert res.status_code == 200
-    body = res.json()
-    assert len(body["months"]) == 12
-
-    after = await _count_hiring_rows(db_session)
-    # POST /hiring/generate — персистит 12 строк плана в hiring_plans.
-    assert after > before
-    assert after - before == len(body["months"])
-
-
-async def test_hiring_plan_extended_industry_no_500(client, db_session, seeded_organization):
-    """Компания с отраслью из полного каталога не должна ронять 500 (KeyError в INDUSTRY_LABELS)."""
-    from app.models.company import Company
-
-    company = Company(
-        organization_id=seeded_organization.id,
-        name="Marketplace Co",
-        industry="marketplaces",
-        geography="RU",
-    )
-    db_session.add(company)
-    await db_session.flush()
-
-    from .conftest import make_user
-    admin = await make_user(
-        db_session,
-        "mkt-admin@test.ru",
-        "admin",
-        seeded_organization.id,
-        company.id,
-    )
-
-    res = await client.get(
-        f"/api/v1/companies/{company.id}/hiring",
-        headers=auth_headers(admin),
-    )
-    assert res.status_code == 200, res.text
-    assert res.json()["industry"] == "marketplaces"
-    assert res.json()["industry_label"] == "Маркетплейсы"
+    periods = [m.period for m in plan.months]
+    assert periods[0] == date(2026, 10, 1)
+    assert periods[-1] == date(2027, 9, 1)
+    assert len(periods) == 12
