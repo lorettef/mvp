@@ -25,7 +25,10 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?err}@db:5432/${POSTGRES_DB:-startup_engine}
       - COOKIE_SECURE=false
-      - DEMO_ACCOUNT_PASSWORD=
+      - AI_QUOTA_ENABLED=${AI_QUOTA_ENABLED:-false}
+      - DEMO_MODE=${DEMO_MODE:-false}
+      - DEMO_ACCOUNT_PASSWORD=${DEMO_ACCOUNT_PASSWORD:-}
+      - DEMO_COMPANY_COUNT=${DEMO_COMPANY_COUNT:-5}
     depends_on:
       db:
         condition: service_healthy

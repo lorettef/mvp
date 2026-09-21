@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+import secrets
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status, Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.config import settings
@@ -14,21 +16,22 @@ from app.api.dependencies import get_current_user
 
 router = APIRouter()
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
 @limiter.limit("5/minute")
 async def register(
-    data: UserCreate,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
+    data: UserCreate, request: Request, db: AsyncSession = Depends(get_db)
 ):
     """Регистрация нового пользователя."""
     auth_service = AuthService(db)
     user_data = await auth_service.register(data)
-    
+
     # Получение информации о подписке
     sub_service = SubscriptionService(db)
     sub_info = await sub_service.get_user_subscription(user_data["id"])
-    
+
     return UserResponse(
         id=user_data["id"],
         email=user_data["email"],
@@ -41,8 +44,9 @@ async def register(
         subscription_plan=sub_info["plan"],
         daily_limit=sub_info["daily_limit"],
         used_today=sub_info["used_today"],
-        organization_type=user_data["organization_type"]
+        organization_type=user_data["organization_type"],
     )
+
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
@@ -66,32 +70,31 @@ async def login(
         path="/",
     )
 
-    return TokenResponse(token_type=result["token_type"], expires_in=result["expires_in"])
+    return TokenResponse(
+        token_type=result["token_type"], expires_in=result["expires_in"]
+    )
+
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Получить информацию о текущем пользователе."""
-    result = await db.execute(
-        select(User).where(User.id == current_user["user_id"])
-    )
+    result = await db.execute(select(User).where(User.id == current_user["user_id"]))
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Пользователь не найден"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден"
         )
-    
+
     sub_service = SubscriptionService(db)
     sub_info = await sub_service.get_user_subscription(user.id)
-    
+
     organization = None
     if user.organization_id:
         organization = await db.get(Organization, user.organization_id)
-    
+
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -104,8 +107,9 @@ async def get_me(
         subscription_plan=sub_info["plan"],
         daily_limit=sub_info["daily_limit"],
         used_today=sub_info["used_today"],
-        organization_type=organization.organization_type if organization else None
+        organization_type=organization.organization_type if organization else None,
     )
+
 
 @router.post("/logout")
 async def logout(response: Response):
@@ -113,19 +117,47 @@ async def logout(response: Response):
     response.delete_cookie(key="access_token", path="/")
     return {"detail": "ok"}
 
+
 @router.post("/seed", response_model=dict, status_code=status.HTTP_201_CREATED)
+@limiter.limit("3/minute")
 async def seed_demo(
+    request: Request,
     response: Response,
+    demo_seed_token: str | None = Header(None, alias="X-Demo-Seed-Token"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create demo account and auto-login (DEMO_MODE only)."""
+    """Provision/reset the demo tenant and auto-login the demo user.
+
+    This bootstrap route intentionally exists before the demo user can
+    authenticate, so possession of the environment-only demo password is the
+    pilot authorization boundary in addition to DEMO_MODE.
+    """
     if not settings.DEMO_MODE:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo mode disabled")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Demo mode disabled"
+        )
     if settings.DEMO_ACCOUNT_PASSWORD is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo account not configured")
-    result = await seed_demo_account(db)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Demo account not configured"
+        )
+    configured_token = settings.DEMO_ACCOUNT_PASSWORD.get_secret_value()
+    if (
+        not configured_token
+        or not demo_seed_token
+        or not secrets.compare_digest(demo_seed_token, configured_token)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid demo seed token"
+        )
+    try:
+        result = await seed_demo_account(db)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     # Auto-login: set JWT cookie so frontend doesn't need the password
     from app.core.security import create_access_token
+
     token = create_access_token({"sub": result["user_id"]})
     response.set_cookie(
         key="access_token",
@@ -136,7 +168,7 @@ async def seed_demo(
         max_age=60 * 24 * 7,
         path="/",
     )
-    return {"email": result["email"]}
+    return result
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -146,6 +178,7 @@ async def refresh(
 ):
     """Sliding session (D5): issue a fresh token for the authenticated user."""
     from app.core.security import create_access_token
+
     token = create_access_token({"sub": str(current_user["user_id"])})
     response.set_cookie(
         key="access_token",

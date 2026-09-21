@@ -22,7 +22,9 @@ def _cookie_parts(set_cookie: str) -> list[str]:
     return [part.strip() for part in set_cookie.split(";")]
 
 
-async def _create_login_user(db_session, email: str = "login-secure@test.ru", password: str = "SecurePass1") -> User:
+async def _create_login_user(
+    db_session, email: str = "login-secure@test.ru", password: str = "SecurePass1"
+) -> User:
     """Create a user with a REAL bcrypt password hash."""
     user = User(
         email=email,
@@ -112,8 +114,11 @@ async def test_seed_cookie_also_secure(client, monkeypatch):
     """S1: the seed auto-login cookie is Secure too."""
     monkeypatch.setattr(settings, "DEMO_MODE", True)
     monkeypatch.setattr(settings, "DEMO_ACCOUNT_PASSWORD", SecretStr("demo123"))
+    monkeypatch.setattr(settings, "DEMO_COMPANY_COUNT", 1)
 
-    resp = await client.post("/api/v1/auth/seed")
+    resp = await client.post(
+        "/api/v1/auth/seed", headers={"X-Demo-Seed-Token": "demo123"}
+    )
     assert resp.status_code == 201, resp.text
 
     set_cookie = resp.headers.get("set-cookie", "")
@@ -122,3 +127,13 @@ async def test_seed_cookie_also_secure(client, monkeypatch):
     assert "Secure" in parts
     assert "HttpOnly" in parts
     assert "SameSite=lax" in parts
+
+
+async def test_seed_rejects_request_without_pilot_secret(client, monkeypatch):
+    monkeypatch.setattr(settings, "DEMO_MODE", True)
+    monkeypatch.setattr(settings, "DEMO_ACCOUNT_PASSWORD", SecretStr("demo123"))
+
+    resp = await client.post("/api/v1/auth/seed")
+
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "Invalid demo seed token"

@@ -27,10 +27,15 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?err}@db:5432/${POSTGRES_DB:-startup_engine}
       - SECRET_KEY=${SECRET_KEY:?err}
       - AI_PROVIDER=${AI_PROVIDER:-demo}
+      - AI_QUOTA_ENABLED=${AI_QUOTA_ENABLED:-false}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - GIGACHAT_AUTH_KEY=${GIGACHAT_AUTH_KEY:-}
       - GIGACHAT_CLIENT_ID=${GIGACHAT_CLIENT_ID:-}
       - DEMO_MODE=${DEMO_MODE:-false}
+      - DEMO_ACCOUNT_EMAIL=${DEMO_ACCOUNT_EMAIL:-demo@poicho.ru}
+      - DEMO_ACCOUNT_PASSWORD=${DEMO_ACCOUNT_PASSWORD:-}
+      - DEMO_ORGANIZATION_NAME=${DEMO_ORGANIZATION_NAME:-Demo Venture Fund}
+      - DEMO_COMPANY_COUNT=${DEMO_COMPANY_COUNT:-5}
       - DEBUG=false
       - CORS_ORIGINS=${CORS_ORIGINS:-["https://mvp.poicho.ru"]}
     depends_on:

@@ -67,7 +67,9 @@ jobs:
             SECRET_KEY=${{ secrets.SECRET_KEY }}
             AI_PROVIDER=${{ secrets.AI_PROVIDER }}
             DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}
+            AI_QUOTA_ENABLED=false
             DEMO_MODE=${{ secrets.DEMO_MODE }}
+            DEMO_ACCOUNT_PASSWORD=${{ secrets.DEMO_ACCOUNT_PASSWORD }}
             CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
             ENVEOF
 

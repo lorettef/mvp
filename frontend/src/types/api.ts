@@ -42,6 +42,10 @@ export interface UserResponse {
 
 export interface SeedResponse {
   email: string
+  userId: string
+  organizationId: string
+  companyCount: number
+  companyIds: string[]
 }
 
 // Invites (invite-only registration for VCs and startups)

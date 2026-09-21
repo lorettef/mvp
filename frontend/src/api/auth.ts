@@ -7,5 +7,9 @@ export const authApi = {
     api.post('/auth/login', data, { signal }).then((res) => res.data),
   me: ({ signal }: { signal?: AbortSignal } = {}): Promise<UserResponse> => api.get('/auth/me', { signal }).then((res) => res.data),
   logout: ({ signal }: { signal?: AbortSignal } = {}): Promise<void> => api.post('/auth/logout', undefined, { signal }).then((res) => res.data),
-  seed: ({ signal }: { signal?: AbortSignal } = {}): Promise<SeedResponse> => api.post('/auth/seed', undefined, { signal }).then((res) => res.data),
+  seed: (seedToken: string, { signal }: { signal?: AbortSignal } = {}): Promise<SeedResponse> =>
+    api.post('/auth/seed', undefined, {
+      signal,
+      headers: { 'X-Demo-Seed-Token': seedToken },
+    }).then((res) => res.data),
 }
