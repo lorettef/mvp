@@ -6,6 +6,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.insight import InsightResponse, InsightScenario
+from app.schemas.budget import BudgetResponse
+from app.schemas.cohort import CohortResponse
 from app.models.company import Company
 from app.core import metric_catalog
 from app.services.ai_service import AIService
@@ -89,15 +91,19 @@ class InsightService:
         self, company_id: UUID, scenario: InsightScenario
     ) -> Tuple[str, str, str]:
         label = SCENARIO_LABELS[scenario.value]
+        demo_text_override = ""
 
         if scenario == InsightScenario.overview:
             resp = await self._overview_data(company_id)
         elif scenario == InsightScenario.unit_economics:
             resp = await UnitEconomicsService(self.db).get_unit_economics(company_id)
         elif scenario == InsightScenario.cohorts:
-            resp = await CohortService(self.db).list_cohorts(company_id)
+            rows = await CohortService(self.db).list_cohorts(company_id)
+            resp = [CohortResponse.model_validate(row) for row in rows]
         elif scenario == InsightScenario.budget:
-            resp = await BudgetService(self.db).list_budgets(company_id)
+            rows = await BudgetService(self.db).list_budgets(company_id)
+            resp = [BudgetResponse.model_validate(row) for row in rows]
+            demo_text_override = self._budget_demo_text(resp)
         elif scenario == InsightScenario.readiness:
             resp = await TaskService(self.db).get_readiness(company_id)
         elif scenario == InsightScenario.hiring:
@@ -121,8 +127,23 @@ class InsightService:
             )
 
         data_text = self._serialize(resp)
-        demo_text = self._demo_text(resp)
+        demo_text = demo_text_override or self._demo_text(resp)
         return label, data_text, demo_text
+
+    @staticmethod
+    def _budget_demo_text(rows: List[BudgetResponse]) -> str:
+        """Useful deterministic Budget analysis for demo/provider fallback."""
+        if not rows:
+            return "Недостаточно данных для вывода."
+        latest = rows[0]
+        total = latest.marketing + latest.development + latest.fot + latest.gna
+        return (
+            f"Бюджет содержит {len(rows)} периодов. Последний период — "
+            f"{latest.period:%Y-%m} ({latest.type}): общие расходы "
+            f"{total:,.0f} ₽, ФОТ {latest.fot:,.0f} ₽, маркетинг "
+            f"{latest.marketing:,.0f} ₽, разработка "
+            f"{latest.development:,.0f} ₽ и G&A {latest.gna:,.0f} ₽."
+        )
 
     async def _reports_data(self, company_id: UUID) -> dict:
         unit = await UnitEconomicsService(self.db).get_unit_economics(company_id)

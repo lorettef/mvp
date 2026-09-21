@@ -11,8 +11,10 @@ from app.models.company import Company
 from app.core.roles import ROLE_ADMIN, ROLE_COMPANY, ROLE_OBSERVER
 from app.services.subscription_service import SubscriptionService
 from app.services.audit_service import get_audit_action, write_audit_log
+from app.core.config import settings
 
 security = HTTPBearer(auto_error=False)
+
 
 async def get_current_user(
     request: Request,
@@ -40,8 +42,7 @@ async def get_current_user(
 
     if not token:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Требуется аутентификация"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется аутентификация"
         )
 
     payload = decode_access_token(token)
@@ -49,17 +50,20 @@ async def get_current_user(
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Недействительный или истёкший токен"
+            detail="Недействительный или истёкший токен",
         )
 
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверный токен"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный токен"
         )
 
-    return {"user_id": uuid.UUID(user_id) if isinstance(user_id, str) else user_id, "token": token}
+    return {
+        "user_id": uuid.UUID(user_id) if isinstance(user_id, str) else user_id,
+        "token": token,
+    }
+
 
 async def get_current_user_optional(
     request: Request,
@@ -80,7 +84,11 @@ async def get_current_user_optional(
     if not user_id:
         return None
 
-    return {"user_id": uuid.UUID(user_id) if isinstance(user_id, str) else user_id, "token": token}
+    return {
+        "user_id": uuid.UUID(user_id) if isinstance(user_id, str) else user_id,
+        "token": token,
+    }
+
 
 async def audit_action(
     request: Request,
@@ -92,13 +100,19 @@ async def audit_action(
     if action:
         await write_audit_log(db, request, current_user["user_id"], action)
 
-async def consume_subscription_limit(
-    user_id: str,
-    db: AsyncSession
-) -> bool:
-    """Атомарно списывает один AI-запрос из дневного лимита (True — разрешено)."""
+
+async def consume_subscription_limit(user_id: str, db: AsyncSession) -> bool:
+    """Central application AI-quota gate.
+
+    Subscription plans and usage fields remain available for billing/product
+    work, while the pilot can disable enforcement without endpoint-specific
+    branches. Provider limits are handled later by ``AIService``.
+    """
+    if not settings.AI_QUOTA_ENABLED:
+        return True
     service = SubscriptionService(db)
     return await service.try_consume_ai_limit(user_id)
+
 
 async def get_current_user_full(
     current_user: dict = Depends(get_current_user),
@@ -113,8 +127,7 @@ async def get_current_user_full(
     user = await db.get(User, current_user["user_id"])
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Пользователь не найден"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден"
         )
 
     token = set_current_org(user.organization_id)
@@ -128,6 +141,7 @@ async def get_current_user_full(
     finally:
         reset_current_org(token)
 
+
 async def get_current_org(
     current_user: dict = Depends(get_current_user_full),
 ) -> uuid.UUID:
@@ -139,25 +153,29 @@ async def get_current_org(
     if organization_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Пользователь не привязан к организации"
+            detail="Пользователь не привязан к организации",
         )
     return organization_id
 
+
 def require_role(*allowed: str):
     """Фабрика зависимостей: допускает только указанные роли."""
+
     async def _require_role(
         current_user: dict = Depends(get_current_user_full),
     ) -> dict:
         if current_user["role"] not in allowed:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Недостаточно прав"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав"
             )
         return current_user
+
     return _require_role
+
 
 def require_company_access():
     """Фабрика зависимостей: проверяет доступ пользователя к указанной компании."""
+
     async def _require_company_access(
         company_id: uuid.UUID,
         current_user: dict = Depends(get_current_user_full),
@@ -166,24 +184,27 @@ def require_company_access():
         # skip_tenant_filter: guard-запрос читает Company напрямую по id, чтобы
         # вернуть 403 (а не 404) при кросс-org доступе — явная org-проверка ниже
         # остаётся enforcement'ом.
-        company = await db.get(Company, company_id, execution_options={"skip_tenant_filter": True})
+        company = await db.get(
+            Company, company_id, execution_options={"skip_tenant_filter": True}
+        )
         if not company:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Компания не найдена"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Компания не найдена"
             )
 
         if current_user["role"] == ROLE_ADMIN:
-            if current_user["organization_id"] is None or company.organization_id != current_user["organization_id"]:
+            if (
+                current_user["organization_id"] is None
+                or company.organization_id != current_user["organization_id"]
+            ):
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Недостаточно прав"
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав"
                 )
         elif current_user["company_id"] != company_id:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Недостаточно прав"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав"
             )
 
         return current_user
+
     return _require_company_access

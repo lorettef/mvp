@@ -71,8 +71,8 @@ class AIService:
                 response = await self._call_gigachat(metrics, context)
             await self._cache_response(metrics_hash, response, user_id)
             return response
-        except Exception:
-            logger.error("%s API call failed, falling back to demo", settings.AI_PROVIDER)
+        except Exception as exc:
+            self._log_provider_failure(exc)
             response = self._generate_demo_recommendations(metrics)
             response.provider = "demo"
             await self._cache_response(metrics_hash, response, user_id)
@@ -300,9 +300,23 @@ class AIService:
             else:
                 text = await self._chat_gigachat(system, prompt)
             return text, settings.AI_PROVIDER
-        except Exception:
-            logger.error("%s API call failed, falling back to demo", settings.AI_PROVIDER)
+        except Exception as exc:
+            self._log_provider_failure(exc)
             return demo_text, "demo"
+
+    @staticmethod
+    def _log_provider_failure(exc: Exception) -> None:
+        """Keep provider quota/errors observable while preserving demo fallback."""
+        status_code = (
+            exc.response.status_code
+            if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None
+            else None
+        )
+        logger.warning(
+            "AI provider call failed: provider=%s http_status=%s fallback=demo",
+            settings.AI_PROVIDER,
+            status_code,
+        )
     
     def _generate_demo_recommendations(self, metrics: MetricsRequest) -> RecommendationResponse:
         """Генерирует демо-рекомендации (без реального AI)."""

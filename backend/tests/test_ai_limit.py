@@ -7,12 +7,22 @@ subscriptions.used_today/used_date (а не из подсчёта строк ai_
 
 from datetime import date
 
+import httpx
+import pytest
 from sqlalchemy import select
 
+from app.core.config import settings
+from app.core.plans import PLANS
 from app.models.subscription import Subscription
+from app.services.ai_service import AIService
 from app.services.subscription_service import SubscriptionService
 
 from .conftest import make_user, auth_headers
+
+
+@pytest.fixture(autouse=True)
+def _enable_quota_for_legacy_enforcement_tests(monkeypatch):
+    monkeypatch.setattr(settings, "AI_QUOTA_ENABLED", True)
 
 
 async def _add_sub(db, user, plan="starter"):
@@ -81,3 +91,57 @@ async def test_ai_limit_enforced_on_forecast_endpoint(client, db_session, seeded
 
     r2 = await client.post("/api/v1/forecast/predict", json=payload, headers=headers)
     assert r2.status_code == 429, r2.text
+
+
+async def test_quota_disabled_allows_repeated_requests(
+    client, db_session, seeded_admin, monkeypatch
+):
+    monkeypatch.setattr(settings, "AI_QUOTA_ENABLED", False)
+    await _add_sub(db_session, seeded_admin, "starter")
+    payload = {"history": [1, 2, 3, 4], "months": 6, "method": "linear"}
+    headers = auth_headers(seeded_admin)
+
+    responses = [
+        await client.post("/api/v1/forecast/predict", json=payload, headers=headers)
+        for _ in range(6)
+    ]
+
+    assert [response.status_code for response in responses] == [200] * 6
+    subscription = (
+        await db_session.execute(
+            select(Subscription).where(Subscription.user_id == seeded_admin.id)
+        )
+    ).scalar_one()
+    assert subscription.used_today == 0
+
+
+async def test_provider_429_uses_provider_fallback_not_application_429(
+    db_session, monkeypatch, caplog
+):
+    monkeypatch.setattr(settings, "AI_PROVIDER", "deepseek")
+
+    async def provider_quota(*_args, **_kwargs):
+        request = httpx.Request("POST", "https://provider.test/chat/completions")
+        response = httpx.Response(429, request=request)
+        raise httpx.HTTPStatusError(
+            "provider quota", request=request, response=response
+        )
+
+    monkeypatch.setattr(AIService, "_chat_deepseek", provider_quota)
+    text, provider = await AIService(db_session).complete(
+        "prompt", demo_text="provider fallback"
+    )
+
+    assert text == "provider fallback"
+    assert provider == "demo"
+    assert "http_status=429" in caplog.text
+
+
+def test_subscription_and_plan_architecture_remains_available():
+    assert {plan["id"] for plan in PLANS} == {
+        "starter",
+        "pro",
+        "business",
+        "enterprise",
+    }
+    assert Subscription.__tablename__ == "subscriptions"
