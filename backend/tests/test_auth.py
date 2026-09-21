@@ -37,10 +37,8 @@ def _register_payload(**overrides):
 
 
 async def test_register_fund_default_creates_fund_org(client, db_session):
-    """Фонд (ветка по умолчанию): admin, организация типа fund, компания и подписка."""
-    resp = await client.post(
-        "/api/v1/auth/register", json=_register_payload()
-    )
+    """Фонд: admin tenant owner without a phantom portfolio company."""
+    resp = await client.post("/api/v1/auth/register", json=_register_payload())
     assert resp.status_code == 201, resp.text
     body = resp.json()
 
@@ -49,22 +47,29 @@ async def test_register_fund_default_creates_fund_org(client, db_session):
     assert body["company_name"] == "Fund Co"
     assert body["subscription_plan"] == "starter"
     assert body["organization_id"] is not None
-    assert body["company_id"] is not None
+    assert body["company_id"] is None
 
-    org = await db_session.get(
-        Organization, uuid.UUID(body["organization_id"])
-    )
+    org = await db_session.get(Organization, uuid.UUID(body["organization_id"]))
     assert org is not None
     assert org.organization_type == "fund"
     assert org.name == "Fund Co"
 
     user = (
-        await db_session.execute(
-            select(User).where(User.email == "fund-owner@test.ru")
-        )
+        await db_session.execute(select(User).where(User.email == "fund-owner@test.ru"))
     ).scalar_one()
     assert user.role == "admin"
-    assert user.company_id == uuid.UUID(body["company_id"])
+    assert user.company_id is None
+
+    companies = (
+        (
+            await db_session.execute(
+                select(Company).where(Company.organization_id == org.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert companies == []
 
     sub = (
         await db_session.execute(
@@ -118,9 +123,7 @@ async def test_register_standalone_startup(client, db_session):
     assert body["organization_type"] == "startup"
     assert body["company_id"] is not None
 
-    org = await db_session.get(
-        Organization, uuid.UUID(body["organization_id"])
-    )
+    org = await db_session.get(Organization, uuid.UUID(body["organization_id"]))
     assert org.organization_type == "startup"
     assert org.name == "Startup Co"
 
@@ -179,14 +182,10 @@ async def test_me_returns_organization_type(client, db_session):
     assert resp.status_code == 201, resp.text
 
     user = (
-        await db_session.execute(
-            select(User).where(User.email == "me-owner@test.ru")
-        )
+        await db_session.execute(select(User).where(User.email == "me-owner@test.ru"))
     ).scalar_one()
 
-    me = await client.get(
-        "/api/v1/auth/me", headers=auth_headers(user)
-    )
+    me = await client.get("/api/v1/auth/me", headers=auth_headers(user))
     assert me.status_code == 200, me.text
     body = me.json()
     assert body["organization_type"] == "fund"

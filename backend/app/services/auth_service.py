@@ -6,18 +6,24 @@ from app.models.subscription import Subscription
 from app.models.organization import Organization
 from app.models.company import Company
 from app.schemas.auth import UserCreate
-from app.core.security import hash_password, verify_password, create_access_token, dummy_password_hash
+from app.core.security import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    dummy_password_hash,
+)
 from app.core.time import utcnow
 from app.services.invite_service import InviteService
 from app.services.company_service import CompanyService
 from app.services.subscription_service import SubscriptionService
 
+
 class AuthService:
     """Сервис аутентификации."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def register(self, data: UserCreate) -> dict:
         """Регистрация нового пользователя.
 
@@ -29,33 +35,28 @@ class AuthService:
         - фонд (по умолчанию): организация типа fund, пользователь — admin.
         """
         # Проверка на существующего пользователя
-        existing = await self.db.execute(
-            select(User).where(User.email == data.email)
-        )
+        existing = await self.db.execute(select(User).where(User.email == data.email))
         if existing.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Пользователь с таким email уже существует"
+                detail="Пользователь с таким email уже существует",
             )
-        
+
         # Создание пользователя
         user = User(
             email=data.email,
             password_hash=hash_password(data.password),
             full_name=data.full_name,
-            company_name=data.company_name
+            company_name=data.company_name,
         )
         self.db.add(user)
         await self.db.flush()
-        
+
         # Создание бесплатной подписки
-        subscription = Subscription(
-            user_id=user.id,
-            plan="starter"
-        )
+        subscription = Subscription(user_id=user.id, plan="starter")
         self.db.add(subscription)
         await self.db.flush()
-        
+
         if data.invite_token:
             invite_service = InviteService(self.db)
             invite = await invite_service.get_valid_invite(data.invite_token)
@@ -63,8 +64,12 @@ class AuthService:
             # Лимит компаний организации применяется и к инвайт-регистрации:
             # компания добавляется в организацию администратора, поэтому лимит
             # берётся по тарифу владельца организации (а не нового пользователя).
-            plan_id = await SubscriptionService(self.db).get_org_plan_id(invite.organization_id)
-            await CompanyService(self.db).enforce_company_limit(invite.organization_id, plan_id)
+            plan_id = await SubscriptionService(self.db).get_org_plan_id(
+                invite.organization_id
+            )
+            await CompanyService(self.db).enforce_company_limit(
+                invite.organization_id, plan_id
+            )
 
             user.role = "company"
             user.organization_id = invite.organization_id
@@ -73,7 +78,7 @@ class AuthService:
                 organization_id=invite.organization_id,
                 name=data.company_name,
                 industry=data.industry,
-                geography=data.geography
+                geography=data.geography,
             )
             self.db.add(company)
             await self.db.flush()
@@ -82,8 +87,7 @@ class AuthService:
             invite.used_at = utcnow()
         elif data.account_type == "startup":
             organization = Organization(
-                name=data.company_name or data.full_name,
-                organization_type="startup"
+                name=data.company_name or data.full_name, organization_type="startup"
             )
             self.db.add(organization)
             await self.db.flush()
@@ -95,58 +99,51 @@ class AuthService:
                 organization_id=organization.id,
                 name=data.company_name,
                 industry=data.industry,
-                geography=data.geography
+                geography=data.geography,
             )
             self.db.add(company)
             await self.db.flush()
             user.company_id = company.id
         else:
-            # Создание организации (акселератора) и назначение владельца
+            # Создание организации фонда и назначение владельца.
             organization = Organization(
                 name=data.company_name or data.full_name or "Мой акселератор",
-                organization_type="fund"
+                organization_type="fund",
             )
             self.db.add(organization)
             await self.db.flush()
-            
+
             user.role = "admin"
             user.organization_id = organization.id
-            
-            # Создание компании, если указано название компании
-            if data.company_name:
-                company = Company(
-                    organization_id=organization.id,
-                    name=data.company_name,
-                    industry=data.industry,
-                    geography=data.geography
-                )
-                self.db.add(company)
-                await self.db.flush()
-                user.company_id = company.id
-        
+            # Fund is the tenant owner, not a portfolio Company. Startups are
+            # added later through onboarding or an invite.
+            user.company_id = None
+
         await self.db.flush()
 
         organization = None
         if user.organization_id:
             organization = await self.db.get(Organization, user.organization_id)
-        
+
         return {
             "id": user.id,
             "email": user.email,
             "full_name": user.full_name,
             "company_name": user.company_name,
             "role": user.role,
-            "organization_id": str(user.organization_id) if user.organization_id else None,
+            "organization_id": (
+                str(user.organization_id) if user.organization_id else None
+            ),
             "company_id": str(user.company_id) if user.company_id else None,
-            "organization_type": organization.organization_type if organization else None,
-            "created_at": user.created_at.isoformat()
+            "organization_type": (
+                organization.organization_type if organization else None
+            ),
+            "created_at": user.created_at.isoformat(),
         }
-    
+
     async def login(self, email: str, password: str) -> dict:
         """Авторизация пользователя."""
-        result = await self.db.execute(
-            select(User).where(User.email == email)
-        )
+        result = await self.db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -156,13 +153,13 @@ class AuthService:
             verify_password(password, dummy_password_hash())
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Неверный email или пароль"
+                detail="Неверный email или пароль",
             )
 
         if not verify_password(password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Неверный email или пароль"
+                detail="Неверный email или пароль",
             )
 
         user.last_login = utcnow()
@@ -173,5 +170,5 @@ class AuthService:
         return {
             "access_token": access_token,
             "token_type": "bearer",
-            "expires_in": 60 * 24 * 7
+            "expires_in": 60 * 24 * 7,
         }
