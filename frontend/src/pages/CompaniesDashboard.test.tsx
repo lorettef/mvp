@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -82,6 +82,33 @@ describe('CompaniesDashboard startup invites', () => {
     })
   })
 
+  it('closes the invite dialog without creating an invite and can reopen it', async () => {
+    invitesApiMock.create.mockResolvedValue({
+      token: 'reopened-token',
+      expiresAt: '2026-09-09T00:00:00Z',
+      email: null,
+    })
+    renderDashboard()
+    const openButton = await screen.findByRole('button', { name: 'Пригласить стартап' })
+
+    fireEvent.click(openButton)
+    const dialog = screen.getByRole('dialog', { name: 'Пригласить стартап' })
+    expect(within(dialog).getByRole('button', { name: 'Отмена' })).toBeInTheDocument()
+    expect(invitesApiMock.create).not.toHaveBeenCalled()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(invitesApiMock.create).not.toHaveBeenCalled()
+    expect(openButton).toBeInTheDocument()
+
+    fireEvent.click(openButton)
+    expect(screen.getByRole('dialog', { name: 'Пригласить стартап' })).toBeInTheDocument()
+    expect(invitesApiMock.create).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Создать ссылку' }))
+    expect(await screen.findByDisplayValue(/\/invite\/reopened-token/)).toBeInTheDocument()
+    expect(invitesApiMock.create).toHaveBeenCalledTimes(1)
+  })
+
   it('creates an invite and reveals the full startup link', async () => {
     invitesApiMock.create.mockResolvedValue({
       token: 'startup-token',
@@ -91,6 +118,7 @@ describe('CompaniesDashboard startup invites', () => {
 
     renderDashboard()
     fireEvent.click(await screen.findByRole('button', { name: 'Пригласить стартап' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Создать ссылку' }))
 
     await waitFor(() => expect(invitesApiMock.create).toHaveBeenCalledWith())
 
@@ -107,6 +135,7 @@ describe('CompaniesDashboard startup invites', () => {
 
     renderDashboard()
     fireEvent.click(await screen.findByRole('button', { name: 'Пригласить стартап' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Создать ссылку' }))
     const linkInput = await screen.findByDisplayValue(/\/invite\/copy-token/)
 
     fireEvent.click(screen.getByRole('button', { name: 'Копировать' }))

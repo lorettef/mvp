@@ -173,6 +173,7 @@ export const en = {
     noAccessDesc: 'Your role has no access to this section',
     invite: {
       title: 'Invite startup',
+      createLink: 'Create link',
       generating: 'Creating link...',
       link: 'Invitation link',
       copy: 'Copy',
@@ -229,6 +230,13 @@ export const en = {
     },
   },
   overview: {
+    metricHelp: {
+      ltv: 'Estimated total revenue from one customer over their time with the company.',
+      arpu: 'Average revenue per customer during the selected period.',
+      retention: 'Share of customers who continue using the product after the selected period.',
+      cac: 'Average cost of acquiring one new customer.',
+      churn: 'Share of customers who stop using the product during the selected period.',
+    },
     kpi: {
       runway: 'Runway',
       runwayMonths: '{{value}} mo.',

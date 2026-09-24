@@ -23,12 +23,10 @@ export interface CompanyNavGroup {
 /**
  * Единственный источник глобальной навигации.
  * Отдельных роутов «Companies / Tasks / Reports» в приложении нет — они живут
- * внутри Dashboard / вкладок компании, поэтому global nav остаётся из двух
- * пунктов, как и в прежнем sidebar.
+ * внутри Dashboard / вкладок компании. Настройки доступны через UserMenu.
  */
 export const globalNav: GlobalNavItem[] = [
   { key: 'dashboard', labelKey: 'nav.dashboard', href: '/dashboard' },
-  { key: 'settings', labelKey: 'nav.settings', href: '/settings' },
 ]
 
 /**

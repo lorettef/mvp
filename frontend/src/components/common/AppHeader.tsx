@@ -10,6 +10,7 @@ import { globalNav } from '@/lib/navigation'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { LanguageToggle } from '@/components/LanguageToggle'
 import { UserMenu } from '@/components/common/UserMenu'
 import { BrandMark, Logo } from '@/components/shared/logo'
 import { cn } from '@/lib/utils'
@@ -56,6 +57,9 @@ export function AppHeader() {
           <ThemeToggle />
         </div>
         <div className="hidden md:block">
+          <LanguageToggle className="rounded-md px-2 py-2 text-muted-foreground hover:bg-accent/60 hover:text-foreground" />
+        </div>
+        <div>
           <UserMenu />
         </div>
 

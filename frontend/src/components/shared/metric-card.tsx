@@ -2,11 +2,13 @@ import type { ReactNode } from "react"
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
+import { MetricHelp } from "@/components/shared/metric-help"
 
 export type TrendDirection = "up" | "down" | "flat"
 
 export interface MetricCardProps {
   label: string
+  description?: string
   value: ReactNode
   /** Signed delta, e.g. 18.4 for +18.4%, -3.2 for -3.2%. */
   delta?: number | null
@@ -54,6 +56,7 @@ function Sparkline({ points }: { points: number[] }) {
 
 export function MetricCard({
   label,
+  description,
   value,
   delta,
   deltaSuffix = "%",
@@ -82,9 +85,11 @@ export function MetricCard({
     <Card className={cn("border bg-card", className)}>
       <CardContent className="p-5">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {label}
-          </span>
+          {description ? (
+            <MetricHelp label={label} description={description} className="text-xs font-medium uppercase tracking-wider text-muted-foreground" />
+          ) : (
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+          )}
           {icon ? (
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
               {icon}

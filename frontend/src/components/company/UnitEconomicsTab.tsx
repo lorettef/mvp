@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { UnitEconomicsResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MetricHelp } from '@/components/shared/metric-help'
 import { fmtPct, fmtRub } from '@/lib/format'
 
 const fmtNum = (v: number | null | undefined, digits = 2) =>
@@ -75,6 +76,7 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
       label: 'Churn',
       value: fmtPct(data.churn),
       ok: data.churn == null ? null : data.churn <= 0.05,
+      description: t('overview.metricHelp.churn'),
     },
   ]
 
@@ -93,9 +95,11 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.map((s) => (
               <div key={s.label} className="rounded-lg border border-border p-4">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {s.label}
-                </p>
+                {s.description ? (
+                  <MetricHelp label={s.label} description={s.description} side="right" className="text-xs font-medium text-muted-foreground uppercase tracking-wider" />
+                ) : (
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{s.label}</p>
+                )}
                 <p
                   className={`text-2xl font-bold mt-1 ${
                     s.ok === null

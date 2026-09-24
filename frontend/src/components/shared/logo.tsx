@@ -9,7 +9,7 @@ export function BrandMark({ className }: { className?: string }) {
         className
       )}
     >
-      <svg className="h-[55%] w-[55%]" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <svg className="h-[62%] w-[62%]" viewBox="0 0 48 54" fill="none" aria-hidden="true">
         <path
           d="M24 4L6 14v12c0 11.05 7.68 21.37 18 24 10.32-2.63 18-12.95 18-24V14L24 4z"
           stroke="currentColor"

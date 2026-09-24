@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/shared/page-header'
 import { Section } from '@/components/shared/section'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MetricHelp } from '@/components/shared/metric-help'
 import { CompanyConfigDialog } from '@/components/company/CompanyConfigDialog'
 import { StartupKpi } from '@/components/dashboard/StartupKpi'
 import { BusinessHealth } from '@/components/dashboard/BusinessHealth'
@@ -29,10 +30,14 @@ type Mode = 'both' | 'fact' | 'plan'
 const EMPTY_METRICS: Metric[] = []
 const EMPTY_COHORTS: Cohort[] = []
 
-function MetricValue({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function MetricValue({ label, value, sub, description }: { label: string; value: string; sub?: string; description?: string }) {
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      {description ? (
+        <MetricHelp label={label} description={description} className="text-xs text-muted-foreground" />
+      ) : (
+        <p className="text-xs text-muted-foreground">{label}</p>
+      )}
       <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{value}</p>
       {sub ? <p className="text-xs text-muted-foreground">{sub}</p> : null}
     </div>
@@ -172,6 +177,7 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
     <div className="space-y-6">
       <PageHeader
         title={company.name}
+        alignTitleWithActions
         description={
           <span>
             {industryLabel}
@@ -274,8 +280,8 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
 
         <Section title={t('overview.unit.title')}>
           <div className="grid grid-cols-2 gap-3">
-            <MetricValue label={t('overview.unit.cac')} value={fmtRub(unit?.cac ?? null)} />
-            <MetricValue label={t('overview.unit.ltv')} value={fmtRub(unit?.ltv ?? null)} />
+            <MetricValue label={t('overview.unit.cac')} value={fmtRub(unit?.cac ?? null)} description={t('overview.metricHelp.cac')} />
+            <MetricValue label={t('overview.unit.ltv')} value={fmtRub(unit?.ltv ?? null)} description={t('overview.metricHelp.ltv')} />
             <MetricValue label={t('overview.unit.ltvCac')} value={fmtFactor(unit?.ltvCac ?? null)} />
             <MetricValue label={t('overview.unit.payback')} value={unit?.paybackPeriod != null ? t('overview.unit.months', { value: unit.paybackPeriod }) : '—'} />
             <MetricValue
@@ -283,7 +289,7 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
               value={fmtPct(company.grossMargin)}
               sub={t('overview.unit.grossMarginParam')}
             />
-            <MetricValue label={t('overview.unit.arpu')} value={fmtRub(metrics.find((m) => m.type === 'fact')?.arpu ?? null)} />
+            <MetricValue label={t('overview.unit.arpu')} value={fmtRub(metrics.find((m) => m.type === 'fact')?.arpu ?? null)} description={t('overview.metricHelp.arpu')} />
           </div>
         </Section>
       </div>

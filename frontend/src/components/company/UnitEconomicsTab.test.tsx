@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { UnitEconomicsTab } from './UnitEconomicsTab'
 import type { UnitEconomicsResponse } from '@/types/api'
@@ -34,6 +34,13 @@ describe('UnitEconomicsTab', () => {
     expect(screen.getByText('3.50')).toBeInTheDocument() // magic_number
     expect(screen.getByText('Runway')).toBeInTheDocument()
     expect(screen.getByText('15.0 мес.')).toBeInTheDocument()
+  })
+
+  it('explains Churn without changing its value', async () => {
+    render(<UnitEconomicsTab data={makeData()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Churn' }))
+    expect(await screen.findByText(/Доля клиентов, которые перестали пользоваться продуктом/)).toBeVisible()
+    expect(screen.getAllByText('3.0%')).toHaveLength(2)
   })
 
   it('renders retention M1/M3/M6/M12', () => {

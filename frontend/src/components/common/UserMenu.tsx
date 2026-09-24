@@ -1,9 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LogOut, Moon, Settings, Sun, Languages } from 'lucide-react'
+import { LogOut, Moon, Settings, Sun } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { logout } from '@/auth/authSession'
-import { switchLanguage } from '@/i18n'
 import { useTheme } from '@/components/theme-provider'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export function UserMenu() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { user } = useAuthStore()
   const { theme, setTheme } = useTheme()
 
@@ -45,12 +44,6 @@ export function UserMenu() {
             <Settings />
             {t('nav.settings')}
           </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => switchLanguage(i18n.language === 'ru' ? 'en' : 'ru')}
-        >
-          <Languages />
-          {t('common.language')}: {i18n.language === 'ru' ? 'EN' : 'RU'}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}

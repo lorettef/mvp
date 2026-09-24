@@ -39,6 +39,13 @@ export function StartupKpi({
   const specs = selectKpiSpecs(company, catalog)
   const fact = latestFact(metrics)
   const plan = planForPeriod(metrics, fact?.period)
+  const metricHelp = {
+    ltv: t('overview.metricHelp.ltv'),
+    arpu: t('overview.metricHelp.arpu'),
+    retention_rate: t('overview.metricHelp.retention'),
+    cac: t('overview.metricHelp.cac'),
+    churn: t('overview.metricHelp.churn'),
+  }
 
   const cards = specs.map((spec) => {
     const series = factSeries(metrics, spec.key)
@@ -52,6 +59,7 @@ export function StartupKpi({
       <MetricCard
         key={spec.key}
         label={spec.label}
+        description={metricHelp[spec.key as keyof typeof metricHelp]}
         value={formatValue(spec.key, value)}
         delta={delta}
         deltaSuffix="%"
