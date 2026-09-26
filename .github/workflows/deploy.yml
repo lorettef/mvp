@@ -59,8 +59,11 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -eu
             cd /app/mvp
-            cat > .env << 'ENVEOF'
+            env_next=$(mktemp .env.deploy.XXXXXX)
+            trap 'rm -f "$env_next"' EXIT
+            cat > "$env_next" << 'ENVEOF'
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
             POSTGRES_DB=${{ secrets.POSTGRES_DB }}
@@ -70,8 +73,12 @@ jobs:
             AI_QUOTA_ENABLED=false
             DEMO_MODE=${{ secrets.DEMO_MODE }}
             DEMO_ACCOUNT_PASSWORD=${{ secrets.DEMO_ACCOUNT_PASSWORD }}
-            CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
+            CORS_ORIGINS=["https://mvp.poicho.ru","https://profadvisors.com"]
+            COMPOSE_FILE=docker-compose.prod.yml
             ENVEOF
+            docker compose --env-file "$env_next" -f docker-compose.prod.yml config --quiet
+            mv "$env_next" .env
+            trap - EXIT
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -80,11 +87,13 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -eu
             cd /app/mvp
             git pull
+            docker compose -f docker-compose.prod.yml config --quiet
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --no-build --remove-orphans
             docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
 
       - name: Health check
