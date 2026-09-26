@@ -223,6 +223,7 @@ export function CompanyConfigDialog({ open, company, tenantKey, onOpenChange }: 
                 min="0"
                 max="100"
                 step="0.1"
+                placeholder={t('dashboard.onboarding.grossMarginPlaceholder')}
                 value={grossMargin}
                 onChange={(e) => setGrossMargin(e.target.value)}
               />

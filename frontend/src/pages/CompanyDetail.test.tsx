@@ -1,15 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CompanyDetail } from './CompanyDetail'
-
-async function selectMonths(count: string) {
-  const user = userEvent.setup()
-  await user.click(screen.getByRole('combobox', { name: 'Месяцев' }))
-  await user.click(await screen.findByRole('option', { name: count }))
-}
 
 const mocks = vi.hoisted(() => ({
   role: 'admin' as string,
@@ -455,18 +448,6 @@ function renderCompanyDetail(tab?: string) {
   )
 }
 
-async function chooseBulkStartMonth(label: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'Стартовый месяц' }))
-  const targetYear = Number(label.slice(-4))
-  const currentYear = new Date().getFullYear()
-  const direction = targetYear < currentYear ? 'Предыдущий год' : 'Следующий год'
-  const steps = Math.abs(targetYear - currentYear)
-  for (let step = 0; step < steps; step += 1) {
-    fireEvent.click(await screen.findByRole('button', { name: direction }))
-  }
-  fireEvent.click(await screen.findByRole('button', { name: label }))
-}
-
 describe('CompanyDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -649,8 +630,11 @@ describe('CompanyDetail', () => {
     renderCompanyDetail()
     fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
 
-    await chooseBulkStartMonth('Январь 2026')
-    await selectMonths('2')
+    const now = new Date()
+    const period = (offset: number) => {
+      const month = new Date(now.getFullYear(), now.getMonth() - 2 + offset, 1)
+      return `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`
+    }
 
     fireEvent.change(screen.getByLabelText('Выручка 1'), { target: { value: '5000' } })
     fireEvent.change(screen.getByLabelText('Новые юниты 1'), { target: { value: '10' } })
@@ -663,13 +647,18 @@ describe('CompanyDetail', () => {
     fireEvent.change(screen.getByLabelText('ARPU 2'), { target: { value: '600' } })
     fireEvent.change(screen.getByLabelText('Retention % 2'), { target: { value: '85' } })
 
+    fireEvent.change(screen.getByLabelText('Выручка 3'), { target: { value: '7000' } })
+    fireEvent.change(screen.getByLabelText('Новые юниты 3'), { target: { value: '14' } })
+    fireEvent.change(screen.getByLabelText('ARPU 3'), { target: { value: '700' } })
+    fireEvent.change(screen.getByLabelText('Retention % 3'), { target: { value: '80' } })
+
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить метрики' }))
 
     await waitFor(() =>
       expect(mocks.companiesApi.upsertMetricBulk).toHaveBeenCalledWith('comp1', {
         items: [
           {
-            period: '2026-01-01',
+            period: period(0),
             type: 'fact',
             new_units: 10,
             arpu: 500,
@@ -678,13 +667,22 @@ describe('CompanyDetail', () => {
             retention_rate: 0.9,
           },
           {
-            period: '2026-02-01',
+            period: period(1),
             type: 'fact',
             new_units: 12,
             arpu: 600,
             revenue: 6000,
             marketing_spend: 0,
             retention_rate: 0.85,
+          },
+          {
+            period: period(2),
+            type: 'fact',
+            new_units: 14,
+            arpu: 700,
+            revenue: 7000,
+            marketing_spend: 0,
+            retention_rate: 0.8,
           },
         ],
       }),
@@ -695,8 +693,6 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.upsertMetricBulk.mockResolvedValue([])
     renderCompanyDetail()
     fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
-
-    await selectMonths('2')
 
     fireEvent.change(screen.getByLabelText('Выручка 1'), { target: { value: '5000' } })
     fireEvent.change(screen.getByLabelText('Новые юниты 1'), { target: { value: '10' } })

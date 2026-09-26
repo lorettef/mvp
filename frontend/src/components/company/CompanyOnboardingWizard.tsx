@@ -142,14 +142,14 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
       <CardHeader className="pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle>{t('dashboard.onboarding.title')}</CardTitle>
+            <CardTitle>{t('dashboard.addCompany')}</CardTitle>
             <CardDescription className="mt-2">{t('dashboard.onboarding.description')}</CardDescription>
           </div>
           <span className="text-sm text-muted-foreground">
             {t('dashboard.onboarding.stepCounter', { current: step, total: WIZARD_STEPS })}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-2 pt-2 sm:grid-cols-4" aria-label={t('dashboard.onboarding.progressLabel')}>
+        <div className="mx-auto grid w-full max-w-xl grid-cols-2 gap-2 pt-2 sm:grid-cols-4" aria-label={t('dashboard.onboarding.progressLabel')}>
           {stepLabels.map((label, index) => {
             const stepNumber = index + 1
             return (
@@ -319,7 +319,7 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
                 min="0"
                 max="100"
                 step="0.1"
-                placeholder="70"
+                placeholder={t('dashboard.onboarding.grossMarginPlaceholder')}
                 value={grossMargin}
                 onChange={(event) => setGrossMargin(event.target.value)}
               />

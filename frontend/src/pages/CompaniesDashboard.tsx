@@ -9,14 +9,13 @@ import { qk } from '../lib/queryKeys'
 import { Button } from '@/components/ui/button'
 import { QueryState } from '@/components/common/QueryState'
 import { StartupInvite } from '@/components/common/StartupInvite'
-import { CompanyOnboardingWizard } from '@/components/company/CompanyOnboardingWizard'
 import { PageHeader } from '@/components/shared/page-header'
 import { Section } from '@/components/shared/section'
 import { MetricCard } from '@/components/shared/metric-card'
 import { FundCompaniesTable } from '@/components/dashboard/FundCompaniesTable'
 import { TrendChart } from '@/components/dashboard/TrendChart'
 import { fmtRub, fmtSignedPct } from '@/lib/format'
-import { Building2, TrendingUp, CircleCheck, AlertTriangle, CalendarClock, Plus, RefreshCw, RotateCcw, Trash2, ArrowRight } from 'lucide-react'
+import { Building2, TrendingUp, CircleCheck, AlertTriangle, CalendarClock, RefreshCw, RotateCcw, Trash2, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Range = 3 | 6 | 12
@@ -26,7 +25,6 @@ export const CompaniesDashboard = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
   const [range, setRange] = useState<Range>(6)
   const [mode, setMode] = useState<Mode>('both')
 
@@ -105,17 +103,11 @@ export const CompaniesDashboard = () => {
                 <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
                 {isFetching ? t('common.recalculating') : t('common.forceRecalc')}
               </Button>
-              <Button size="sm" onClick={() => setShowForm((open) => !open)}>
-                <Plus className="h-4 w-4" />
-                {t('dashboard.addCompany')}
-              </Button>
             </>
           }
         />
 
         <StartupInvite />
-
-        <CompanyOnboardingWizard open={showForm} tenantKey={tenantKey} onClose={() => setShowForm(false)} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <MetricCard label={t('dashboard.cards.companies')} value={String(total)} icon={<Building2 className="h-4 w-4" />} />

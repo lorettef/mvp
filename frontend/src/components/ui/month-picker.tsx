@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, CalendarDays, X } from 'lucide-react'
 import * as Popover from '@radix-ui/react-popover'
 import { useTranslation } from 'react-i18next'
@@ -36,6 +36,7 @@ export function MonthPicker({
 }: MonthPickerProps) {
   const { i18n } = useTranslation()
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const [year, setYear] = useState(() => parseMonthValue(value)?.getFullYear() ?? currentYear())
   const locale = i18n.language === 'en' ? 'en-US' : 'ru-RU'
   const selectedMonth = parseMonthValue(value)
@@ -58,6 +59,7 @@ export function MonthPicker({
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <Button
+          ref={triggerRef}
           type="button"
           variant="outline"
           disabled={disabled}
@@ -71,11 +73,11 @@ export function MonthPicker({
           <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
         </Button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <Popover.Portal container={triggerRef.current?.closest('[role="dialog"]') ?? undefined}>
         <Popover.Content
           align="start"
           sideOffset={8}
-          className="z-50 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none"
+          className="z-50 w-[min(20rem,calc(100vw-2rem))] pointer-events-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none"
         >
           <div className="flex items-center justify-between border-b border-border pb-3">
             <Button

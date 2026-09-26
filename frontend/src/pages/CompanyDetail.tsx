@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -631,8 +632,12 @@ export const CompanyDetail = () => {
                 </div>
               </div>
 
-              {showForm && canEdit && (
-                <div className="mb-6 p-4 border border-border rounded-lg bg-muted/30">
+              <Dialog open={showForm && canEdit} onOpenChange={setShowForm}>
+                <DialogContent className="max-w-6xl" closeLabel={t('common.cancel')}>
+                  <DialogHeader>
+                    <DialogTitle>{t('company.metrics.addMetric')}</DialogTitle>
+                  </DialogHeader>
+                <div className="min-w-0 p-4 border border-border rounded-lg bg-muted/30">
                   <div className="flex flex-wrap items-end gap-3 mb-4">
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-muted-foreground">{t('common.type')}</span>
@@ -790,7 +795,8 @@ export const CompanyDetail = () => {
                     </Button>
                   </div>
                 </div>
-              )}
+                </DialogContent>
+              </Dialog>
 
               <Table>
                 <TableHeader>

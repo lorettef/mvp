@@ -147,7 +147,7 @@ describe('CompaniesDashboard startup invites', () => {
   })
 })
 
-describe('CompaniesDashboard create form', () => {
+describe('CompaniesDashboard company creation', () => {
   beforeEach(() => {
     companiesApiMock.create.mockReset()
     companiesApiMock.list.mockReset()
@@ -163,43 +163,14 @@ describe('CompaniesDashboard create form', () => {
       companies: [],
     })
     catalogApiMock.get.mockReset()
-    catalogApiMock.get.mockResolvedValue({
-      industries: [{ slug: 'saas', label: 'SaaS' }],
-      business_models: [{ slug: 'subscription', label: 'Подписка', description: '' }],
-      profiles: { saas: { subscription: { label: '', why: '', metrics: [], derived: [] } } },
-    })
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
-      configurable: true,
-      value: vi.fn(),
-    })
+    catalogApiMock.get.mockResolvedValue({ industries: [], business_models: [], profiles: {} })
   })
 
-  it.each(['Россия', 'Казахстан', 'Глобальный рынок'])('submits %s as the geography label with the selected industry slug', async (geography) => {
+  it('offers invites but no direct company creation form to a fund', async () => {
     renderDashboard()
-    fireEvent.click(await screen.findByRole('button', { name: 'Добавить компанию' }))
-    fireEvent.change(screen.getByRole('textbox', { name: 'Название компании' }), {
-      target: { value: 'Новая компания' },
-    })
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(geography) }))
-    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
-    fireEvent.click(screen.getByRole('combobox', { name: 'Сфера деятельности' }))
-    fireEvent.click(await screen.findByRole('option', { name: 'SaaS' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
-    fireEvent.click(screen.getByRole('combobox', { name: 'Бизнес-модель' }))
-    fireEvent.click(await screen.findByRole('option', { name: 'Подписка' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
-    fireEvent.change(screen.getByLabelText('Валовая маржа (%)'), { target: { value: '75.5' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Создать' }))
-
-    await waitFor(() =>
-      expect(companiesApiMock.create).toHaveBeenCalledWith({
-        name: 'Новая компания',
-        industry: 'saas',
-        business_model: 'subscription',
-        gross_margin: 0.755,
-        geography,
-        selected_metrics: [],
-      }),
-    )
+    expect(await screen.findByRole('button', { name: 'Пригласить стартап' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Добавить компанию' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Название компании' })).not.toBeInTheDocument()
+    expect(companiesApiMock.create).not.toHaveBeenCalled()
   })
 })

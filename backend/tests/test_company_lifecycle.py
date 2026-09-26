@@ -4,10 +4,10 @@ from sqlalchemy import select, func
 
 from .conftest import auth_headers, make_user
 from app.models.metric import Metric
+from app.models.company import Company
 from app.models.cohort import Cohort
 from app.models.budget import Budget
 from app.models.task import Task
-from app.models.user import User
 
 
 def _metric(company_id, period=date(2026, 1, 1), revenue=100.0) -> Metric:
@@ -23,6 +23,7 @@ def _metric(company_id, period=date(2026, 1, 1), revenue=100.0) -> Metric:
 
 
 async def test_create_company_with_business_model(client, seeded_organization, seeded_admin):
+    seeded_organization.organization_type = "startup"
     res = await client.post(
         "/api/v1/companies",
         json={"name": "BizCo", "industry": "SaaS", "business_model": "SaaS"},
@@ -35,6 +36,7 @@ async def test_create_company_with_business_model(client, seeded_organization, s
 
 
 async def test_create_company_with_selected_metrics(client, seeded_organization, seeded_admin):
+    seeded_organization.organization_type = "startup"
     res = await client.post(
         "/api/v1/companies",
         json={
@@ -51,6 +53,18 @@ async def test_create_company_with_selected_metrics(client, seeded_organization,
     assert body["selected_metrics"] == ["new_units", "arpu", "revenue", "retention_rate"]
     assert body["industry"] == "saas"
     assert body["business_model"] == "subscription"
+
+
+async def test_fund_admin_cannot_create_company(client, db_session, seeded_organization, seeded_admin):
+    res = await client.post(
+        "/api/v1/companies",
+        json={"name": "Portfolio duplicate"},
+        headers=auth_headers(seeded_admin),
+    )
+    assert res.status_code == 403
+    assert await db_session.scalar(
+        select(func.count(Company.id)).where(Company.name == "Portfolio duplicate")
+    ) == 0
 
 
 async def test_update_company_selected_metrics(client, seeded_company, seeded_admin):

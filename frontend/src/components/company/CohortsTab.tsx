@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, Trash2 } from 'lucide-react'
 import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
 
@@ -138,8 +139,12 @@ export function CohortsTab({
           )}
         </div>
 
-        {showForm && canEdit && (
-          <div className="mb-6 p-4 border border-border rounded-lg bg-muted/30">
+        <Dialog open={showForm && canEdit} onOpenChange={setShowForm}>
+          <DialogContent className="max-w-3xl" closeLabel={t('common.cancel')}>
+            <DialogHeader>
+              <DialogTitle>{t('company.cohorts.add')}</DialogTitle>
+            </DialogHeader>
+          <div className="p-4 border border-border rounded-lg bg-muted/30">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
               <MonthPicker
                 aria-label={t('common.period')}
@@ -201,7 +206,8 @@ export function CohortsTab({
               </Button>
             </div>
           </div>
-        )}
+          </DialogContent>
+        </Dialog>
 
         <div className="overflow-x-auto">
           <Table>

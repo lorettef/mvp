@@ -27,7 +27,8 @@ async def test_plans_unauthenticated(client):
     assert res.status_code == 401
 
 
-async def test_company_limit_enforced(client, seeded_admin, seeded_company):
+async def test_company_limit_enforced(client, seeded_admin, seeded_company, seeded_organization):
+    seeded_organization.organization_type = "startup"
     # в организации уже 1 компания (seeded_company), starter limit = 2
     res = await client.post(
         "/api/v1/companies",

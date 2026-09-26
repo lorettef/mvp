@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MetricHelp } from '@/components/shared/metric-help'
 import { CompanyConfigDialog } from '@/components/company/CompanyConfigDialog'
+import { CompanyOnboardingWizard } from '@/components/company/CompanyOnboardingWizard'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { StartupKpi } from '@/components/dashboard/StartupKpi'
 import { BusinessHealth } from '@/components/dashboard/BusinessHealth'
 import { DashboardAIInsight } from '@/components/dashboard/DashboardAIInsight'
@@ -21,7 +23,7 @@ import { NextActions, type SuggestedAction } from '@/components/dashboard/NextAc
 import { TrendChart } from '@/components/dashboard/TrendChart'
 import { monthSeries } from '@/lib/kpi'
 import { fmtFactor, fmtPct, fmtRub } from '@/lib/format'
-import { Settings2, Sparkles, LayoutGrid, ArrowRight } from 'lucide-react'
+import { Settings2, Sparkles, LayoutGrid, ArrowRight, Plus } from 'lucide-react'
 import type { Cohort, Metric, PnLResponse, Task, TaskCreate } from '@/types/api'
 
 type Range = 3 | 6 | 12
@@ -55,6 +57,7 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
   const [range, setRange] = useState<Range>(6)
   const [mode, setMode] = useState<Mode>('both')
   const [configOpen, setConfigOpen] = useState(false)
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
 
   const companyQuery = useQuery({
     queryKey: qk.company(tenantKey, companyId),
@@ -186,6 +189,12 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
         }
         actions={
           <>
+            {user?.role === 'admin' && user.organizationType === 'startup' && (
+              <Button size="sm" onClick={() => setOnboardingOpen(true)}>
+                <Plus className="h-4 w-4" />
+                {t('dashboard.addCompany')}
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={scrollToAi}>
               <Sparkles className="h-4 w-4" />
               {t('overview.actions.aiAnalysis')}
@@ -378,6 +387,13 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
         tenantKey={tenantKey}
         onOpenChange={setConfigOpen}
       />
+      <Dialog open={onboardingOpen} onOpenChange={setOnboardingOpen}>
+        <DialogContent className="max-w-4xl pt-10" closeLabel={t('common.cancel')}>
+          <DialogTitle className="sr-only">{t('dashboard.addCompany')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('dashboard.onboarding.description')}</DialogDescription>
+          <CompanyOnboardingWizard open={onboardingOpen} tenantKey={tenantKey} onClose={() => setOnboardingOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

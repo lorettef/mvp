@@ -19,7 +19,6 @@ from app.schemas.metric import MetricUpsert, MetricResponse, MetricBulkUpsert
 from app.services.company_service import CompanyService
 from app.services.metric_service import MetricService
 from app.services.subscription_service import SubscriptionService
-from app.core.plans import company_limit
 from app.models.task import Task
 from app.models.hiring_plan import HiringPlan
 from app.models.hiring_settings import HiringSettings
@@ -29,6 +28,7 @@ from app.models.metric import Metric
 from app.models.cohort import Cohort
 from app.models.budget import Budget
 from app.models.user import User
+from app.models.organization import Organization
 
 router = APIRouter()
 
@@ -39,7 +39,17 @@ async def create_company(
     user: dict = Depends(require_role(ROLE_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Создание компании в организации администратора."""
+    """Создание компании доступно только администратору стартапа."""
+    organization = (
+        await db.get(Organization, user["organization_id"])
+        if user["organization_id"] is not None
+        else None
+    )
+    if organization is None or organization.organization_type != "startup":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Создание компании доступно только стартапу",
+        )
     service = CompanyService(db)
     plan_id = await SubscriptionService(db).get_plan_id(user["user_id"])
     await service.enforce_company_limit(user["organization_id"], plan_id)

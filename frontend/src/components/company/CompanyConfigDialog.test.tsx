@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CompanyConfigDialog } from './CompanyConfigDialog'
 import type { Company, CatalogResponse } from '@/types/api'
+import i18n from '@/i18n'
 
 const mocks = vi.hoisted(() => ({
   catalogGet: vi.fn(),
@@ -83,17 +84,25 @@ function selectOption(triggerName: string, optionName: string) {
 }
 
 describe('CompanyConfigDialog', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ru')
     mocks.catalogGet.mockReset()
     mocks.companiesUpdate.mockReset()
     mocks.catalogGet.mockResolvedValue(catalog)
     mocks.companiesUpdate.mockResolvedValue(company)
   })
 
+  it('explains in English that the metric selection can be changed later', async () => {
+    await i18n.changeLanguage('en')
+    renderDialog()
+    expect(screen.getByText('Check the metrics you want to track. You can change your selection later.')).toBeInTheDocument()
+  })
+
   it('shows company name, region and industry label from the catalog', async () => {
     renderDialog()
 
     expect(screen.getByDisplayValue('Acme')).toBeInTheDocument()
+    expect(screen.getByRole('spinbutton', { name: 'Валовая маржа (%)' })).toHaveValue(75)
     await waitFor(() => expect(screen.getByText('SaaS')).toBeInTheDocument())
     expect(screen.getByText('Подписка (SaaS)')).toBeInTheDocument()
   })

@@ -1,8 +1,9 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CompanyOnboardingWizard } from './CompanyOnboardingWizard'
 import type { CatalogResponse } from '@/types/api'
+import i18n from '@/i18n'
 
 const mocks = vi.hoisted(() => ({
   catalogGet: vi.fn(),
@@ -70,11 +71,22 @@ function selectOption(triggerName: string, optionName: string) {
 }
 
 describe('CompanyOnboardingWizard', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ru')
     mocks.catalogGet.mockReset()
     mocks.companiesCreate.mockReset()
     mocks.catalogGet.mockResolvedValue(catalog)
     mocks.companiesCreate.mockResolvedValue({ id: 'comp1' })
+  })
+
+  it('shows the add company title in Russian and English', async () => {
+    renderWizard()
+    expect(screen.getByText('Добавить компанию')).toBeInTheDocument()
+
+    await act(async () => {
+      await i18n.changeLanguage('en')
+    })
+    expect(screen.getByText('Add company')).toBeInTheDocument()
   })
 
   it('collects selected metrics and sends them on create', async () => {
@@ -96,9 +108,30 @@ describe('CompanyOnboardingWizard', () => {
 
     // Step 4: metric checkboxes are all pre-checked; uncheck one.
     await waitFor(() => expect(screen.getByText('Выручка (Revenue)')).toBeInTheDocument())
+    expect(screen.getByText('Отметьте метрики, которые будете отслеживать. Список можно изменить позже.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('checkbox', { name: /Удержание подписчиков/ }))
 
-    fireEvent.change(screen.getByLabelText('Валовая маржа (%)'), { target: { value: '70' } })
+    const grossMarginInput = screen.getByRole('spinbutton', { name: 'Валовая маржа (%)' })
+    expect(grossMarginInput).toHaveValue(null)
+    expect(grossMarginInput).toHaveAttribute('placeholder', 'Например, 70')
+    expect(screen.getByRole('button', { name: 'Создать' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Создать' }))
+    expect(mocks.companiesCreate).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await i18n.changeLanguage('en')
+    })
+    expect(screen.getByRole('spinbutton', { name: 'Gross margin (%)' })).toHaveAttribute('placeholder', 'For example, 70')
+    await act(async () => {
+      await i18n.changeLanguage('ru')
+    })
+
+    fireEvent.change(grossMarginInput, { target: { value: '65' } })
+    expect(grossMarginInput).toHaveValue(65)
+    fireEvent.click(screen.getByRole('button', { name: 'Назад' }))
+    expect(screen.getByText('Шаг 3 из 4')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+    expect(screen.getByRole('spinbutton', { name: 'Валовая маржа (%)' })).toHaveValue(65)
     fireEvent.click(screen.getByRole('button', { name: 'Создать' }))
 
     await waitFor(() => expect(mocks.companiesCreate).toHaveBeenCalled())
@@ -106,7 +139,7 @@ describe('CompanyOnboardingWizard', () => {
     expect(payload.name).toBe('Acme')
     expect(payload.industry).toBe('saas')
     expect(payload.business_model).toBe('subscription')
-    expect(payload.gross_margin).toBe(0.7)
+    expect(payload.gross_margin).toBe(0.65)
     expect(payload.selected_metrics).not.toContain('retention_rate')
     expect(payload.selected_metrics).toEqual(
       expect.arrayContaining(['new_units', 'arpu', 'revenue', 'marketing_spend']),

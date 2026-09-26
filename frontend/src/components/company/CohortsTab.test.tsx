@@ -1,18 +1,20 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { CohortsTab } from './CohortsTab'
 import type { Cohort } from '@/types/api'
 
-function chooseMonth(label: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'Период' }))
+async function chooseMonth(label: string) {
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Период' }))
   const targetYear = Number(label.slice(-4))
   const currentYear = new Date().getFullYear()
   const direction = targetYear < currentYear ? 'Предыдущий год' : 'Следующий год'
   const steps = Math.abs(targetYear - currentYear)
   for (let step = 0; step < steps; step += 1) {
-    fireEvent.click(screen.getByRole('button', { name: direction }))
+    await user.click(await screen.findByRole('button', { name: direction }))
   }
-  fireEvent.click(screen.getByRole('button', { name: label }))
+  await user.click(await screen.findByRole('button', { name: label }))
 }
 
 function makeCohort(over: Partial<Cohort> = {}): Cohort {
@@ -100,11 +102,11 @@ describe('CohortsTab', () => {
     expect(screen.getByText('₽320')).toBeInTheDocument()
   })
 
-  it('submits % → fraction with snake_case keys', () => {
+  it('submits % → fraction with snake_case keys', async () => {
     const onSubmit = vi.fn()
     render(<CohortsTab cohorts={[]} canEdit onSubmit={onSubmit} isPending={false} />)
     fireEvent.click(screen.getByRole('button', { name: /Добавить когорту/ }))
-    chooseMonth('Январь 2025')
+    await chooseMonth('Январь 2025')
     fireEvent.change(screen.getByLabelText('Размер когорты'), { target: { value: '45' } })
     fireEvent.change(screen.getByLabelText('Маркетинг (₽)'), { target: { value: '14400' } })
     fireEvent.change(screen.getByLabelText('M1 (%)'), { target: { value: '80' } })
@@ -159,11 +161,11 @@ describe('CohortsTab', () => {
     expect(onDelete).toHaveBeenCalledWith('c1')
   })
 
-  it('submits empty retention cells as null', () => {
+  it('submits empty retention cells as null', async () => {
     const onSubmit = vi.fn()
     render(<CohortsTab cohorts={[]} canEdit onSubmit={onSubmit} isPending={false} />)
     fireEvent.click(screen.getByRole('button', { name: /Добавить когорту/ }))
-    chooseMonth('Январь 2025')
+    await chooseMonth('Январь 2025')
     fireEvent.change(screen.getByLabelText('Размер когорты'), { target: { value: '45' } })
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
 
