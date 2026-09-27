@@ -101,7 +101,15 @@ describe('CompanyContextBar', () => {
     authStoreMock.user = { role: 'admin', organizationType: 'startup', companyId: 'comp1' }
     renderBar('/dashboard')
 
-    expect(await screen.findByText('Обзор')).toBeInTheDocument()
+    const overview = await screen.findByText('Обзор')
+    const nav = screen.getByRole('navigation', { name: 'Навигация компании' })
+    const items = Array.from(nav.querySelectorAll('a, button'))
+    expect(items).toHaveLength(8) // seven groups plus the mobile "More" trigger
+    for (const item of items) {
+      expect(item).toHaveClass('hover:bg-primary', 'hover:text-primary-foreground')
+      expect(item).toHaveClass(item === overview ? 'bg-accent' : 'bg-muted/70')
+    }
+    expect(overview).toHaveClass('font-semibold', 'ring-1')
     expect(await screen.findByText('Acme')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Сменить компанию/ })).not.toBeInTheDocument()
   })

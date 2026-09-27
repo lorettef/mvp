@@ -730,6 +730,10 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.update.mockResolvedValue(company)
     renderCompanyDetail()
     const input = await screen.findByLabelText('Валовая маржа (Gross Margin, %)')
+    const card = input.closest('.rounded-lg')
+    expect(card).toHaveClass('w-fit')
+    expect(card?.parentElement?.firstElementChild).toHaveTextContent('Метрики')
+    expect(screen.getByRole('button', { name: 'Сохранить' })).toHaveClass('bg-primary/80', 'font-semibold', 'hover:bg-primary')
     fireEvent.change(input, { target: { value: '80' } })
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
     await waitFor(() =>

@@ -68,8 +68,8 @@ export function CompanyContextBar() {
 
   const itemClass = (active: boolean) =>
     cn(
-      'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-      active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+      'inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-muted/70 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground',
+      active && 'bg-accent font-semibold text-foreground ring-1 ring-border',
     )
 
   const groups = companyGroups.filter((g) => !g.startupOnly || !isFund)

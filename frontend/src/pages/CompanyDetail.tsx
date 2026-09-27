@@ -588,49 +588,48 @@ export const CompanyDetail = () => {
             <CardContent className="p-5">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                 <h3 className="font-semibold text-foreground">{t('company.metrics.title')}</h3>
-                <div className="flex flex-wrap items-center gap-3">
-                  {canEdit && (
-                    <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                      <div>
-                        <label
-                          htmlFor="gross-margin"
-                          className="block text-xs font-medium text-muted-foreground"
-                        >
-                          {t('company.metrics.grossMargin')}
-                        </label>
-                        <div className="mt-1 flex items-center gap-1">
-                          <Input
-                            id="gross-margin"
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.5"
-                            className="h-8 w-24 border-0 bg-transparent px-0 py-0 text-lg font-semibold shadow-none [appearance:textfield] focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                            aria-label={t('company.metrics.grossMargin')}
-                            value={grossMarginPct}
-                            onChange={(e) => setGrossMarginPct(e.target.value)}
-                          />
-                          <span className="text-lg font-semibold text-foreground">%</span>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleGrossMarginSave}
-                        disabled={grossMarginMutation.isPending}
-                      >
-                        {grossMarginMutation.isPending ? t('common.saving') : t('common.save')}
-                      </Button>
-                    </div>
-                  )}
-                  {canEdit && (
-                    <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
-                      <Plus className="h-4 w-4" />
-                      {t('company.metrics.addMetric')}
-                    </Button>
-                  )}
-                </div>
+                {canEdit && (
+                  <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
+                    <Plus className="h-4 w-4" />
+                    {t('company.metrics.addMetric')}
+                  </Button>
+                )}
               </div>
+
+              {canEdit && (
+                <div className="mb-5 flex w-fit items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <div>
+                    <label
+                      htmlFor="gross-margin"
+                      className="block text-xs font-medium text-muted-foreground"
+                    >
+                      {t('company.metrics.grossMargin')}
+                    </label>
+                    <div className="mt-1 flex items-center gap-1">
+                      <Input
+                        id="gross-margin"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        className="h-8 w-24 border-0 bg-transparent px-0 py-0 text-lg font-semibold shadow-none [appearance:textfield] focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        aria-label={t('company.metrics.grossMargin')}
+                        value={grossMarginPct}
+                        onChange={(e) => setGrossMarginPct(e.target.value)}
+                      />
+                      <span className="text-lg font-semibold text-foreground">%</span>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-primary/80 font-semibold shadow-sm hover:bg-primary"
+                    onClick={handleGrossMarginSave}
+                    disabled={grossMarginMutation.isPending}
+                  >
+                    {grossMarginMutation.isPending ? t('common.saving') : t('common.save')}
+                  </Button>
+                </div>
+              )}
 
               <Dialog open={showForm && canEdit} onOpenChange={setShowForm}>
                 <DialogContent className="max-w-6xl" closeLabel={t('common.cancel')}>
