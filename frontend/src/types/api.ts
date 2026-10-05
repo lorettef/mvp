@@ -200,6 +200,31 @@ export interface MetricBulkUpsert {
 }
 
 // Dashboard
+export type DashboardHealth = 'healthy' | 'attention' | 'critical' | 'no_data'
+export type DashboardPerformanceStatus = 'on_track' | 'behind' | 'no_plan' | 'no_data'
+
+/** Selections use OR within a field and AND between fields. Dates are inclusive ISO dates. */
+export interface DashboardFilters {
+  companyIds?: string[]
+  industries?: string[]
+  health?: DashboardHealth[]
+  performanceStatus?: DashboardPerformanceStatus[]
+  periodFrom?: string
+  periodTo?: string
+}
+
+export interface DashboardMetricSnapshot {
+  period: string
+  revenue: number
+  newUnits: number
+  arpu: number | null
+  marketingSpend: number
+  retentionRate: number
+  churn: number
+  ltv: number
+  cac: number
+}
+
 export interface AttentionSignal {
   kind: string
   label: string
@@ -212,7 +237,7 @@ export interface CompanyStatusItem {
   industry: string | null
   geography: string | null
   businessModel: string | null
-  status: 'on_track' | 'behind' | 'no_plan' | 'no_data'
+  status: DashboardPerformanceStatus
   latestRevenue: number | null
   latestPlanRevenue: number | null
   revenueGrowth: number | null
@@ -221,6 +246,18 @@ export interface CompanyStatusItem {
   health: 'healthy' | 'attention' | 'critical' | 'no_data' | 'unknown'
   attention: AttentionSignal[]
   taskProgress: number | null
+  fact?: DashboardMetricSnapshot | null
+  plan?: DashboardMetricSnapshot | null
+}
+
+export interface IndustryProfitabilityItem {
+  industry: string | null
+  revenue: number
+  totalOpex: number
+  ebitda: number
+  ebitdaMargin: number | null
+  companiesTotal: number
+  companiesIncluded: number
 }
 
 export interface DashboardResponse {
@@ -239,6 +276,8 @@ export interface DashboardResponse {
   noPlan: number
   noData: number
   companies: CompanyStatusItem[]
+  /** Additive analytics field; older responses may omit it. */
+  profitabilityByIndustry?: IndustryProfitabilityItem[]
 }
 
 export interface PerformancePoint {

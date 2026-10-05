@@ -11,14 +11,20 @@
  * Ключи содержат ТОЛЬКО JSON-сериализуемые строки — никаких функций
  * и объектов внутри queryKey.
  */
+import type { DashboardFilters } from '@/types/api'
+import { dashboardFilterKey, dashboardPerformanceMonths } from './dashboardFilters'
+
 export const qk = {
-  dashboard: (tenant: string): readonly string[] => ['tenant', tenant, 'dashboard'],
-  dashboardPerformance: (tenant: string, months: number): readonly string[] => [
+  dashboard: (tenant: string, filters?: DashboardFilters): readonly string[] => [
+    'tenant', tenant, 'dashboard', ...dashboardFilterKey(filters),
+  ],
+  dashboardPerformance: (tenant: string, months?: number, filters?: DashboardFilters): readonly string[] => [
     'tenant',
     tenant,
     'dashboard',
     'performance',
-    String(months),
+    String(dashboardPerformanceMonths(months, filters) ?? 'all'),
+    ...dashboardFilterKey(filters),
   ],
   companies: (tenant: string, archived: boolean): readonly string[] => [
     'tenant',

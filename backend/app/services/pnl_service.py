@@ -17,6 +17,7 @@ from app.services.common import (
     metric_for_period,
 )
 from app.services.hiring_service import HiringService
+from app.services.operating_profit import operating_profit
 
 
 def _add_months(period: date, n: int) -> date:
@@ -52,8 +53,7 @@ class PnLService:
 
         periods = await distinct_periods(self.db, company_id, limit=months)
         month_results: List[PnLMonth] = [
-            await self._compute_month(company_id, p, settings, loans)
-            for p in periods
+            await self._compute_month(company_id, p, settings, loans) for p in periods
         ]
 
         latest = month_results[0] if month_results else None
@@ -114,15 +114,18 @@ class PnLService:
         gna = f(budget.gna, default=None) if budget else None
         # Соц. платежи работодателя НЕ включают НДФЛ (это налог сотрудника,
         # удерживаемый из gross, а не доп. расход работодателя).
-        social = round(fot * settings.employer_rate, 2) if fot is not None else None
-
-        parts = [v for v in (fot, social, marketing, development, gna) if v is not None]
-        total_opex = round(sum(parts), 2) if parts else None
-
-        ebitda = (
-            round(revenue - total_opex, 2)
-            if (revenue is not None and total_opex is not None)
-            else None
+        operating = operating_profit(
+            revenue,
+            fot=fot,
+            marketing=marketing,
+            development=development,
+            gna=gna,
+            employer_rate=settings.employer_rate,
+        )
+        social, total_opex, ebitda = (
+            operating.social_payments,
+            operating.total_opex,
+            operating.ebitda,
         )
         net_profit = round(ebitda - credit_interest, 2) if ebitda is not None else None
 
@@ -177,7 +180,9 @@ class PnLService:
         """
         if loan.issued_date is not None and loan.issued_date > period:
             return 0.0  # кредит ещё не выдан
-        rate = (float(loan.annual_rate) / 100.0) if loan.annual_rate is not None else 0.0
+        rate = (
+            (float(loan.annual_rate) / 100.0) if loan.annual_rate is not None else 0.0
+        )
         r = rate / 12.0
         if r <= 0:
             return 0.0
@@ -188,10 +193,16 @@ class PnLService:
         first_payment = loan.first_payment_date or _add_months(loan.issued_date, 1)
         if period < first_payment:
             return principal * r  # grace: проценты на полный principal
-        k = (period.year - first_payment.year) * 12 + (period.month - first_payment.month) + 1
+        k = (
+            (period.year - first_payment.year) * 12
+            + (period.month - first_payment.month)
+            + 1
+        )
         if k > n:
             return 0.0  # кредит погашен
-        outstanding = principal * ((1 + r) ** n - (1 + r) ** (k - 1)) / ((1 + r) ** n - 1)
+        outstanding = (
+            principal * ((1 + r) ** n - (1 + r) ** (k - 1)) / ((1 + r) ** n - 1)
+        )
         return outstanding * r
 
     @staticmethod
@@ -201,7 +212,9 @@ class PnLService:
         ebitda_margin: Optional[float],
     ) -> str:
         if ebitda is None:
-            return "Недостаточно данных: добавьте метрики и бюджет, чтобы рассчитать P&L."
+            return (
+                "Недостаточно данных: добавьте метрики и бюджет, чтобы рассчитать P&L."
+            )
         margin = f" (маржа {ebitda_margin:.1%})" if ebitda_margin is not None else ""
         if net_profit is None:
             return f"EBITDA = {ebitda:,.0f} ₽{margin}."

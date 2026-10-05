@@ -26,6 +26,7 @@ from app.schemas.hiring import (
     HiringTeamUpsert,
 )
 from app.services.common import latest_metrics
+from app.services.operating_profit import employer_social_rate
 
 # Каталог ролей (TZ, раздел 19). Порядок = порядок отображения.
 ROLE_GROUPS: Dict[str, str] = {
@@ -57,14 +58,14 @@ ROLE_LABELS: Dict[str, str] = {
 ALL_ROLES = list(ROLE_GROUPS.keys())
 
 # Capacity-предположения (TZ, раздел 21): документированные domain-константы.
-SALES_CAPACITY = 50.0         # новых клиентов на 1 Sales Manager в месяц
-SDR_CAPACITY = 120.0          # новых клиентов (new_units) на 1 SDR в месяц
-SUPPORT_CAPACITY = 200.0      # активных клиентов на 1 Support
-SUCCESS_CAPACITY = 100.0      # активных клиентов на 1 Customer Success
-MARKETING_BASELINE = 1.0      # минимальный состав маркетинга
-MARKETING_CAPACITY = 300.0    # новых клиентов на 1 маркетолога
-MANAGEMENT_BASELINE = 1.0     # минимальный менеджмент
-ENGINEERING_BASELINE = 2.0    # минимальный инженерный состав
+SALES_CAPACITY = 50.0  # новых клиентов на 1 Sales Manager в месяц
+SDR_CAPACITY = 120.0  # новых клиентов (new_units) на 1 SDR в месяц
+SUPPORT_CAPACITY = 200.0  # активных клиентов на 1 Support
+SUCCESS_CAPACITY = 100.0  # активных клиентов на 1 Customer Success
+MARKETING_BASELINE = 1.0  # минимальный состав маркетинга
+MARKETING_CAPACITY = 300.0  # новых клиентов на 1 маркетолога
+MANAGEMENT_BASELINE = 1.0  # минимальный менеджмент
+ENGINEERING_BASELINE = 2.0  # минимальный инженерный состав
 ENGINEERING_REVENUE_PER_HEAD = 500000.0  # ₽/мес выручки на 1 инженера
 ENGINEERING_MIX = {"backend": 0.40, "frontend": 0.30, "qa": 0.15, "devops": 0.15}
 
@@ -104,7 +105,7 @@ class HiringService:
             insurance_rate=insurance,
             injury_rate=injury,
             total_rate=self._sum_rate(ndfl, insurance, injury),
-            employer_rate=self._sum_rate(insurance, injury),
+            employer_rate=employer_social_rate(insurance, injury),
         )
 
     async def upsert_settings(
@@ -129,7 +130,7 @@ class HiringService:
             total_rate=self._sum_rate(
                 data.ndfl_rate, data.insurance_rate, data.injury_rate
             ),
-            employer_rate=self._sum_rate(data.insurance_rate, data.injury_rate),
+            employer_rate=employer_social_rate(data.insurance_rate, data.injury_rate),
         )
 
     async def list_team(self, company_id: UUID) -> List[HiringTeamRow]:
@@ -146,7 +147,9 @@ class HiringService:
             for r in rows
         ]
 
-    async def upsert_team(self, company_id: UUID, data: HiringTeamUpsert) -> HiringTeamRow:
+    async def upsert_team(
+        self, company_id: UUID, data: HiringTeamUpsert
+    ) -> HiringTeamRow:
         result = await self.db.execute(
             select(HiringTeam).where(
                 HiringTeam.company_id == company_id,
@@ -172,8 +175,7 @@ class HiringService:
             select(HiringTeam).where(HiringTeam.company_id == company_id)
         )
         return {
-            r.role_key: (r.headcount, float(r.salary))
-            for r in result.scalars().all()
+            r.role_key: (r.headcount, float(r.salary)) for r in result.scalars().all()
         }
 
     async def _load_approved(
@@ -183,8 +185,7 @@ class HiringService:
             select(HiringPlanRow).where(HiringPlanRow.company_id == company_id)
         )
         return {
-            (r.period, r.role_key): r.approved_hires
-            for r in result.scalars().all()
+            (r.period, r.role_key): r.approved_hires for r in result.scalars().all()
         }
 
     @staticmethod
@@ -222,7 +223,9 @@ class HiringService:
             self.db, company_id, prefer="plan", fallback=True, limit=1
         )
         metric = rows[0] if rows else None
-        revenue = float(metric.revenue) if metric and metric.revenue is not None else None
+        revenue = (
+            float(metric.revenue) if metric and metric.revenue is not None else None
+        )
 
         start = forecast_start or _add_months(today().replace(day=1), 1)
         approved_map = await self._load_approved(company_id, start)
@@ -283,7 +286,10 @@ class HiringService:
             total_approved = sum(r.approved_hires for r in roles)
             payroll = round(
                 sum(
-                    (team.get(r.role_key, (0, r.salary))[0] + cumulative_approved[r.role_key])
+                    (
+                        team.get(r.role_key, (0, r.salary))[0]
+                        + cumulative_approved[r.role_key]
+                    )
                     * (r.salary + r.employer_cost)
                     for r in roles
                 ),

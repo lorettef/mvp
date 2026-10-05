@@ -1,8 +1,51 @@
 from datetime import date
-from typing import Optional
+from typing import Literal, Optional, Self
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+DashboardHealth = Literal["healthy", "attention", "critical", "no_data"]
+DashboardPerformanceStatus = Literal["on_track", "behind", "no_plan", "no_data"]
+
+
+class DashboardFilters(BaseModel):
+    """OR within each selection; AND between filters. Active tenant companies only.
+
+    Dates are inclusive. The lower bound selects the current Fact, but does not
+    truncate previous Fact or accumulated cash. The upper bound is a snapshot
+    cutoff for metrics, budgets and dated financing.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    company_ids: list[UUID] = Field(default_factory=list)
+    industries: list[str] = Field(default_factory=list)
+    health: list[DashboardHealth] = Field(default_factory=list)
+    performance_status: list[DashboardPerformanceStatus] = Field(default_factory=list)
+    period_from: Optional[date] = None
+    period_to: Optional[date] = None
+
+    @model_validator(mode="after")
+    def valid_range(self) -> Self:
+        if self.period_from and self.period_to and self.period_from > self.period_to:
+            raise ValueError("period_from must be on or before period_to")
+        return self
+
+
+class DashboardMetricSnapshot(BaseModel):
+    """Stored metric values, not another calculation engine."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    period: date
+    revenue: float
+    new_units: int
+    arpu: Optional[float]
+    marketing_spend: float
+    retention_rate: float
+    churn: float
+    ltv: float
+    cac: float
 
 
 class AttentionSignal(BaseModel):
@@ -28,6 +71,20 @@ class CompanyStatusItem(BaseModel):
     health: str = "unknown"  # healthy | attention | critical | no_data
     attention: list[AttentionSignal] = []
     task_progress: Optional[int] = None  # % выполненных задач (None, если нет задач)
+    fact: Optional[DashboardMetricSnapshot] = None
+    plan: Optional[DashboardMetricSnapshot] = None
+
+
+class IndustryProfitabilityItem(BaseModel):
+    """Snapshot Fact EBITDA / Fact revenue for companies with matching Fact budgets."""
+
+    industry: Optional[str]
+    revenue: float
+    total_opex: float
+    ebitda: float
+    ebitda_margin: Optional[float]
+    companies_total: int
+    companies_included: int
 
 
 class DashboardResponse(BaseModel):
@@ -46,6 +103,9 @@ class DashboardResponse(BaseModel):
     no_plan: int
     no_data: int
     companies: list[CompanyStatusItem]
+    profitability_by_industry: list[IndustryProfitabilityItem] = Field(
+        default_factory=list
+    )
 
 
 class PerformancePoint(BaseModel):

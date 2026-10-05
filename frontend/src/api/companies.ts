@@ -6,6 +6,7 @@ import type {
   MetricUpsert,
   MetricBulkUpsert,
   DashboardResponse,
+  DashboardFilters,
   Cohort,
   CohortUpsert,
   Budget,
@@ -24,6 +25,7 @@ import type {
   PerformancePoint,
 } from '@/types/api'
 import { api } from './client'
+import { dashboardFilterParams, dashboardPerformanceMonths } from '@/lib/dashboardFilters'
 
 export const companiesApi = {
   list: ({ signal, archived }: { signal?: AbortSignal; archived?: boolean } = {}): Promise<Company[]> =>
@@ -83,8 +85,18 @@ export const companiesApi = {
     api.get(`/companies/${id}/health`, { signal }).then((res) => res.data),
 }
 
+interface DashboardRequestOptions {
+  signal?: AbortSignal
+  filters?: DashboardFilters
+}
+
 export const dashboardApi = {
-  get: ({ signal }: { signal?: AbortSignal } = {}): Promise<DashboardResponse> => api.get('/dashboard', { signal }).then((res) => res.data),
-  performance: (months = 6, { signal }: { signal?: AbortSignal } = {}): Promise<PerformancePoint[]> =>
-    api.get('/dashboard/performance', { params: { months }, signal }).then((res) => res.data),
+  get: ({ signal, filters }: DashboardRequestOptions = {}): Promise<DashboardResponse> =>
+    api.get('/dashboard', { signal, params: dashboardFilterParams(filters) }).then((res) => res.data),
+  performance: (months?: number, { signal, filters }: DashboardRequestOptions = {}): Promise<PerformancePoint[]> => {
+    const params = dashboardFilterParams(filters)
+    const limit = dashboardPerformanceMonths(months, filters)
+    if (limit !== undefined) params.set('months', String(limit))
+    return api.get('/dashboard/performance', { params, signal }).then((res) => res.data)
+  },
 }

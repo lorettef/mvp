@@ -3,6 +3,8 @@ import { Archive, ArrowUpRight, Sparkles, TriangleAlert } from 'lucide-react'
 import type { CompanyStatusItem } from '@/types/api'
 import { Button } from '@/components/ui/button'
 import { StatusBadge, type StatusTone } from '@/components/shared/status-badge'
+import { MetricHelp } from '@/components/shared/metric-help'
+import { dashboardAttentionLabel } from '@/lib/dashboardAttention'
 import { fmtRub, fmtSignedPct } from '@/lib/format'
 
 const healthTone: Record<string, StatusTone> = {
@@ -83,17 +85,18 @@ export function FundCompaniesTable({
     c.attention.length === 0 ? (
       <span className="text-muted-foreground">—</span>
     ) : (
-      <span
-        title={c.attention.map((a) => a.label).join(' · ')}
-        className="inline-flex items-center gap-1 text-xs text-warning"
-      >
-        <TriangleAlert className="h-3.5 w-3.5" />
-        {c.attention.length}
+      <span onClick={event => event.stopPropagation()}>
+        <MetricHelp
+          label={<><TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />{c.attention.length}</>}
+          ariaLabel={t('dashboard.attention.explanationLabel', { company: c.name, count: c.attention.length })}
+          description={c.attention.map(a => dashboardAttentionLabel(a, t)).join(' · ')}
+          className="inline-flex items-center gap-1 text-xs text-warning"
+        />
       </span>
     )
 
   const actions = (c: CompanyStatusItem) => (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
       <Button size="sm" variant="ghost" onClick={() => onOpen(c.id)} aria-label={t('dashboard.table.open')}>
         <ArrowUpRight className="h-4 w-4" />
       </Button>
@@ -109,9 +112,9 @@ export function FundCompaniesTable({
   )
 
   return (
-    <>
+    <div className="[container-type:inline-size]">
       {/* Desktop / tablet: table */}
-      <div className="hidden overflow-x-auto sm:block">
+      <div className="hidden overflow-x-auto sm:block [@container(max-width:47rem)]:hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-muted-foreground">
@@ -127,11 +130,23 @@ export function FundCompaniesTable({
           </thead>
           <tbody>
             {companies.map((c) => (
-              <tr key={c.id} className="border-b border-border/50 transition-colors hover:bg-muted/30 last:border-0">
+              <tr
+                key={c.id}
+                tabIndex={0}
+                aria-label={`${t('dashboard.table.open')}: ${c.name}`}
+                onClick={() => onOpen(c.id)}
+                onKeyDown={(event) => {
+                  if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault()
+                    onOpen(c.id)
+                  }
+                }}
+                className="cursor-pointer border-b border-border/50 transition-colors hover:bg-blue-50 focus-visible:bg-blue-50 dark:hover:bg-blue-950/30 dark:focus-visible:bg-blue-950/30 last:border-0"
+              >
                 <td className="px-3 py-3">
                   <button
                     type="button"
-                    onClick={() => onOpen(c.id)}
+                    onClick={(event) => { event.stopPropagation(); onOpen(c.id) }}
                     className="flex items-center gap-2 text-left font-medium text-foreground hover:underline"
                   >
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
@@ -163,13 +178,26 @@ export function FundCompaniesTable({
       </div>
 
       {/* Mobile: cards */}
-      <div className="divide-y divide-border/60 sm:hidden">
+      <div className="divide-y divide-border/60 sm:hidden [@container(max-width:47rem)]:block">
         {companies.map((c) => (
-          <div key={c.id} className="space-y-3 px-4 py-4">
+          <div
+            key={c.id}
+            role="link"
+            tabIndex={0}
+            aria-label={`${t('dashboard.table.open')}: ${c.name}`}
+            onClick={() => onOpen(c.id)}
+            onKeyDown={(event) => {
+              if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault()
+                onOpen(c.id)
+              }
+            }}
+            className="cursor-pointer space-y-3 px-4 py-4 transition-colors hover:bg-blue-50 focus-visible:bg-blue-50 dark:hover:bg-blue-950/30 dark:focus-visible:bg-blue-950/30"
+          >
             <div className="flex items-start justify-between gap-3">
               <button
                 type="button"
-                onClick={() => onOpen(c.id)}
+                onClick={(event) => { event.stopPropagation(); onOpen(c.id) }}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
@@ -208,6 +236,6 @@ export function FundCompaniesTable({
           </div>
         ))}
       </div>
-    </>
+    </div>
   )
 }

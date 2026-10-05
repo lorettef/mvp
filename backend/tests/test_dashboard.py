@@ -122,7 +122,11 @@ async def test_dashboard_snapshot_unchanged(db_session, seeded_organization):
                 "last_update": "2026-01-01",
                 "health": "attention",
                 "attention": [
-                    {"kind": "behind_plan", "label": "Отстаёт от плана", "severity": "warning"},
+                    {
+                        "kind": "behind_plan",
+                        "label": "Отстаёт от плана",
+                        "severity": "warning",
+                    },
                 ],
                 "task_progress": 50,
             },
@@ -147,6 +151,42 @@ async def test_dashboard_snapshot_unchanged(db_session, seeded_organization):
         ],
     }
 
+    # E4 is additive: retain every legacy expectation and check the new contract.
+    def snapshot(period, revenue, cac, ltv):
+        return {
+            "period": period,
+            "revenue": revenue,
+            "new_units": 0,
+            "arpu": None,
+            "marketing_spend": 0.0,
+            "retention_rate": 1.0,
+            "churn": 0.05,
+            "ltv": ltv,
+            "cac": cac,
+        }
+
+    expected["companies"][0].update(
+        fact=snapshot("2026-02-01", 1200.0, 110.0, 320.0),
+        plan=snapshot("2026-02-01", 1100.0, 105.0, 310.0),
+    )
+    expected["companies"][1].update(
+        fact=snapshot("2026-01-01", 800.0, 90.0, 280.0),
+        plan=snapshot("2026-01-01", 1000.0, 100.0, 300.0),
+    )
+    expected["companies"][2].update(fact=None, plan=None)
+    # E8 adds coverage-aware groups; no budgets exist in this legacy fixture.
+    expected["profitability_by_industry"] = [
+        dict(
+            industry=industry,
+            revenue=0.0,
+            total_opex=0.0,
+            ebitda=0.0,
+            ebitda_margin=None,
+            companies_total=1,
+            companies_included=0,
+        )
+        for industry in ("Fintech", "SaaS", None)
+    ]
     assert response.model_dump(mode="json") == expected
 
 
@@ -180,13 +220,29 @@ async def test_dashboard_plan_fact_period_alignment(db_session, seeded_organizat
     )
     db_session.add(company)
     await db_session.flush()
-    db_session.add_all([
-        # Факт за февраль, план только за январь → нет плана за февраль → no_plan.
-        Metric(company_id=company.id, period=date(2026, 2, 1), type="fact",
-               revenue=1000, cac=100, ltv=300, churn=0.05),
-        Metric(company_id=company.id, period=date(2026, 1, 1), type="plan",
-               revenue=900, cac=100, ltv=300, churn=0.05),
-    ])
+    db_session.add_all(
+        [
+            # Факт за февраль, план только за январь → нет плана за февраль → no_plan.
+            Metric(
+                company_id=company.id,
+                period=date(2026, 2, 1),
+                type="fact",
+                revenue=1000,
+                cac=100,
+                ltv=300,
+                churn=0.05,
+            ),
+            Metric(
+                company_id=company.id,
+                period=date(2026, 1, 1),
+                type="plan",
+                revenue=900,
+                cac=100,
+                ltv=300,
+                churn=0.05,
+            ),
+        ]
+    )
     await db_session.commit()
 
     response = await DashboardService(db_session).get_dashboard(seeded_organization.id)

@@ -26,6 +26,7 @@ export interface MetricCardProps {
   /** Period label shown under the value, e.g. "Май 2026". */
   period?: string
   className?: string
+  compact?: boolean
 }
 
 function Sparkline({ points }: { points: number[] }) {
@@ -67,6 +68,7 @@ export function MetricCard({
   planFact,
   period,
   className,
+  compact = false,
 }: MetricCardProps) {
   const hasDelta = delta !== null && delta !== undefined
   const rawPositive = hasDelta && (delta as number) >= 0
@@ -83,15 +85,15 @@ export function MetricCard({
 
   return (
     <Card className={cn("border bg-card", className)}>
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between">
+      <CardContent className={compact ? "p-4" : "p-5"}>
+        <div className={cn("flex items-center justify-between", compact && "gap-2")}>
           {description ? (
             <MetricHelp label={label} description={description} className="text-xs font-medium uppercase tracking-wider text-muted-foreground" />
           ) : (
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+            <span className={cn("font-medium uppercase text-muted-foreground", compact ? "text-[11px] leading-tight tracking-wide" : "text-xs tracking-wider")}>{label}</span>
           )}
           {icon ? (
-            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <span className={cn("flex items-center justify-center rounded-md bg-primary/10 text-primary", compact ? "h-7 w-7 shrink-0" : "h-8 w-8")}>
               {icon}
             </span>
           ) : null}

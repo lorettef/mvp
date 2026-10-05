@@ -14,6 +14,7 @@ export const StartupInvite = () => {
   const [open, setOpen] = useState(false)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
   const invitingRef = useRef(false)
   const dialogSessionRef = useRef(0)
 
@@ -26,6 +27,7 @@ export const StartupInvite = () => {
     setOpen(nextOpen)
     setInviteLink(null)
     setCopied(false)
+    setCopyFailed(false)
   }
 
   const handleCreateInvite = () => {
@@ -46,20 +48,25 @@ export const StartupInvite = () => {
 
   const handleCopyInvite = async () => {
     if (!inviteLink) return
-    await navigator.clipboard.writeText(inviteLink)
-    setCopied(true)
+    const session = dialogSessionRef.current
+    setCopied(false)
+    setCopyFailed(false)
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+      if (dialogSessionRef.current === session) setCopied(true)
+    } catch {
+      if (dialogSessionRef.current === session) setCopyFailed(true)
+    }
   }
 
   if (user?.role !== 'admin') return null
 
   return (
     <>
-      <div className="flex justify-center">
-        <Button size="sm" variant="outline" className="hover:border-primary hover:bg-primary hover:text-primary-foreground" onClick={() => handleOpenChange(true)}>
-          <Link2 className="w-4 h-4 mr-2" />
-          {t('dashboard.invite.title')}
-        </Button>
-      </div>
+      <Button size="sm" variant="outline" className="hover:border-primary hover:bg-primary hover:text-primary-foreground" onClick={() => handleOpenChange(true)}>
+        <Link2 className="h-4 w-4" />
+        {t('dashboard.invite.title')}
+      </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent closeLabel={t('common.cancel')}>
@@ -83,6 +90,7 @@ export const StartupInvite = () => {
                   {copied ? t('dashboard.invite.copied') : t('dashboard.invite.copy')}
                 </Button>
               </div>
+              {copyFailed && <p role="alert" className="text-sm text-destructive">{t('dashboard.invite.copyFailed')}</p>}
             </div>
           ) : (
             <DialogFooter>
