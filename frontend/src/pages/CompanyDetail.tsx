@@ -44,6 +44,7 @@ import { AIInsight } from '@/components/company/AIInsight'
 import { CompanyConfigDialog } from '@/components/company/CompanyConfigDialog'
 import { QueryState } from '@/components/common/QueryState'
 import { normalizeApiError } from '@/lib/apiError'
+import { SKIP_GLOBAL_ERROR } from '@/lib/toastError'
 import { cn } from '@/lib/utils'
 import { fmtPct, fmtPeriod, fmtRub, fmtSignedPct, formatMonthLabel } from '@/lib/format'
 import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw, Trash2, Settings2 } from 'lucide-react'
@@ -414,6 +415,23 @@ export const CompanyDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
     },
+  })
+
+  const invalidateMetricSource = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) }),
+      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) }),
+    ])
+  }
+  const saveUnitSource = useMutation({
+    mutationFn: (data: MetricUpsert) => companiesApi.upsertMetric(id, data),
+    onSuccess: invalidateMetricSource,
+    meta: SKIP_GLOBAL_ERROR,
+  })
+  const deleteUnitSource = useMutation({
+    mutationFn: (metricId: string) => companiesApi.deleteMetric(id, metricId),
+    onSuccess: invalidateMetricSource,
+    meta: SKIP_GLOBAL_ERROR,
   })
 
   const deleteCohortMutation = useMutation({
@@ -950,8 +968,15 @@ export const CompanyDetail = () => {
             emptyText={t('company.unit.empty')}
           >
           <UnitEconomicsTab
+            key={`${tenantKey}:${id}`}
             data={unitEconomics}
             isLoading={unitEconomicsQuery.isLoading}
+            canEdit={canEdit}
+            metricLabel={metricLabel}
+            onSaveSource={(data) => saveUnitSource.mutateAsync(data)}
+            onDeleteSource={(metricId) => deleteUnitSource.mutateAsync(metricId)}
+            isSaving={saveUnitSource.isPending}
+            isDeleting={deleteUnitSource.isPending}
           />
           </QueryState>
         </TabsContent>

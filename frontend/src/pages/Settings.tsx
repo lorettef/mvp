@@ -1,8 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../store/authStore'
-import { logout } from '../auth/authSession'
-import { User, LogOut } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { User } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 
 export const Settings = () => {
@@ -16,10 +14,10 @@ export const Settings = () => {
       {/* Профиль */}
       <Card className="border">
         <CardContent className="p-6">
-          <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
             <User className="w-5 h-5" />
             {t('settings.profile')}
-          </h3>
+          </h2>
           <div className="space-y-2 text-muted-foreground">
             <p><span className="text-sm text-muted-foreground">{t('settings.email')}</span> {user?.email}</p>
             <p><span className="text-sm text-muted-foreground">{t('settings.company')}</span> {user?.companyName || t('settings.notSpecified')}</p>
@@ -27,16 +25,6 @@ export const Settings = () => {
           </div>
         </CardContent>
       </Card>
-
-      {/* Выход */}
-      <Button
-        variant="ghost"
-        className="text-destructive hover:text-destructive"
-        onClick={logout}
-      >
-        <LogOut />
-        {t('common.logout')}
-      </Button>
     </div>
   )
 }

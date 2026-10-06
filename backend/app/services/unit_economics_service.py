@@ -8,7 +8,11 @@ from app.models.cohort import Cohort
 from app.models.budget import Budget
 from app.models.company import Company
 from app.schemas.hiring import DEFAULT_EMPLOYER_RATE
-from app.schemas.unit_economics import UnitEconomicsResponse, RetentionBreakdown
+from app.schemas.unit_economics import (
+    UnitEconomicsMetricSource,
+    UnitEconomicsResponse,
+    RetentionBreakdown,
+)
 from app.services.common import (
     div,
     f,
@@ -46,7 +50,9 @@ class UnitEconomicsService:
         if prefetched_metrics is not None:
             fact_metrics = list(prefetched_metrics.get((company_id, "fact"), ()))[:2]
             if not fact_metrics:
-                fact_metrics = list(prefetched_metrics.get((company_id, "plan"), ()))[:2]
+                fact_metrics = list(prefetched_metrics.get((company_id, "plan"), ()))[
+                    :2
+                ]
         else:
             # Факт-метрики: последняя и предыдущая (для ΔMRR); fallback на план (D1)
             fact_metrics = await latest_metrics(
@@ -91,18 +97,29 @@ class UnitEconomicsService:
 
         # Magic Number = ΔRevenue / затраты на маркетинг
         prev_revenue = f(previous_metric.revenue, None) if previous_metric else None
-        revenue_growth = (revenue - prev_revenue) if (revenue is not None and prev_revenue is not None) else None
+        revenue_growth = (
+            (revenue - prev_revenue)
+            if (revenue is not None and prev_revenue is not None)
+            else None
+        )
         marketing_spend = f(budget.marketing, None) if budget else None
         magic_number = div(revenue_growth, marketing_spend, None)
 
         # Payback = CAC / (ARPU × gross_margin); ROMI = (LTV − CAC) / CAC
-        payback_period = round(cac / (arpu * gross_margin), 2) if (arpu and gross_margin) else None
+        payback_period = (
+            round(cac / (arpu * gross_margin), 2) if (arpu and gross_margin) else None
+        )
         romi = round((ltv - cac) / cac, 4) if cac else None
 
         alerts = self._build_alerts(ltv_cac, churn, runway, magic_number)
 
         return UnitEconomicsResponse(
             company_id=company_id,
+            source_metric=(
+                UnitEconomicsMetricSource.model_validate(latest_metric)
+                if latest_metric is not None
+                else None
+            ),
             revenue=revenue,
             cac=cac,
             ltv=ltv,
@@ -154,15 +171,21 @@ class UnitEconomicsService:
 
         if ltv_cac is not None:
             if ltv_cac < 3:
-                alerts.append(f"⚠️ LTV/CAC = {ltv_cac:.2f} (норма > 3). Клиенты не окупаются.")
+                alerts.append(
+                    f"⚠️ LTV/CAC = {ltv_cac:.2f} (норма > 3). Клиенты не окупаются."
+                )
             else:
                 alerts.append(f"✅ LTV/CAC = {ltv_cac:.2f} — отличный показатель.")
 
         if churn is not None:
             if churn > 0.05:
-                alerts.append(f"⚠️ Churn = {churn * 100:.1f}% (норма < 5%). Высокий отток.")
+                alerts.append(
+                    f"⚠️ Отток клиентов (Churn) = {churn * 100:.1f}% (норма < 5%). Высокий отток."
+                )
             else:
-                alerts.append(f"✅ Churn = {churn * 100:.1f}% — в норме.")
+                alerts.append(
+                    f"✅ Отток клиентов (Churn) = {churn * 100:.1f}% — в норме."
+                )
 
         if runway is not None:
             if runway < 6:
@@ -176,6 +199,8 @@ class UnitEconomicsService:
             if magic_number < 1:
                 alerts.append(f"⚠️ Magic Number = {magic_number:.2f} (норма > 1).")
             else:
-                alerts.append(f"✅ Magic Number = {magic_number:.2f} — эффективные продажи.")
+                alerts.append(
+                    f"✅ Magic Number = {magic_number:.2f} — эффективные продажи."
+                )
 
         return alerts

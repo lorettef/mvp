@@ -14,7 +14,8 @@ from app.services.weekly_report_service import WeeklyReportService
 # portfolio seeded by _seed_fact_company("Test Startup") +
 # _seed_plan_only_company("Beta Labs"). Captured as characterization BEFORE the
 # DB-batching refactor; the refactored build must reproduce it byte-for-byte.
-LEGACY_SNAPSHOT_HTML = '<html><body><h2>Еженедельный отчёт по портфелю</h2><h3>Beta Labs</h3><ul><li>Выручка: 80,000 ₽</li><li>CAC: 600 ₽</li><li>LTV: 3,000 ₽</li><li>Churn: 2.0%</li><li>Runway: 4.5 мес.</li></ul><ul><li>✅ LTV/CAC = 5.00 — отличный показатель.</li><li>✅ Churn = 2.0% — в норме.</li><li>⚠️ Runway = 4.5 мес. (критично &lt; 6).</li><li>✅ Magic Number = 1.11 — эффективные продажи.</li></ul><h3>Test Startup</h3><ul><li>Выручка: 200,000 ₽</li><li>CAC: 1,000 ₽</li><li>LTV: 5,000 ₽</li><li>Churn: 3.5%</li><li>Runway: 6.3 мес.</li></ul><ul><li>✅ LTV/CAC = 5.00 — отличный показатель.</li><li>✅ Churn = 3.5% — в норме.</li><li>📊 Runway = 6.3 мес. (рекомендуется &gt; 12).</li><li>✅ Magic Number = 2.50 — эффективные продажи.</li></ul></body></html>'
+# E10 expands only the Churn alert label; report values and layout stay intact.
+LEGACY_SNAPSHOT_HTML = "<html><body><h2>Еженедельный отчёт по портфелю</h2><h3>Beta Labs</h3><ul><li>Выручка: 80,000 ₽</li><li>CAC: 600 ₽</li><li>LTV: 3,000 ₽</li><li>Churn: 2.0%</li><li>Runway: 4.5 мес.</li></ul><ul><li>✅ LTV/CAC = 5.00 — отличный показатель.</li><li>✅ Отток клиентов (Churn) = 2.0% — в норме.</li><li>⚠️ Runway = 4.5 мес. (критично &lt; 6).</li><li>✅ Magic Number = 1.11 — эффективные продажи.</li></ul><h3>Test Startup</h3><ul><li>Выручка: 200,000 ₽</li><li>CAC: 1,000 ₽</li><li>LTV: 5,000 ₽</li><li>Churn: 3.5%</li><li>Runway: 6.3 мес.</li></ul><ul><li>✅ LTV/CAC = 5.00 — отличный показатель.</li><li>✅ Отток клиентов (Churn) = 3.5% — в норме.</li><li>📊 Runway = 6.3 мес. (рекомендуется &gt; 12).</li><li>✅ Magic Number = 2.50 — эффективные продажи.</li></ul></body></html>"
 
 
 async def _make_company(db_session, organization_id, name: str) -> Company:
@@ -159,7 +160,7 @@ async def test_weekly_report_html(client, seeded_company, db_session):
 
 
 async def test_build_report_html_matches_legacy_snapshot(db_session, seeded_company):
-    """HTML must be byte-identical to the pre-refactor (N+1) implementation."""
+    """Preserve legacy HTML and numbers with the E10 Churn alert terminology."""
     beta = await _make_company(db_session, seeded_company.organization_id, "Beta Labs")
     await _seed_fact_company(db_session, seeded_company)
     await _seed_plan_only_company(db_session, beta)

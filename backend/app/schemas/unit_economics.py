@@ -1,7 +1,25 @@
-from typing import List, Optional
+from datetime import date
+from typing import List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+
+class UnitEconomicsMetricSource(BaseModel):
+    """The exact Metric used for this summary; derived fields are not inputs."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    period: date
+    type: Literal["fact", "plan"]
+    new_units: int
+    arpu: Optional[float]
+    revenue: float
+    marketing_spend: float
+    retention_rate: float
+    # Preserve the existing comment on upsert without exposing another editor.
+    comment: Optional[str] = None
 
 
 class RetentionBreakdown(BaseModel):
@@ -17,6 +35,7 @@ class UnitEconomicsResponse(BaseModel):
     """Сводка юнит-экономики компании (TZ v5.0, раздел 4)."""
 
     company_id: UUID
+    source_metric: Optional[UnitEconomicsMetricSource] = None
 
     # Базовые метрики (последний факт)
     revenue: Optional[float] = None
@@ -29,7 +48,9 @@ class UnitEconomicsResponse(BaseModel):
     runway_months: Optional[float] = None  # Деньги / Месячные расходы
     cash: Optional[float] = None  # Сумма финансирования (investment + credit)
     monthly_burn: Optional[float] = None  # Сумма статей бюджета (факт)
-    magic_number: Optional[float] = None  # Прирост дохода / Затраты на маркетинг (норма > 1)
+    magic_number: Optional[float] = (
+        None  # Прирост дохода / Затраты на маркетинг (норма > 1)
+    )
     revenue_growth: Optional[float] = None  # ΔRevenue (последний − предыдущий факт)
     marketing_spend: Optional[float] = None  # Затраты на маркетинг (факт)
     payback_period: Optional[float] = None  # CAC / (ARPU × gross_margin), мес

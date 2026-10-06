@@ -372,8 +372,21 @@ export interface RetentionBreakdown {
   m12: number | null
 }
 
+export interface UnitEconomicsMetricSource {
+  id: string
+  period: string
+  type: 'plan' | 'fact'
+  newUnits: number
+  arpu: number | null
+  revenue: number
+  marketingSpend: number
+  retentionRate: number
+  comment: string | null
+}
+
 export interface UnitEconomicsResponse {
   companyId: string
+  sourceMetric: UnitEconomicsMetricSource | null
   revenue: number | null
   cac: number | null
   ltv: number | null

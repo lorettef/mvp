@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { UnitEconomicsResponse } from '@/types/api'
+import type { MetricUpsert, UnitEconomicsMetricSource, UnitEconomicsResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MetricHelp } from '@/components/shared/metric-help'
-import { fmtPct, fmtRub } from '@/lib/format'
+import { fmtPct, fmtRub, formatMonthLabel } from '@/lib/format'
+import { Button } from '@/components/ui/button'
+import { UnitEconomicsSourceEditor } from './UnitEconomicsSourceEditor'
 
 const fmtNum = (v: number | null | undefined, digits = 2) =>
   v == null ? '—' : v.toFixed(digits)
@@ -11,10 +14,17 @@ const fmtNum = (v: number | null | undefined, digits = 2) =>
 interface UnitEconomicsTabProps {
   data?: UnitEconomicsResponse
   isLoading?: boolean
+  canEdit?: boolean
+  metricLabel?: (key: string, fallback: string) => string
+  onSaveSource?: (data: MetricUpsert) => Promise<unknown>
+  onDeleteSource?: (id: string) => Promise<unknown>
+  isSaving?: boolean
+  isDeleting?: boolean
 }
 
-export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
-  const { t } = useTranslation()
+export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel, onSaveSource, onDeleteSource, isSaving, isDeleting }: UnitEconomicsTabProps) {
+  const { t, i18n } = useTranslation()
+  const [editingSource, setEditingSource] = useState<UnitEconomicsMetricSource | null>(null)
 
   if (isLoading) {
     return (
@@ -48,32 +58,37 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
 
   const stats = [
     {
-      label: 'LTV/CAC',
+      label: t('company.unit.ratio'),
+      description: t('company.unit.ratioHelp'),
       value: fmtNum(data.ltvCac),
       ok: data.ltvCac == null ? null : data.ltvCac >= 3,
     },
     {
-      label: 'Magic Number',
+      label: t('company.unit.magicNumber'),
+      description: t('company.unit.magicHelp'),
       value: fmtNum(data.magicNumber),
       ok: data.magicNumber == null ? null : data.magicNumber >= 1,
     },
     {
-      label: 'Runway',
+      label: t('company.unit.runway'),
+      description: t('company.unit.runwayHelp'),
       value: fmtMonths(data.runwayMonths),
       ok: data.runwayMonths == null ? null : data.runwayMonths >= 6,
     },
     {
-      label: 'Payback',
+      label: t('company.unit.payback'),
+      description: t('company.unit.paybackHelp'),
       value: fmtMonths(data.paybackPeriod),
       ok: data.paybackPeriod == null ? null : data.paybackPeriod <= 12,
     },
     {
-      label: 'ROMI',
+      label: t('company.unit.romi'),
+      description: t('company.unit.romiHelp'),
       value: fmtPct(data.romi),
       ok: data.romi == null ? null : data.romi >= 0,
     },
     {
-      label: 'Churn',
+      label: t('company.unit.churn'),
       value: fmtPct(data.churn),
       ok: data.churn == null ? null : data.churn <= 0.05,
       description: t('overview.metricHelp.churn'),
@@ -86,17 +101,27 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
     { label: 'M6', value: data.retention.m6 },
     { label: 'M12', value: data.retention.m12 },
   ]
+  const source = data.sourceMetric
+  const editable = Boolean(canEdit && source && onSaveSource && onDeleteSource)
+  const basic = [
+    { label: t('company.unit.revenue'), value: fmtRub(data.revenue) },
+    { label: t('company.unit.cac'), value: fmtRub(data.cac) },
+    { label: t('company.unit.ltv'), value: fmtRub(data.ltv) },
+    { label: t('company.unit.churn'), value: fmtPct(data.churn) },
+  ]
+  const openEditor = () => { if (editable && source) setEditingSource(source) }
 
   return (
     <div className="space-y-6">
       <Card className="border bg-card">
         <CardContent className="p-5">
-          <h3 className="font-semibold text-foreground mb-5">{t('company.unit.title')}</h3>
+          <h3 className="font-semibold text-foreground mb-2">{t('company.unit.title')}</h3>
+          <p className="text-sm text-muted-foreground mb-5">{t('company.unit.computedHint')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.map((s) => (
               <div key={s.label} className="rounded-lg border border-border p-4">
                 {s.description ? (
-                  <MetricHelp label={s.label} description={s.description} side="right" className="text-xs font-medium text-muted-foreground uppercase tracking-wider" />
+                  <MetricHelp label={s.label} description={s.description} side="right" className="text-xs font-medium text-muted-foreground" />
                 ) : (
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{s.label}</p>
                 )}
@@ -121,24 +146,31 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
         <Card className="border bg-card">
           <CardContent className="p-5">
             <h3 className="font-semibold text-foreground mb-4">{t('company.unit.basic')}</h3>
+            {source && <p className="mb-3 text-sm text-muted-foreground">{t('company.unit.source', {
+              type: t(`common.${source.type}`), period: formatMonthLabel(source.period.slice(0, 7), i18n.language),
+            })}</p>}
             <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">{t('company.unit.revenue')}</dt>
-                <dd className="text-foreground">{fmtRub(data.revenue)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">CAC</dt>
-                <dd className="text-foreground">{fmtRub(data.cac)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">LTV</dt>
-                <dd className="text-foreground">{fmtRub(data.ltv)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Churn</dt>
-                <dd className="text-foreground">{fmtPct(data.churn)}</dd>
-              </div>
+              {basic.map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="shrink-0 text-foreground">
+                    {editable ? (
+                      <button type="button" aria-label={t('company.unit.editValue', { metric: label })}
+                        className="cursor-pointer rounded px-1.5 py-1 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onDoubleClick={openEditor}
+                        onClick={(event) => { if (event.detail === 0) openEditor() }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openEditor() }
+                        }}>{value}</button>
+                    ) : value}
+                  </dd>
+                </div>
+              ))}
             </dl>
+            {editable && <div className="mt-4 space-y-2">
+              <p className="text-xs text-muted-foreground">{t('company.unit.editHint')}</p>
+              <Button type="button" variant="outline" className="whitespace-normal" onClick={openEditor}>{t('company.unit.editSource')}</Button>
+            </div>}
           </CardContent>
         </Card>
 
@@ -172,6 +204,11 @@ export function UnitEconomicsTab({ data, isLoading }: UnitEconomicsTabProps) {
             </ul>
           </CardContent>
         </Card>
+      )}
+      {canEdit && editingSource && onSaveSource && onDeleteSource && (
+        <UnitEconomicsSourceEditor source={editingSource} metricLabel={metricLabel}
+          onSave={onSaveSource} onDelete={onDeleteSource} isSaving={isSaving} isDeleting={isDeleting}
+          onClose={() => setEditingSource(null)} />
       )}
     </div>
   )

@@ -28,6 +28,14 @@ function sentBody(config: InternalAxiosRequestConfig): Record<string, unknown> {
 }
 
 describe('API wire-contract casing', () => {
+  it('camelizes the nullable Unit Economics source without deriving or selecting it', async () => {
+    mockAdapter({ source_metric: { id: 'chosen-plan', period: '2026-02-01', type: 'plan', new_units: 12,
+      arpu: null, revenue: 1200, marketing_spend: 200, retention_rate: 0.82, comment: null } })
+    expect((await companiesApi.unitEconomics('c1')).sourceMetric).toEqual({ id: 'chosen-plan', period: '2026-02-01', type: 'plan',
+      newUnits: 12, arpu: null, revenue: 1200, marketingSpend: 200, retentionRate: 0.82, comment: null })
+    mockAdapter({ source_metric: null })
+    expect((await companiesApi.unitEconomics('c1')).sourceMetric).toBeNull()
+  })
   it('companiesApi.update sends gross_margin (snake_case) on the wire', async () => {
     const adapter = vi.fn(async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => ({
       data: { id: 'c1', gross_margin: 0.8 },

@@ -1,8 +1,9 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CompanyDetail } from './CompanyDetail'
+import { qk } from '@/lib/queryKeys'
 
 const mocks = vi.hoisted(() => ({
   role: 'admin' as string,
@@ -193,6 +194,8 @@ const budget = {
 
 const unitEconomicsData = {
   companyId: 'comp1',
+  sourceMetric: { id: 'unit-source', period: '2026-02-01', type: 'fact', newUnits: 10,
+    arpu: 150, revenue: 120000, marketingSpend: 10000, retentionRate: 0.97, comment: 'Keep comment' },
   revenue: 120000,
   cac: 1000,
   ltv: 5000,
@@ -432,8 +435,8 @@ const planGenerateData = {
   ],
 }
 
-function renderCompanyDetail(tab?: string) {
-  const queryClient = new QueryClient({
+function renderCompanyDetail(tab?: string, providedClient?: QueryClient) {
+  const queryClient = providedClient ?? new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   const entry = tab ? `/companies/comp1?tab=${tab}` : '/companies/comp1'
@@ -473,6 +476,69 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.deleteCohort.mockResolvedValue(undefined)
     mocks.companiesApi.deleteBudget.mockResolvedValue(undefined)
     catalogApiMock.get.mockResolvedValue(catalogData)
+  })
+
+  it.each(['admin', 'company'])('lets %s edit the server-selected metric and invalidates only the current tenant', async (role) => {
+    mocks.role = role
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const metricsKey = qk.companyMetrics('org1', 'comp1')
+    const dashboardKey = qk.dashboard('org1', { industries: ['saas'] })
+    const otherCompanyKey = qk.companyMetrics('other-org', 'comp1')
+    const otherDashboardKey = qk.dashboard('other-org')
+    for (const key of [metricsKey, dashboardKey, otherCompanyKey, otherDashboardKey]) queryClient.setQueryData(key, [])
+    const updated = { ...unitEconomicsData, cac: 250, ltvCac: 20 }
+    mocks.companiesApi.unitEconomics.mockResolvedValueOnce(unitEconomicsData).mockResolvedValue(updated)
+    mocks.companiesApi.upsertMetric.mockResolvedValue({ ...metric, id: 'unit-source' })
+    renderCompanyDetail('unit', queryClient)
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать исходные данные' }))
+    const dialog = screen.getByRole('dialog', { name: 'Редактировать исходные данные' })
+    expect(within(dialog).getByRole('spinbutton', { name: 'Новые платящие клиенты' })).toHaveValue(10)
+    expect(within(dialog).getByRole('spinbutton', { name: 'Расходы на привлечение' })).toHaveValue(10000)
+    fireEvent.change(within(dialog).getByRole('spinbutton', { name: 'Удержание подписчиков (%)' }), { target: { value: '82' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(mocks.companiesApi.upsertMetric).toHaveBeenCalledWith('comp1', {
+      period: '2026-02-01', type: 'fact', new_units: 10, arpu: 150, revenue: 120000,
+      marketing_spend: 10000, retention_rate: 0.82, comment: 'Keep comment',
+    })
+    expect(await screen.findByText('20.00')).toBeInTheDocument()
+    expect(mocks.companiesApi.metrics).not.toHaveBeenCalled()
+    expect(queryClient.getQueryState(metricsKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(dashboardKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(otherCompanyKey)?.isInvalidated).toBe(false)
+    expect(queryClient.getQueryState(otherDashboardKey)?.isInvalidated).toBe(false)
+  })
+
+  it('deletes the selected source id and refreshes the view without keeping deleted values', async () => {
+    mocks.companiesApi.unitEconomics.mockResolvedValueOnce(unitEconomicsData).mockResolvedValue({
+      ...unitEconomicsData, sourceMetric: null, revenue: null, cac: null, ltv: null, churn: null, ltvCac: null,
+    })
+    renderCompanyDetail('unit')
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать исходные данные' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить исходную запись' }))
+    const dialog = screen.getByRole('dialog', { name: 'Удалить данные за Февраль 2026?' })
+    expect(mocks.companiesApi.deleteMetric).not.toHaveBeenCalled()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Удалить' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(mocks.companiesApi.deleteMetric).toHaveBeenCalledWith('comp1', 'unit-source')
+    expect(screen.queryByRole('button', { name: 'Редактировать исходные данные' })).not.toBeInTheDocument()
+    expect(screen.queryByText('5.00')).not.toBeInTheDocument()
+  })
+
+  it('does not expose source editing for an observer in the actual container', async () => {
+    mocks.role = 'observer'
+    renderCompanyDetail('unit')
+    await screen.findByText('Источник: Факт · Февраль 2026')
+    expect(screen.queryByRole('button', { name: /редактировать исходные данные/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps source editor open when the metrics API rejects save', async () => {
+    mocks.companiesApi.upsertMetric.mockRejectedValue({ response: { data: { detail: 'Access denied' } } })
+    renderCompanyDetail('unit')
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать исходные данные' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось сохранить исходные данные: Access denied')
+    expect(screen.getByRole('dialog', { name: 'Редактировать исходные данные' })).toBeInTheDocument()
   })
 
   it('shows metrics tab by default', async () => {
@@ -552,7 +618,7 @@ describe('CompanyDetail', () => {
 
   it('renders unit economics content for ?tab=unit', async () => {
     renderCompanyDetail('unit')
-    expect(await screen.findByText('LTV/CAC')).toBeInTheDocument()
+    expect(await screen.findByText('Соотношение LTV/CAC')).toBeInTheDocument()
     expect(screen.getByText('Magic Number')).toBeInTheDocument()
     expect(screen.getByText('80.0%')).toBeInTheDocument()
   })
