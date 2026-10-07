@@ -47,7 +47,7 @@ import { normalizeApiError } from '@/lib/apiError'
 import { SKIP_GLOBAL_ERROR } from '@/lib/toastError'
 import { cn } from '@/lib/utils'
 import { fmtPct, fmtPeriod, fmtRub, fmtSignedPct, formatMonthLabel } from '@/lib/format'
-import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw, Trash2, Settings2 } from 'lucide-react'
+import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, Trash2, Settings2 } from 'lucide-react'
 
 interface BulkRow {
   newUnits: string
@@ -88,13 +88,14 @@ const defaultStartMonth = (type: 'plan' | 'fact', count: number): string => {
 }
 
 const deriveMetric = (r: BulkRow) => {
-  const retention = Math.min(1, Math.max(0, (Number(r.retentionPct) || 0) / 100))
-  const churn = 1 - retention
-  const arpu = Number(r.arpu) || 0
-  const newUnits = Number(r.newUnits) || 0
-  const marketing = Number(r.marketingSpend) || 0
-  const ltv = churn > 0 ? arpu / churn : arpu * 12
-  const cac = newUnits > 0 ? marketing / newUnits : 0
+  const numberOrNull = (raw: string) => raw.trim() !== '' && Number.isFinite(Number(raw)) ? Number(raw) : null
+  const retentionPct = numberOrNull(r.retentionPct)
+  const churn = retentionPct == null ? null : 1 - Math.min(1, Math.max(0, retentionPct / 100))
+  const arpu = numberOrNull(r.arpu)
+  const newUnits = numberOrNull(r.newUnits)
+  const marketing = numberOrNull(r.marketingSpend)
+  const ltv = arpu == null || churn == null ? null : churn > 0 ? arpu / churn : arpu * 12
+  const cac = newUnits == null || marketing == null ? null : newUnits > 0 ? marketing / newUnits : 0
   return { churn, ltv, cac }
 }
 
@@ -313,21 +314,16 @@ export const CompanyDetail = () => {
     enabled: Boolean(id) && tab === 'sensitivity',
   })
 
-  const recalculateMutation = useMutation({
-    mutationFn: () => companiesApi.recalculate(id),
-    onSuccess: () => {
-      // Один префиксный вызов покрывает компанию и все её производные запросы.
-      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
-      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
-    },
-  })
+  const invalidateFinancialSource = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) }),
+      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) }),
+    ])
+  }
 
   const generatePlanMutation = useMutation({
     mutationFn: () => companiesApi.generatePlan(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.companyMetrics(tenantKey, id) })
-      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
-    },
+    onSuccess: invalidateFinancialSource,
   })
 
   const bulkMutation = useMutation({
@@ -343,9 +339,8 @@ export const CompanyDetail = () => {
       }))
       return companiesApi.upsertMetricBulk(id, { items })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.companyMetrics(tenantKey, id) })
-      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
+    onSuccess: async () => {
+      await invalidateFinancialSource()
       setShowForm(false)
     },
   })
@@ -403,46 +398,35 @@ export const CompanyDetail = () => {
     },
   })
 
-  const budgetUpsert = useMutation({
-    mutationFn: (d: BudgetUpsert) => companiesApi.upsertBudget(id, d),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.companyBudgets(tenantKey, id) })
-    },
-  })
-
   const deleteMetricMutation = useMutation({
     mutationFn: (metricId: string) => companiesApi.deleteMetric(id, metricId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
-    },
+    onSuccess: invalidateFinancialSource,
   })
 
-  const invalidateMetricSource = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) }),
-      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) }),
-    ])
-  }
   const saveUnitSource = useMutation({
     mutationFn: (data: MetricUpsert) => companiesApi.upsertMetric(id, data),
-    onSuccess: invalidateMetricSource,
+    onSuccess: invalidateFinancialSource,
     meta: SKIP_GLOBAL_ERROR,
   })
   const deleteUnitSource = useMutation({
     mutationFn: (metricId: string) => companiesApi.deleteMetric(id, metricId),
-    onSuccess: invalidateMetricSource,
+    onSuccess: invalidateFinancialSource,
+    meta: SKIP_GLOBAL_ERROR,
+  })
+
+  const saveBudgetSource = useMutation({
+    mutationFn: (data: BudgetUpsert) => companiesApi.upsertBudget(id, data),
+    onSuccess: invalidateFinancialSource,
+    meta: SKIP_GLOBAL_ERROR,
+  })
+  const deleteBudgetSource = useMutation({
+    mutationFn: (budgetId: string) => companiesApi.deleteBudget(id, budgetId),
+    onSuccess: invalidateFinancialSource,
     meta: SKIP_GLOBAL_ERROR,
   })
 
   const deleteCohortMutation = useMutation({
     mutationFn: (cohortId: string) => companiesApi.deleteCohort(id, cohortId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
-    },
-  })
-
-  const deleteBudgetMutation = useMutation({
-    mutationFn: (budgetId: string) => companiesApi.deleteBudget(id, budgetId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
     },
@@ -562,15 +546,6 @@ export const CompanyDetail = () => {
               {t('dashboard.config.title')}
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => recalculateMutation.mutate()}
-            loading={recalculateMutation.isPending}
-          >
-            <RefreshCw className="h-4 w-4" />
-            {recalculateMutation.isPending ? t('common.recalculating') : t('common.forceRecalc')}
-          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -949,11 +924,11 @@ export const CompanyDetail = () => {
             onRetry={() => budgetsQuery.refetch()}
           >
           <BudgetTab
+            key={`${tenantKey}:${id}`}
             budgets={budgets}
             canEdit={canEdit}
-            onSubmit={(d) => budgetUpsert.mutate(d)}
-            onDelete={(budgetId) => deleteBudgetMutation.mutate(budgetId)}
-            isPending={budgetUpsert.isPending}
+            onSubmit={(data) => saveBudgetSource.mutateAsync(data)}
+            onDelete={(budgetId) => deleteBudgetSource.mutateAsync(budgetId)}
           />
           </QueryState>
         </TabsContent>
@@ -1050,7 +1025,15 @@ export const CompanyDetail = () => {
             isEmpty={pnlQuery.data == null}
             emptyText={t('company.pnl.empty')}
           >
-          <PnLTab data={pnlQuery.data} isLoading={pnlQuery.isLoading} />
+          <PnLTab
+            key={`${tenantKey}:${id}`}
+            data={pnlQuery.data} isLoading={pnlQuery.isLoading} canEdit={canEdit}
+            metricLabel={metricLabel}
+            onSaveMetric={(data) => saveUnitSource.mutateAsync(data)}
+            onDeleteMetric={(metricId) => deleteUnitSource.mutateAsync(metricId)}
+            onSaveBudget={(data) => saveBudgetSource.mutateAsync(data)}
+            onDeleteBudget={(budgetId) => deleteBudgetSource.mutateAsync(budgetId)}
+          />
           </QueryState>
         </TabsContent>
 

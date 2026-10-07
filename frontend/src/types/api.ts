@@ -192,7 +192,7 @@ export interface MetricUpsert {
   revenue: number
   marketing_spend: number
   retention_rate: number
-  comment?: string
+  comment?: string | null
 }
 
 export interface MetricBulkUpsert {
@@ -634,6 +634,34 @@ export interface FinancingUpdate {
 }
 
 // P&L (profit & loss statement)
+export type PnLMetricSource = UnitEconomicsMetricSource
+export type BudgetSource = Pick<Budget, 'id' | 'period' | 'type' | 'marketing' | 'development' | 'fot' | 'gna'>
+
+export type PnLBudgetSource = BudgetSource
+
+export interface PnLScenario {
+  metricSource: PnLMetricSource | null
+  budgetSource: PnLBudgetSource | null
+  revenue: number | null
+  fot: number | null
+  socialPayments: number | null
+  marketing: number | null
+  development: number | null
+  gna: number | null
+  totalOpex: number | null
+  ebitda: number | null
+  financialExpenses: number | null
+  netProfit: number | null
+  ebitdaMargin: number | null
+  netMargin: number | null
+}
+
+export interface PnLPeriod {
+  period: string
+  plan: PnLScenario | null
+  fact: PnLScenario | null
+}
+
 export interface PnLMonth {
   period: string
   source: string | null
@@ -672,6 +700,7 @@ export interface PnLResponse {
   ebitdaMargin: number | null
   netMargin: number | null
   summary: string
+  periods: PnLPeriod[]
   months: PnLMonth[]
 }
 

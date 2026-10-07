@@ -153,6 +153,24 @@ describe('PortfolioUnitEconomicsTable', () => {
 })
 
 describe('Summary shared behaviour', () => {
+  it('collapses each table filter toolbar independently and preserves its selections', async () => {
+    render(<><PortfolioPlanFactTable companies={[alpha, beta]} onOpen={vi.fn()} />
+      <PortfolioUnitEconomicsTable companies={[alpha, beta]} onOpen={vi.fn()} /></>)
+    await selectCompany(planTitle, beta.name)
+    const user = userEvent.setup()
+    const toggle = within(region(planTitle)).getByRole('button', { name: 'Скрыть фильтры таблицы' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    toggle.focus()
+    await user.keyboard(' ')
+    expect(within(region(planTitle)).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(within(region(unitTitle)).getByRole('combobox')).toHaveTextContent('Общий портфель')
+    expect(within(table(planTitle)).getAllByRole('row')).toHaveLength(2)
+    const reopen = within(region(planTitle)).getByRole('button', { name: 'Показать фильтры таблицы' })
+    expect(reopen).toHaveAttribute('aria-expanded', 'false')
+    reopen.focus()
+    await user.keyboard('{Enter}')
+    expect(within(region(planTitle)).getByRole('combobox')).toHaveTextContent(beta.name)
+  })
   it.each([PortfolioPlanFactTable, PortfolioUnitEconomicsTable])('resets an excluded local company without reviving it when global data returns', async Table => {
     const title = Table === PortfolioPlanFactTable ? planTitle : unitTitle
     const { rerender } = render(<Table companies={[alpha, beta]} onOpen={vi.fn()} />)

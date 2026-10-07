@@ -147,6 +147,14 @@ describe('CompaniesDashboard acceptance — unavailable KPI', () => {
     }
   })
 
+  it('formats fractional average runway without floating-point artifacts', async () => {
+    dashboardApiMock.get.mockResolvedValue({ ...response, avgRunway: 0.8499999999999999 })
+    renderDashboard()
+    await screen.findByRole('tab', { name: 'Активные компании (1)' })
+    expect(screen.getByText('0.8 мес.', { exact: true })).toBeInTheDocument()
+    expect(screen.queryByText('0.8499999999999999 мес.', { exact: true })).not.toBeInTheDocument()
+  })
+
   it('keeps the dashboard visible on catalog failure and exposes a retry for filter options', async () => {
     catalogApiMock.get.mockRejectedValueOnce(new Error('Catalog unavailable'))
     renderDashboard()

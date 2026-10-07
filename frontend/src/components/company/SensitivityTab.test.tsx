@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { SensitivityTab } from './SensitivityTab'
 import type { SensitivityResponse } from '@/types/api'
@@ -63,6 +63,11 @@ describe('SensitivityTab', () => {
     expect(screen.getByText('Базовый')).toBeInTheDocument()
     expect(screen.getByText('Консервативный')).toBeInTheDocument()
     expect(screen.getByText('LTV/CAC')).toBeInTheDocument()
+    const table = within(screen.getByRole('table'))
+    for (const label of ['Стоимость привлечения клиента (CAC)', 'Пожизненная ценность клиента (LTV)', 'Отток клиентов (Churn)']) {
+      expect(table.getByText(label)).toBeInTheDocument()
+    }
+    for (const label of ['CAC', 'LTV', 'Churn']) expect(table.queryByText(label, { exact: true })).not.toBeInTheDocument()
   })
 
   it('shows empty state when no data', () => {

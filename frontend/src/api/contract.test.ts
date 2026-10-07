@@ -4,6 +4,7 @@ import { api } from './client'
 import { companiesApi } from './companies'
 import { authApi } from './auth'
 import { forecastApi } from './forecast'
+import { pnlApi } from './pnl'
 
 const originalAdapter = api.defaults.adapter
 
@@ -28,6 +29,17 @@ function sentBody(config: InternalAxiosRequestConfig): Record<string, unknown> {
 }
 
 describe('API wire-contract casing', () => {
+  it('camelizes paired P&L sources, preserves null/zero and uses the existing endpoint', async () => {
+    mockAdapter({ periods: [{ period: '2026-11-01', plan: { metric_source: { id: 'plan-m', type: 'plan', period: '2026-11-01', new_units: 7, arpu: null, revenue: 0, marketing_spend: 876.54, retention_rate: 0.97, comment: 'raw' }, budget_source: { id: 'plan-b', period: '2026-11-01', type: 'plan', marketing: 0, development: 20, fot: 30, gna: 5 }, social_payments: 9.06, total_opex: 64.06, financial_expenses: null, net_profit: null }, fact: null }] })
+    const signal = new AbortController().signal
+    const result = await pnlApi.get('c1', { signal })
+    expect(result.periods[0].fact).toBeNull()
+    expect(result.periods[0].plan?.metricSource).toEqual({ id: 'plan-m', type: 'plan', period: '2026-11-01', newUnits: 7, arpu: null, revenue: 0, marketingSpend: 876.54, retentionRate: 0.97, comment: 'raw' })
+    expect(result.periods[0].plan?.budgetSource?.id).toBe('plan-b')
+    expect(result.periods[0].plan?.socialPayments).toBe(9.06)
+    expect(result.periods[0].plan?.financialExpenses).toBeNull()
+    expect(result.periods[0].plan?.netProfit).toBeNull()
+  })
   it('camelizes the nullable Unit Economics source without deriving or selecting it', async () => {
     mockAdapter({ source_metric: { id: 'chosen-plan', period: '2026-02-01', type: 'plan', new_units: 12,
       arpu: null, revenue: 1200, marketing_spend: 200, retention_rate: 0.82, comment: null } })

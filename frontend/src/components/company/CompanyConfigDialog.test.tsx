@@ -96,6 +96,7 @@ describe('CompanyConfigDialog', () => {
     await i18n.changeLanguage('en')
     renderDialog()
     expect(screen.getByText('Check the metrics you want to track. You can change your selection later.')).toBeInTheDocument()
+    expect(await screen.findByText(/Customer lifetime value \(LTV\), customer acquisition cost \(CAC\) and customer churn \(Churn\) are calculated automatically/)).toBeInTheDocument()
   })
 
   it('shows company name, region and industry label from the catalog', async () => {
@@ -104,6 +105,7 @@ describe('CompanyConfigDialog', () => {
     expect(screen.getByDisplayValue('Acme')).toBeInTheDocument()
     expect(screen.getByRole('spinbutton', { name: 'Валовая маржа (%)' })).toHaveValue(75)
     await waitFor(() => expect(screen.getByText('SaaS')).toBeInTheDocument())
+    expect(screen.getByText(/Пожизненная ценность клиента \(LTV\), стоимость привлечения клиента \(CAC\) и отток клиентов \(Churn\) рассчитываются автоматически/)).toBeInTheDocument()
     expect(screen.getByText('Подписка (SaaS)')).toBeInTheDocument()
   })
 

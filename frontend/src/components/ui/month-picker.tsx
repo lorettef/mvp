@@ -18,6 +18,7 @@ const parseMonthValue = (value: string): Date | undefined => {
 const currentYear = () => new Date().getFullYear()
 
 export interface MonthPickerProps {
+  readonly id?: string
   readonly value: string
   readonly onChange: (value: string) => void
   readonly placeholder?: string
@@ -27,6 +28,7 @@ export interface MonthPickerProps {
 }
 
 export function MonthPicker({
+  id,
   value,
   onChange,
   placeholder,
@@ -59,6 +61,7 @@ export function MonthPicker({
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <Button
+          id={id}
           ref={triggerRef}
           type="button"
           variant="outline"

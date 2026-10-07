@@ -50,9 +50,9 @@ export function SensitivityTab({ data, isLoading }: SensitivityTabProps) {
 
   const rows: Row[] = [
     { label: 'Revenue', base: fmtRub(b.mrr), conservative: fmtRub(c.mrr) },
-    { label: 'CAC', base: fmtRub(b.cac), conservative: fmtRub(c.cac) },
-    { label: 'LTV', base: fmtRub(b.ltv), conservative: fmtRub(c.ltv) },
-    { label: 'Churn', base: fmtPct(b.churn), conservative: fmtPct(c.churn) },
+    { label: t('company.unit.cac'), base: fmtRub(b.cac), conservative: fmtRub(c.cac) },
+    { label: t('company.unit.ltv'), base: fmtRub(b.ltv), conservative: fmtRub(c.ltv) },
+    { label: t('company.unit.churn'), base: fmtPct(b.churn), conservative: fmtPct(c.churn) },
     { label: 'LTV/CAC', base: fmtX(b.ltvCac), conservative: fmtX(c.ltvCac) },
     { label: 'FCF', base: fmtRub(b.fcf), conservative: fmtRub(c.fcf) },
     { label: t('company.sensitivity.growthRate'), base: fmtPercent(b.growthRate), conservative: fmtPercent(c.growthRate) },
@@ -142,7 +142,7 @@ export function SensitivityTab({ data, isLoading }: SensitivityTabProps) {
               const width = Math.min(100, Math.abs(pct ?? 0))
               return (
                 <div key={s.name} className="flex items-center gap-3">
-                  <span className="w-24 text-sm text-muted-foreground capitalize">{s.name}</span>
+                  <span className="w-24 break-words text-sm text-muted-foreground">{['cac', 'ltv', 'churn'].includes(s.name) ? t(`company.unit.${s.name}`) : s.name}</span>
                   <div className="flex-1 h-5 bg-muted rounded overflow-hidden">
                     <div
                       className={`h-full ${(pct ?? 0) <= 0 ? 'bg-destructive' : 'bg-success'}`}

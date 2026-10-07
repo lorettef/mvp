@@ -204,7 +204,7 @@ export const CompaniesDashboard = () => {
                 compact
                 label={t('dashboard.cards.avgRunway')}
                 description={data?.avgRunway == null ? t('dashboard.cards.unavailable.runway') : undefined}
-                value={data?.avgRunway != null ? t('overview.kpi.runwayMonths', { value: data.avgRunway }) : '—'}
+                value={data?.avgRunway != null ? t('overview.kpi.runwayMonths', { value: Number(data.avgRunway.toFixed(1)) }) : '—'}
                 icon={<CalendarClock className="h-4 w-4" />}
               />
             </div>

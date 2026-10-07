@@ -3,19 +3,23 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import today
+from app.models.budget import Budget
+from app.models.metric import Metric
 from app.models.company import Company
 from app.models.financing import Financing
-from app.schemas.pnl import PnLMonth, PnLResponse
-from app.services.common import (
-    budget_for_period,
-    distinct_periods,
-    div,
-    f,
-    metric_for_period,
+from app.schemas.pnl import (
+    PnLBudgetSource,
+    PnLMonth,
+    PnLPeriod,
+    PnLResponse,
+    PnLScenario,
 )
+from app.schemas.unit_economics import UnitEconomicsMetricSource
+from app.services.common import div, f
 from app.services.hiring_service import HiringService
 from app.services.operating_profit import operating_profit
 
@@ -51,9 +55,70 @@ class PnLService:
         settings = await HiringService(self.db).get_settings(company_id)
         loans = await self._load_loans(company_id)
 
-        periods = await distinct_periods(self.db, company_id, limit=months)
-        month_results: List[PnLMonth] = [
-            await self._compute_month(company_id, p, settings, loans) for p in periods
+        # One union query discovers both horizons. Only their relevant source
+        # records are loaded, in batches; no SELECT runs inside a month loop.
+        result = await self.db.execute(
+            union(
+                select(Metric.period).where(Metric.company_id == company_id),
+                select(Budget.period).where(Budget.company_id == company_id),
+            )
+        )
+        all_periods = sorted(result.scalars().all(), reverse=True)
+        matrix_periods = sorted(all_periods[:months])
+        current_month = today().replace(day=1)
+        legacy_periods = [p for p in all_periods if p <= current_month][:months]
+        relevant = set(matrix_periods) | set(legacy_periods)
+        metrics = (
+            (
+                await self.db.execute(
+                    select(Metric).where(
+                        Metric.company_id == company_id, Metric.period.in_(relevant)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        budgets = (
+            (
+                await self.db.execute(
+                    select(Budget).where(
+                        Budget.company_id == company_id, Budget.period.in_(relevant)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        metric_map = {(m.period, m.type): m for m in metrics}
+        budget_map = {(b.period, b.type): b for b in budgets}
+        month_results = [
+            self._compute_month(
+                p,
+                metric_map.get((p, "fact")) or metric_map.get((p, "plan")),
+                budget_map.get((p, "fact")) or budget_map.get((p, "plan")),
+                settings.employer_rate,
+                self._interest_for_period(loans, p),
+            )
+            for p in legacy_periods
+        ]
+        paired = [
+            PnLPeriod(
+                period=p,
+                plan=self._scenario(
+                    metric_map.get((p, "plan")),
+                    budget_map.get((p, "plan")),
+                    settings.employer_rate,
+                    None,
+                ),
+                fact=self._scenario(
+                    metric_map.get((p, "fact")),
+                    budget_map.get((p, "fact")),
+                    settings.employer_rate,
+                    self._interest_for_period(loans, p),
+                ),
+            )
+            for p in matrix_periods
         ]
 
         latest = month_results[0] if month_results else None
@@ -81,19 +146,13 @@ class PnLService:
                 latest.ebitda_margin if latest else None,
             ),
             months=month_results,
+            periods=paired,
         )
 
-    async def _compute_month(
-        self,
-        company_id: UUID,
-        period,
-        settings,
-        loans: List[Financing],
+    def _compute_month(
+        self, period: date, metric, budget, employer_rate: float, credit_interest: float
     ) -> PnLMonth:
-        metric = await metric_for_period(self.db, company_id, period)
-        budget = await budget_for_period(self.db, company_id, period)
-        credit_interest = self._interest_for_period(loans, period)
-
+        """Compatibility path: Fact preferred independently for each source."""
         # Источник данных периода (fact/plan/mixed) — не скрываем от downstream.
         source: Optional[str] = None
         if metric is not None or budget is not None:
@@ -104,50 +163,57 @@ class PnLService:
             else:
                 source = m_type or b_type
 
-        mrr = f(metric.revenue, default=None) if metric else None
-        one_time = 0.0
-        revenue = round(mrr + one_time, 2) if mrr is not None else None
+        values = self._financial_values(metric, budget, employer_rate, credit_interest)
+        return PnLMonth(period=period, source=source, mrr=values["revenue"], **values)
 
+    @staticmethod
+    def _financial_values(
+        metric, budget, employer_rate: float, interest: Optional[float]
+    ) -> dict:
+        revenue = round(f(metric.revenue), 2) if metric else None
         fot = f(budget.fot, default=None) if budget else None
         marketing = f(budget.marketing, default=None) if budget else None
         development = f(budget.development, default=None) if budget else None
         gna = f(budget.gna, default=None) if budget else None
-        # Соц. платежи работодателя НЕ включают НДФЛ (это налог сотрудника,
-        # удерживаемый из gross, а не доп. расход работодателя).
         operating = operating_profit(
             revenue,
             fot=fot,
             marketing=marketing,
             development=development,
             gna=gna,
-            employer_rate=settings.employer_rate,
+            employer_rate=employer_rate,
         )
-        social, total_opex, ebitda = (
-            operating.social_payments,
-            operating.total_opex,
-            operating.ebitda,
+        net_profit = (
+            round(operating.ebitda - interest, 2)
+            if operating.ebitda is not None and interest is not None
+            else None
         )
-        net_profit = round(ebitda - credit_interest, 2) if ebitda is not None else None
-
-        ebitda_margin = div(ebitda, revenue, default=None, round_to=4)
-        net_margin = div(net_profit, revenue, default=None, round_to=4)
-
-        return PnLMonth(
-            period=period,
-            source=source,
-            mrr=mrr,
+        return dict(
             revenue=revenue,
             fot=fot,
-            social_payments=social,
+            social_payments=operating.social_payments,
             marketing=marketing,
             development=development,
             gna=gna,
-            total_opex=total_opex,
-            ebitda=ebitda,
-            financial_expenses=credit_interest,
+            total_opex=operating.total_opex,
+            ebitda=operating.ebitda,
+            financial_expenses=interest,
             net_profit=net_profit,
-            ebitda_margin=ebitda_margin,
-            net_margin=net_margin,
+            ebitda_margin=div(operating.ebitda, revenue, default=None),
+            net_margin=div(net_profit, revenue, default=None),
+        )
+
+    def _scenario(
+        self, metric, budget, employer_rate: float, interest: Optional[float]
+    ) -> Optional[PnLScenario]:
+        if metric is None and budget is None:
+            return None
+        return PnLScenario(
+            metric_source=(
+                UnitEconomicsMetricSource.model_validate(metric) if metric else None
+            ),
+            budget_source=PnLBudgetSource.model_validate(budget) if budget else None,
+            **self._financial_values(metric, budget, employer_rate, interest),
         )
 
     async def _load_loans(self, company_id: UUID) -> List[Financing]:

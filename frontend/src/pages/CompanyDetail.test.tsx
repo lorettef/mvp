@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CompanyDetail } from './CompanyDetail'
 import { qk } from '@/lib/queryKeys'
@@ -289,7 +289,14 @@ const hiringPlanData = {
   summary: 'Целевой штат через 12 мес.',
 }
 
+const pnlFact = {
+  metricSource: { ...unitEconomicsData.sourceMetric, id: 'pnl-metric', revenue: 100000 },
+  budgetSource: { id: 'pnl-budget', period: '2026-02-01', type: 'fact', fot: 30000, marketing: 10000, development: 20000, gna: 5000 },
+  revenue: 100000, fot: 30000, socialPayments: 9060, marketing: 10000, development: 20000, gna: 5000,
+  totalOpex: 74060, ebitda: 25940, financialExpenses: 0, netProfit: 25940, ebitdaMargin: 0.2594, netMargin: 0.2594,
+}
 const pnlData = {
+  periods: [{ period: '2026-02-01', plan: null, fact: pnlFact }],
   companyId: 'comp1',
   period: '2026-02-01',
   mrr: 100000,
@@ -397,20 +404,6 @@ const sensitivityData = {
   summary: 'Консервативный сценарий снижает оценку.',
 }
 
-const recalculateData = {
-  companyId: 'comp1',
-  recalculatedAt: '2026-08-23T00:00:00Z',
-  revenue: 120000,
-  runwayMonths: 15.0,
-  ltvCac: 5.0,
-  ebitda: 22040,
-  netProfit: 7040,
-  totalCf: 307040,
-  equityValue: 133948.44,
-  totalCreditNeeded: 0,
-  summary: 'Кассовых разрывов не прогнозируется.',
-}
-
 const planGenerateData = {
   companyId: 'comp1',
   provider: 'demo',
@@ -443,6 +436,7 @@ function renderCompanyDetail(tab?: string, providedClient?: QueryClient) {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[entry]}>
+        <Link to="/companies/comp1?tab=pnl">Open P&amp;L</Link>
         <Routes>
           <Route path="/companies/:companyId" element={<CompanyDetail />} />
         </Routes>
@@ -470,7 +464,6 @@ describe('CompanyDetail', () => {
     creditApiMock.forecast.mockResolvedValue(creditData)
     valuationApiMock.get.mockResolvedValue(valuationData)
     sensitivityApiMock.get.mockResolvedValue(sensitivityData)
-    mocks.companiesApi.recalculate.mockResolvedValue(recalculateData)
     mocks.companiesApi.generatePlan.mockResolvedValue(planGenerateData)
     mocks.companiesApi.deleteMetric.mockResolvedValue(undefined)
     mocks.companiesApi.deleteCohort.mockResolvedValue(undefined)
@@ -541,10 +534,96 @@ describe('CompanyDetail', () => {
     expect(screen.getByRole('dialog', { name: 'Редактировать исходные данные' })).toBeInTheDocument()
   })
 
+  it.each(['metric-save', 'metric-delete', 'budget-save', 'budget-delete'])('P&L %s uses source API and invalidates all dependents only in the current tenant', async (action) => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const keys = [qk.companyMetrics, qk.companyBudgets, qk.companyUnitEconomics, qk.companyCashflow, qk.companyCredit, qk.companyValuation, qk.companySensitivity]
+      .map((factory) => factory('org1', 'comp1'))
+    keys.push(qk.dashboard('org1', { industries: ['saas'] }), qk.dashboardPerformance('org1'))
+    const otherKeys = [qk.companyMetrics('other-org', 'comp1'), qk.dashboard('other-org')]
+    for (const key of [...keys, ...otherKeys]) qc.setQueryData(key, [])
+    const isMetric = action.startsWith('metric')
+    const deleting = action.endsWith('delete')
+    const updated = { ...pnlData, periods: [{ period: '2026-02-01', plan: null, fact: { ...pnlFact,
+      revenue: isMetric ? (deleting ? null : 200000) : 100000,
+      fot: isMetric ? 30000 : (deleting ? null : 40000),
+      ebitda: deleting ? null : 112920,
+      metricSource: isMetric && deleting ? null : pnlFact.metricSource,
+      budgetSource: !isMetric && deleting ? null : pnlFact.budgetSource,
+    } }] }
+    pnlApiMock.get.mockResolvedValueOnce(pnlData).mockResolvedValue(updated)
+    mocks.companiesApi.upsertMetric.mockResolvedValue({})
+    mocks.companiesApi.upsertBudget.mockResolvedValue({})
+    renderCompanyDetail('pnl', qc)
+    const table = await screen.findByRole('table', { name: 'P&L: месяцы, план и факт' })
+    fireEvent.doubleClick(within(table).getByRole('button', { name: new RegExp(`^${isMetric ? 'Выручка' : 'ФОТ'} · .* · Факт —`) }))
+    let editor = screen.getByRole('dialog')
+    if (deleting) {
+      fireEvent.click(within(editor).getByRole('button', { name: 'Удалить исходную запись' }))
+      editor = screen.getByRole('dialog')
+      fireEvent.click(within(editor).getByRole('button', { name: 'Удалить' }))
+    } else {
+      fireEvent.change(within(editor).getByRole('spinbutton', { name: isMetric ? 'Выручка (Revenue)' : 'ФОТ' }), { target: { value: isMetric ? '200000' : '40000' } })
+      fireEvent.click(within(editor).getByRole('button', { name: 'Сохранить' }))
+    }
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    if (deleting) expect(isMetric ? mocks.companiesApi.deleteMetric : mocks.companiesApi.deleteBudget).toHaveBeenCalledWith('comp1', isMetric ? 'pnl-metric' : 'pnl-budget')
+    else if (isMetric) expect(mocks.companiesApi.upsertMetric).toHaveBeenCalledWith('comp1', { period: '2026-02-01', type: 'fact', new_units: 10, arpu: 150, revenue: 200000, marketing_spend: 10000, retention_rate: 0.97, comment: 'Keep comment' })
+    else expect(mocks.companiesApi.upsertBudget).toHaveBeenCalledWith('comp1', { period: '2026-02-01', type: 'fact', fot: 40000, marketing: 10000, development: 20000, gna: 5000 })
+    expect(pnlApiMock.get).toHaveBeenCalledTimes(2)
+    expect(mocks.companiesApi.metrics).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.budgets).not.toHaveBeenCalled()
+    for (const key of keys) expect(qc.getQueryState(key)?.isInvalidated).toBe(true)
+    for (const key of otherKeys) expect(qc.getQueryState(key)?.isInvalidated).toBe(false)
+    if (!deleting) expect(within(table).getByText('₽112 920')).toBeInTheDocument()
+  })
+
+  it('P&L is read-only for observer in the actual page', async () => {
+    mocks.role = 'observer'
+    renderCompanyDetail('pnl')
+    await screen.findByRole('table', { name: 'P&L: месяцы, план и факт' })
+    expect(screen.queryByRole('button', { name: /редактировать исходную запись/ })).not.toBeInTheDocument()
+  })
+
   it('shows metrics tab by default', async () => {
     renderCompanyDetail()
     expect(await screen.findByText('Метрики — План vs Факт')).toBeInTheDocument()
     expect(screen.queryByText('Когортный анализ — План vs Факт')).not.toBeInTheDocument()
+  })
+
+  it('has no force-recalculation action on the company page', async () => {
+    renderCompanyDetail()
+    await screen.findByText('Метрики — План vs Факт')
+    expect(screen.queryByRole('button', { name: /Принудительн/ })).not.toBeInTheDocument()
+    expect(mocks.companiesApi.recalculate).not.toHaveBeenCalled()
+  })
+
+  it.each(['bulk-save', 'delete', 'generate-plan'])('Metrics %s invalidates all financial consumers and only the current tenant', async (action) => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const keys = [qk.companyUnitEconomics, qk.companyPnl, qk.companyCashflow, qk.companyCredit, qk.companyValuation, qk.companySensitivity]
+      .map((factory) => factory('org1', 'comp1'))
+    keys.push(qk.dashboard('org1'), qk.dashboardPerformance('org1'))
+    const other = qk.companyPnl('other-org', 'comp1')
+    for (const key of [...keys, other]) qc.setQueryData(key, [])
+    mocks.companiesApi.upsertMetricBulk.mockResolvedValue([metric])
+    renderCompanyDetail('metrics', qc)
+    await screen.findByText('Метрики — План vs Факт')
+    if (action === 'delete') {
+      fireEvent.click(await screen.findByRole('button', { name: 'Удалить метрику' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+      await waitFor(() => expect(mocks.companiesApi.deleteMetric).toHaveBeenCalledWith('comp1', 'm1'))
+    } else if (action === 'generate-plan') {
+      fireEvent.click(screen.getByRole('button', { name: 'Сгенерировать план AI' }))
+      await waitFor(() => expect(mocks.companiesApi.generatePlan).toHaveBeenCalledWith('comp1'))
+    } else {
+      fireEvent.click(screen.getByRole('button', { name: 'Добавить метрику' }))
+      for (const index of [1, 2, 3]) for (const [name, value] of [['Выручка', '100000'], ['Новые юниты', '10'], ['ARPU', '100'], ['Retention %', '90']]) {
+        fireEvent.change(screen.getByLabelText(`${name} ${index}`), { target: { value } })
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Сохранить метрики' }))
+      await waitFor(() => expect(mocks.companiesApi.upsertMetricBulk).toHaveBeenCalled())
+    }
+    await waitFor(() => { for (const key of keys) expect(qc.getQueryState(key)?.isInvalidated).toBe(true) })
+    expect(qc.getQueryState(other)?.isInvalidated).toBe(false)
   })
 
   it('relabels metric columns by company industry and business model', async () => {
@@ -616,6 +695,60 @@ describe('CompanyDetail', () => {
     expect(await screen.findByText('Бюджет — План vs Факт')).toBeInTheDocument()
   })
 
+  it.each(['create', 'update', 'delete'])('Budget %s refreshes server values and the paired P&L with tenant-scoped invalidation', async (action) => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const dependentKeys = [qk.companyMetrics, qk.companyUnitEconomics, qk.companyCashflow, qk.companyCredit, qk.companyValuation, qk.companySensitivity]
+      .map((factory) => factory('org1', 'comp1'))
+    dependentKeys.push(qk.dashboard('org1'), qk.dashboardPerformance('org1'))
+    const otherKeys = [qk.companyBudgets('other-org', 'comp1'), qk.dashboard('other-org')]
+    for (const key of [...dependentKeys, ...otherKeys]) qc.setQueryData(key, [])
+    const source = { ...budget, period: '2026-02-01', fot: 30000, marketing: 10000, development: 20000, gna: 5000 }
+    const factBudget = { ...source, id: 'fact-budget', type: 'fact' }
+    const planBefore = { ...pnlFact, budgetSource: source, fot: 30000 }
+    qc.setQueryData(qk.companyPnl('org1', 'comp1'), { ...pnlData, periods: [{ period: source.period, plan: planBefore, fact: pnlFact }] })
+    const after = action === 'delete' ? null : { ...source, fot: 40000 }
+    const planAfter = { ...planBefore, budgetSource: after, fot: after?.fot ?? null, ebitda: action === 'delete' ? null : 112920 }
+    pnlApiMock.get.mockResolvedValue({ ...pnlData, periods: [{ period: source.period, plan: planAfter, fact: pnlFact }] })
+    mocks.companiesApi.budgets.mockResolvedValueOnce(action === 'create' ? [factBudget] : [source, factBudget])
+      .mockResolvedValue(after ? [after, factBudget] : [factBudget])
+    mocks.companiesApi.upsertBudget.mockResolvedValue(after)
+    renderCompanyDetail('budget', qc)
+    const table = await screen.findByRole('table', { name: 'Бюджет: месяцы, план и факт' })
+    fireEvent.doubleClick(within(table).getByRole('button', { name: /^ФОТ · .* · План —/ }))
+    if (action === 'delete') {
+      fireEvent.click(screen.getByRole('button', { name: 'Удалить исходную запись' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    } else {
+      for (const [name, value] of [['Маркетинг', '10000'], ['Разработка', '20000'], ['ФОТ', '40000'], ['G&A', '5000']]) {
+        fireEvent.change(screen.getByRole('spinbutton', { name }), { target: { value } })
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    }
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    if (action === 'delete') expect(mocks.companiesApi.deleteBudget).toHaveBeenCalledWith('comp1', 'b1')
+    else expect(mocks.companiesApi.upsertBudget).toHaveBeenCalledWith('comp1', { period: source.period, type: 'plan', fot: 40000, marketing: 10000, development: 20000, gna: 5000 })
+    expect(mocks.companiesApi.budgets).toHaveBeenCalledTimes(2)
+    expect(within(table).getByRole('button', { name: /^ФОТ · .* · План —/ })).toHaveTextContent(action === 'delete' ? '—' : '₽40 000')
+    for (const key of dependentKeys) expect(qc.getQueryState(key)?.isInvalidated).toBe(true)
+    for (const key of otherKeys) expect(qc.getQueryState(key)?.isInvalidated).toBe(false)
+    expect(qc.getQueryState(qk.companyPnl('org1', 'comp1'))?.isInvalidated).toBe(true)
+    fireEvent.click(screen.getByRole('link', { name: 'Open P&L' }))
+    const pnl = await screen.findByRole('table', { name: 'P&L: месяцы, план и факт' })
+    await waitFor(() => expect(within(pnl).getByRole('button', { name: /^ФОТ · .* · План —/ })).toHaveTextContent(action === 'delete' ? '—' : '₽40 000'))
+    expect(within(pnl).getByRole('button', { name: /^ФОТ · .* · Факт —/ })).toHaveTextContent('₽30 000')
+    expect(pnlApiMock.get).toHaveBeenCalledTimes(1)
+  })
+
+  it('Budget is read-only for observer in the actual company page', async () => {
+    mocks.role = 'observer'
+    renderCompanyDetail('budget')
+    const table = await screen.findByRole('table', { name: 'Бюджет: месяцы, план и факт' })
+    expect(within(table).queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Добавить бюджет' })).not.toBeInTheDocument()
+    fireEvent.doubleClick(within(table).getAllByRole('cell')[0])
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('renders unit economics content for ?tab=unit', async () => {
     renderCompanyDetail('unit')
     expect(await screen.findByText('Соотношение LTV/CAC')).toBeInTheDocument()
@@ -670,13 +803,6 @@ describe('CompanyDetail', () => {
     expect(await screen.findByText('Отчёты для инвесторов')).toBeInTheDocument()
   })
 
-  it('triggers forced recalculation on click', async () => {
-    renderCompanyDetail()
-    const btn = await screen.findByRole('button', { name: /Принудительный пересчёт/ })
-    fireEvent.click(btn)
-    await waitFor(() => expect(mocks.companiesApi.recalculate).toHaveBeenCalledWith('comp1'))
-  })
-
   it('generates AI plan on click', async () => {
     renderCompanyDetail()
     const btn = await screen.findByRole('button', { name: /Сгенерировать план AI/ })
@@ -695,6 +821,9 @@ describe('CompanyDetail', () => {
     mocks.companiesApi.upsertMetricBulk.mockResolvedValue([])
     renderCompanyDetail()
     fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
+    expect(screen.getByRole('columnheader', { name: 'Пожизненная ценность клиента (LTV), ₽' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Стоимость привлечения клиента (CAC), ₽' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Отток клиентов (Churn), %' })).toBeInTheDocument()
 
     const now = new Date()
     const period = (offset: number) => {
@@ -753,6 +882,24 @@ describe('CompanyDetail', () => {
         ],
       }),
     )
+  })
+
+  it('keeps missing preview inputs distinct from real zero in bulk metrics', async () => {
+    renderCompanyDetail()
+    fireEvent.click(await screen.findByRole('button', { name: /Добавить метрику/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Добавить метрику' })
+    const row = within(dialog).getAllByRole('row')[1]
+    const preview = () => within(row).getAllByRole('cell').slice(-3).map(cell => cell.textContent?.trim())
+    expect(preview()).toEqual(['—', '—', '—'])
+    fireEvent.change(screen.getByLabelText('Retention % 1'), { target: { value: '100' } })
+    expect(preview()).toEqual(['—', '—', '0.0%'])
+    fireEvent.change(screen.getByLabelText('ARPU 1'), { target: { value: '100' } })
+    fireEvent.change(screen.getByLabelText('Новые юниты 1'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('Маркетинг 1'), { target: { value: '0' } })
+    expect(preview()).toEqual(['₽1\u00a0200', '₽0', '0.0%'])
+    fireEvent.change(screen.getByLabelText('Retention % 1'), { target: { value: '' } })
+    expect(preview()).toEqual(['—', '₽0', '—'])
+    expect(mocks.companiesApi.upsertMetricBulk).not.toHaveBeenCalled()
   })
 
   it('blocks bulk save when a required field is empty and shows an inline message', async () => {

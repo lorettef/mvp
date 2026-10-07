@@ -13,11 +13,12 @@ interface Props {
   onSave: (data: MetricUpsert) => Promise<unknown>
   onDelete: (id: string) => Promise<unknown>
   onClose: () => void
+  editComment?: boolean
   isSaving?: boolean
   isDeleting?: boolean
 }
 
-export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) => fallback, onSave, onDelete, onClose, isSaving, isDeleting }: Props) {
+export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) => fallback, onSave, onDelete, onClose, editComment = false, isSaving, isDeleting }: Props) {
   const { t, i18n } = useTranslation()
   const prefix = useId()
   const [values, setValues] = useState({
@@ -27,6 +28,7 @@ export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) 
     marketing_spend: String(source.marketingSpend),
     retention_rate: String(source.retentionRate * 100),
   })
+  const [comment, setComment] = useState(source.comment ?? '')
   type Field = keyof typeof values
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [apiError, setApiError] = useState<string | null>(null)
@@ -74,7 +76,7 @@ export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) 
         revenue: Number(values.revenue),
         marketing_spend: Number(values.marketing_spend),
         retention_rate: Number(values.retention_rate) / 100,
-        ...(source.comment != null ? { comment: source.comment } : {}),
+        ...(editComment ? { comment: comment === (source.comment ?? '') ? source.comment : comment } : source.comment != null ? { comment: source.comment } : {}),
       })
       onClose()
     } catch (error) {
@@ -126,6 +128,10 @@ export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) 
                 {errors[key] && <p id={`${prefix}-${key}-error`} className="text-sm text-destructive">{errors[key]}</p>}
               </div>
             ))}
+            {editComment && <div className="space-y-1">
+              <label htmlFor={`${prefix}-comment`} className="text-sm font-medium">{t('company.pnl.comment')}</label>
+              <Input id={`${prefix}-comment`} disabled={Boolean(busy)} value={comment} onChange={(event) => setComment(event.target.value)} />
+            </div>}
             {!confirmDelete && apiError && <p role="alert" className="text-sm text-destructive">{apiError}</p>}
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" disabled={Boolean(busy)} onClick={onClose}>{t('common.cancel')}</Button>

@@ -193,13 +193,13 @@ export function MarketTab({ data, isLoading, onAnalyze }: MarketTabProps) {
                   </p>
                 </div>
                 <div className="rounded-lg border border-border p-3">
-                  <p className="text-xs text-muted-foreground">CAC</p>
+                  <p className="text-xs text-muted-foreground">{t('company.unit.cac')}</p>
                   <p className="text-lg font-semibold text-foreground mt-1">
                     {fmtFactor(data.impact.cacFactor)}
                   </p>
                 </div>
                 <div className="rounded-lg border border-border p-3">
-                  <p className="text-xs text-muted-foreground">Churn</p>
+                  <p className="text-xs text-muted-foreground">{t('company.unit.churn')}</p>
                   <p className="text-lg font-semibold text-foreground mt-1">
                     {fmtFactor(data.impact.churnFactor)}
                   </p>
