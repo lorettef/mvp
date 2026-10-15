@@ -6,6 +6,7 @@ from app.models.budget import Budget
 from app.models.financing import Financing
 from app.models.metric import Metric
 from app.models.subscription import Subscription
+from app.services.insight_contract import valid_insight
 
 
 async def _seed(db, company_id, user):
@@ -32,7 +33,9 @@ async def _seed(db, company_id, user):
         )
     )
     db.add(Financing(company_id=company_id, type="investment", amount=200000))
-    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
+    db.add(
+        Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0)
+    )
     db.add(
         Subscription(
             user_id=user.id,
@@ -51,7 +54,9 @@ async def _post(client, company_id, user, scenario):
     )
 
 
-async def test_insight_unit_economics(client, seeded_company, seeded_admin, db_session, monkeypatch):
+async def test_insight_unit_economics(
+    client, seeded_company, seeded_admin, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed(db_session, seeded_company.id, seeded_admin)
 
@@ -63,7 +68,9 @@ async def test_insight_unit_economics(client, seeded_company, seeded_admin, db_s
     assert body["text"]
 
 
-async def test_insight_valuation(client, seeded_company, seeded_admin, db_session, monkeypatch):
+async def test_insight_valuation(
+    client, seeded_company, seeded_admin, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed(db_session, seeded_company.id, seeded_admin)
 
@@ -73,7 +80,9 @@ async def test_insight_valuation(client, seeded_company, seeded_admin, db_sessio
     assert res.json()["text"]
 
 
-async def test_insight_cohorts_empty(client, seeded_company, seeded_admin, db_session, monkeypatch):
+async def test_insight_cohorts_empty(
+    client, seeded_company, seeded_admin, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed(db_session, seeded_company.id, seeded_admin)
 
@@ -82,7 +91,9 @@ async def test_insight_cohorts_empty(client, seeded_company, seeded_admin, db_se
     assert res.json()["scenario"] == "cohorts"
 
 
-async def test_insight_unknown_scenario(client, seeded_company, seeded_admin, db_session, monkeypatch):
+async def test_insight_unknown_scenario(
+    client, seeded_company, seeded_admin, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed(db_session, seeded_company.id, seeded_admin)
 
@@ -90,7 +101,9 @@ async def test_insight_unknown_scenario(client, seeded_company, seeded_admin, db
     assert res.status_code == 422
 
 
-async def test_insight_overview(client, seeded_company, seeded_admin, db_session, monkeypatch):
+async def test_insight_overview(
+    client, seeded_company, seeded_admin, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed(db_session, seeded_company.id, seeded_admin)
 
@@ -100,10 +113,13 @@ async def test_insight_overview(client, seeded_company, seeded_admin, db_session
     assert body["scenario"] == "overview"
     assert body["provider"] == "demo"
     assert body["text"]
-    assert "Runway" in body["text"]
+    assert valid_insight(body["text"])
+    assert "Запаса денег" in body["text"]
 
 
-async def test_insight_observer_forbidden(client, seeded_company, seeded_observer, db_session, monkeypatch):
+async def test_insight_observer_forbidden(
+    client, seeded_company, seeded_observer, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed(db_session, seeded_company.id, seeded_observer)
 
@@ -112,7 +128,28 @@ async def test_insight_observer_forbidden(client, seeded_company, seeded_observe
 
 
 async def test_insight_unauthenticated(client, seeded_company):
-    res = await client.post(
-        f"/api/v1/companies/{seeded_company.id}/insights/pnl"
-    )
+    res = await client.post(f"/api/v1/companies/{seeded_company.id}/insights/pnl")
     assert res.status_code == 401
+
+
+async def test_insight_cross_tenant_denied_before_generation(
+    client, seeded_admin, other_company, monkeypatch
+):
+    from unittest.mock import AsyncMock
+    from app.services.insight_service import InsightService
+
+    generate = AsyncMock()
+    monkeypatch.setattr(InsightService, "narrate", generate)
+    res = await _post(client, other_company.id, seeded_admin, "overview")
+    assert res.status_code == 403
+    generate.assert_not_awaited()
+
+
+async def test_insight_company_role_allowed(
+    client, seeded_company, seeded_company_user, db_session, monkeypatch
+):
+    monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
+    await _seed(db_session, seeded_company.id, seeded_company_user)
+    res = await _post(client, seeded_company.id, seeded_company_user, "overview")
+    assert res.status_code == 200
+    assert valid_insight(res.json()["text"])

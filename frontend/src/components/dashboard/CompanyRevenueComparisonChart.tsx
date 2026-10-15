@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Section } from '@/components/shared/section'
+import { ChartContainer } from '@/components/shared/chart-container'
 import { fmtPeriod, fmtRub, formatMonthLabel } from '@/lib/format'
 import type { CompanyStatusItem } from '@/types/api'
 import { companyRevenuePoints, type CompanyRevenuePoint } from './companyRevenue'
@@ -10,6 +11,7 @@ import { companyRevenuePoints, type CompanyRevenuePoint } from './companyRevenue
 export interface CompanyRevenueChartProps {
   companies: CompanyStatusItem[]
   onResetFilters?: () => void
+  embedded?: boolean
 }
 
 export function CompanyRevenueTooltip({ active, payload }: {
@@ -31,22 +33,21 @@ export function CompanyRevenueTooltip({ active, payload }: {
   </div>
 }
 
-export function CompanyRevenueComparisonChart({ companies, onResetFilters }: CompanyRevenueChartProps) {
+export function CompanyRevenueComparisonChart({ companies, onResetFilters, embedded = false }: CompanyRevenueChartProps) {
   const { t, i18n } = useTranslation()
   const descriptionId = useId()
   const data = useMemo(() => companyRevenuePoints(companies), [companies])
   const hasValues = data.some(point => point.fact !== null || point.plan !== null)
   const axisNumber = new Intl.NumberFormat(i18n.resolvedLanguage, { notation: 'compact', maximumFractionDigits: 1 })
   const title = t('dashboard.companyRevenue.comparisonTitle')
-  return <div role="region" aria-label={title} aria-describedby={descriptionId} className="min-w-0">
-    <Section title={title} className="min-w-0" headerClassName="px-4 py-3" contentClassName="p-4">
+  const content = <>
       <p id={descriptionId} className="sr-only">{t('dashboard.companyRevenue.comparisonDescription')}</p>
       {!hasValues ? <div className="space-y-3 py-12 text-center text-sm text-muted-foreground">
         <p>{t('dashboard.companyRevenue.comparisonEmpty')}</p>
         {data.length === 0 && onResetFilters && <Button variant="outline" size="sm" onClick={onResetFilters}>{t('dashboard.filters.reset')}</Button>}
-      </div> : <div className="min-w-0 overflow-x-auto" tabIndex={data.length > 6 ? 0 : undefined}
+      </div> : <div className="min-w-0 w-full max-w-full overflow-x-auto" tabIndex={data.length > 6 ? 0 : undefined}
         role="group" aria-label={title}>
-        <div className="h-[300px] w-full" style={data.length > 6 ? { minWidth: data.length * 90 + 80 } : undefined}>
+        <ChartContainer height={300} style={data.length > 6 ? { minWidth: data.length * 90 + 80 } : undefined}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} barGap={6} maxBarSize={36} margin={{ top: 8, right: 12, bottom: 20, left: 0 }} accessibilityLayer>
               <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.7} vertical={false} />
@@ -61,7 +62,7 @@ export function CompanyRevenueComparisonChart({ companies, onResetFilters }: Com
               <Bar dataKey="plan" name={t('common.plan')} fill="hsl(var(--chart-2))" radius={[3, 3, 0, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </ChartContainer>
       </div>}
       {/* Full names, periods and missing/zero values remain available without SVG or hover. */}
       {data.length > 0 && <div className="sr-only"><table aria-label={title}>
@@ -71,6 +72,10 @@ export function CompanyRevenueComparisonChart({ companies, onResetFilters }: Com
           <td>{fmtRub(point.fact)}</td><td>{fmtRub(point.plan)}</td>
         </tr>)}</tbody>
       </table></div>}
-    </Section>
+  </>
+  return <div role="region" aria-label={title} aria-describedby={descriptionId} className="min-w-0 w-full">
+    {embedded ? content : <Section title={title} className="min-w-0" headerClassName="px-4 py-3" contentClassName="p-4">
+      {content}
+    </Section>}
   </div>
 }

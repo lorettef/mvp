@@ -20,7 +20,7 @@ interface CompanyOnboardingWizardProps {
   readonly onClose: () => void
 }
 
-type OnboardingPayload = Pick<CompanyCreate, 'name' | 'industry' | 'business_model' | 'gross_margin' | 'geography' | 'selected_metrics'>
+type OnboardingPayload = Pick<CompanyCreate, 'name' | 'industry' | 'business_model' | 'geography' | 'selected_metrics'>
 
 const WIZARD_STEPS = 4
 
@@ -32,7 +32,6 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
   const [geography, setGeography] = useState('')
   const [industry, setIndustry] = useState('')
   const [businessModel, setBusinessModel] = useState('')
-  const [grossMargin, setGrossMargin] = useState('')
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([])
   const submittingRef = useRef(false)
 
@@ -76,15 +75,13 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
         .filter((item): item is BusinessModelItem => item !== undefined)
     : []
   const profile: MetricProfile | undefined = catalog?.profiles[industry]?.[businessModel]
-  const grossMarginValue = Number(grossMargin)
-  const hasValidGrossMargin = grossMargin.trim() !== '' && Number.isFinite(grossMarginValue) && grossMarginValue >= 0 && grossMarginValue <= 100
   const canContinue = step === 1
     ? name.trim() !== ''
     : step === 2
       ? industry !== ''
       : step === 3
         ? businessModel !== '' && profile !== undefined
-        : hasValidGrossMargin && profile !== undefined
+        : profile !== undefined
 
   const reset = () => {
     setStep(1)
@@ -92,7 +89,6 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
     setGeography('')
     setIndustry('')
     setBusinessModel('')
-    setGrossMargin('')
     setSelectedMetrics([])
   }
 
@@ -119,7 +115,6 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
         geography,
         industry,
         business_model: businessModel,
-        gross_margin: grossMarginValue / 100,
         selected_metrics: selectedMetrics,
       },
       {
@@ -309,22 +304,7 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
             ) : (
               <p className="text-sm text-muted-foreground">{t('dashboard.onboarding.noMetrics')}</p>
             )}
-            <div className="space-y-2">
-              <label htmlFor="onboarding-gross-margin" className="text-sm font-medium text-foreground">
-                {t('dashboard.onboarding.grossMargin')}
-              </label>
-              <Input
-                id="onboarding-gross-margin"
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                placeholder={t('dashboard.onboarding.grossMarginPlaceholder')}
-                value={grossMargin}
-                onChange={(event) => setGrossMargin(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">{t('dashboard.onboarding.grossMarginHint')}</p>
-            </div>
+
           </div>
         )}
 

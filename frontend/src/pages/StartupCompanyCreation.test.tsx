@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   companyGet: vi.fn(),
   companyCreate: vi.fn(),
   catalogGet: vi.fn(),
+  insight: vi.fn(),
 }))
 
 vi.mock('@/store/authStore', () => ({ useAuthStore: () => ({ user: mocks.user }) }))
@@ -20,6 +21,7 @@ vi.mock('@/api/pnl', () => ({ pnlApi: { get: vi.fn().mockResolvedValue(null) } }
 vi.mock('@/api/companies', () => ({
   companiesApi: {
     get: mocks.companyGet,
+    insight: mocks.insight,
     create: mocks.companyCreate,
     metrics: vi.fn().mockResolvedValue([]),
     unitEconomics: vi.fn().mockResolvedValue(null),
@@ -64,6 +66,7 @@ describe('Startup company creation from Dashboard', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('ru')
     mocks.user = startupUser
+    mocks.insight.mockReset().mockResolvedValue({ companyId: 'existing-company', scenario: 'overview', provider: 'demo', text: 'Проблема\nДанных мало.\nПричина\nПричина неизвестна.\nДействие\nСверьте данные.\nДедлайн: сегодня' })
     mocks.companyGet.mockReset().mockResolvedValue({
       id: 'existing-company',
       name: 'Existing company',
@@ -110,19 +113,38 @@ describe('Startup company creation from Dashboard', () => {
     expect(within(dialog).getByText('Шаг 4 из 4')).toBeInTheDocument()
     expect(within(dialog).getByText('Отметьте метрики, которые будете отслеживать. Список можно изменить позже.')).toBeInTheDocument()
 
-    const grossMargin = within(dialog).getByRole('spinbutton', { name: 'Валовая маржа (%)' })
-    expect(grossMargin).toHaveValue(null)
-    expect(grossMargin).toHaveAttribute('placeholder', 'Например, 70')
-    fireEvent.change(grossMargin, { target: { value: '65' } })
+    expect(within(dialog).queryByRole('spinbutton', { name: /маржа/i })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Назад' }))
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
-    expect(grossMargin).toHaveValue(65)
+    expect(within(dialog).queryByRole('spinbutton', { name: /маржа/i })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Создать' }))
     await waitFor(() => expect(mocks.companyCreate).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'New company', gross_margin: 0.65, selected_metrics: ['revenue'],
+      name: 'New company', selected_metrics: ['revenue'],
     })))
+    expect(mocks.companyCreate.mock.calls[0][0]).not.toHaveProperty('gross_margin')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('keeps the observer startup overview read-only without forbidden AI actions or requests', async () => {
+    mocks.user = { ...startupUser, role: 'observer' }
+    renderDashboard()
+    await screen.findByText('Existing company')
+    expect(screen.queryByRole('button', { name: 'AI-анализ' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Запустить AI-анализ' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Создать задачу' })).not.toBeInTheDocument()
+    expect(mocks.insight).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Все разделы' })).toBeVisible()
+  })
+
+  it.each(['admin', 'company'])('retains explicit Company AI generation for allowed startup role %s', async (role) => {
+    mocks.user = { ...startupUser, role }
+    renderDashboard()
+    const generate = await screen.findByRole('button', { name: 'Запустить AI-анализ' })
+    expect(mocks.insight).not.toHaveBeenCalled()
+    fireEvent.click(generate)
+    await waitFor(() => expect(mocks.insight).toHaveBeenCalledOnce())
+    expect(mocks.insight).toHaveBeenCalledWith('existing-company', 'overview')
   })
 
   it('does not offer company creation to a company user', async () => {

@@ -103,7 +103,7 @@ describe('CompanyConfigDialog', () => {
     renderDialog()
 
     expect(screen.getByDisplayValue('Acme')).toBeInTheDocument()
-    expect(screen.getByRole('spinbutton', { name: 'Валовая маржа (%)' })).toHaveValue(75)
+    expect(screen.queryByRole('spinbutton', { name: /маржа/i })).not.toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('SaaS')).toBeInTheDocument())
     expect(screen.getByText(/Пожизненная ценность клиента \(LTV\), стоимость привлечения клиента \(CAC\) и отток клиентов \(Churn\) рассчитываются автоматически/)).toBeInTheDocument()
     expect(screen.getByText('Подписка (SaaS)')).toBeInTheDocument()
@@ -139,6 +139,7 @@ describe('CompanyConfigDialog', () => {
     await waitFor(() => expect(mocks.companiesUpdate).toHaveBeenCalled())
 
     const payload = mocks.companiesUpdate.mock.calls[0][1]
+    expect(payload).not.toHaveProperty('gross_margin')
     expect(payload.selected_metrics).not.toContain('revenue')
     expect(payload.selected_metrics).toContain('arpu')
   })

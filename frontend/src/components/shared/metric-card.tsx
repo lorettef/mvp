@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { Fragment, type ReactNode } from "react"
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
@@ -46,7 +46,7 @@ function Sparkline({ points }: { points: number[] }) {
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="h-8 w-24 shrink-0 overflow-visible"
+      className="h-8 w-full overflow-visible"
       aria-hidden="true"
       preserveAspectRatio="none"
     >
@@ -82,38 +82,45 @@ export function MetricCard({
         : "flat"
 
   const sparkPoints = (sparkline ?? []).filter((v): v is number => typeof v === "number" && Number.isFinite(v))
+  // Currency formatters use non-breaking group separators. Allow a narrow
+  // card to wrap between groups while preserving the complete value text.
+  const valueText = typeof value === "string" && value.includes("\u00a0")
+    ? value.split("\u00a0").map((group, index) => (
+      <Fragment key={index}>{index > 0 && <>{"\u00a0"}<wbr /></>}{group}</Fragment>
+    ))
+    : value
 
   return (
-    <Card className={cn("border bg-card", className)}>
-      <CardContent className={compact ? "p-4" : "p-5"}>
-        <div className={cn("flex items-center justify-between", compact && "gap-2")}>
+    <Card className={cn("min-w-0 border bg-card [container-type:inline-size]", className)}>
+      <CardContent className={compact ? "min-w-0 px-3 py-4" : "min-w-0 p-5"}>
+        <div className="flex min-w-0 items-center justify-between gap-2">
           {description ? (
-            <MetricHelp label={label} description={description} className="text-xs font-medium uppercase tracking-wider text-muted-foreground" />
+            <MetricHelp label={label} description={description} className={cn("min-w-0 flex-1 font-medium uppercase text-muted-foreground [overflow-wrap:anywhere]", compact ? "text-[11px] leading-tight tracking-wide" : "text-xs tracking-wider")} />
           ) : (
-            <span className={cn("font-medium uppercase text-muted-foreground", compact ? "text-[11px] leading-tight tracking-wide" : "text-xs tracking-wider")}>{label}</span>
+            <span className={cn("min-w-0 flex-1 font-medium uppercase text-muted-foreground [overflow-wrap:anywhere]", compact ? "text-[11px] leading-tight tracking-wide" : "text-xs tracking-wider")}>{label}</span>
           )}
           {icon ? (
-            <span className={cn("flex items-center justify-center rounded-md bg-primary/10 text-primary", compact ? "h-7 w-7 shrink-0" : "h-8 w-8")}>
+            <span className={cn("flex shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary", compact ? "h-7 w-7" : "h-8 w-8")}>
               {icon}
             </span>
           ) : null}
         </div>
-        <div className="mt-3 flex items-end justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-2xl font-semibold tabular-nums tracking-tight">
-              {value}
+        <div className="mt-3 flex min-w-0 flex-wrap items-end justify-between gap-2">
+          <div className="min-w-0 basis-24 flex-1">
+            <div className={cn("font-semibold tabular-nums tracking-tight [overflow-wrap:anywhere]", compact ? "text-[clamp(1.125rem,10cqi,1.5rem)]" : "text-2xl")}>
+              {valueText}
             </div>
             {period ? (
               <div className="mt-0.5 text-xs text-muted-foreground">{period}</div>
             ) : null}
           </div>
           {sparkPoints.length >= 3 ? (
-            <span className={cn("text-primary", good ? "text-success" : "text-muted-foreground")}>
+            <span className={cn("min-w-0 w-24 max-w-full text-primary", good ? "text-success" : "text-muted-foreground")}>
               <Sparkline points={sparkPoints} />
             </span>
           ) : null}
         </div>
-        <div className="mt-2 flex items-center gap-1.5 text-sm">
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-sm [overflow-wrap:anywhere]">
           {hasDelta && (
             <span
               className={cn(
@@ -134,11 +141,11 @@ export function MetricCard({
           ) : null}
         </div>
         {planFact ? (
-          <div className="mt-2 flex items-center gap-3 border-t border-border pt-2 text-xs text-muted-foreground tabular-nums">
-            <span>
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-3 border-t border-border pt-2 text-xs text-muted-foreground tabular-nums [overflow-wrap:anywhere]">
+            <span className="min-w-0">
               <span className="font-medium text-foreground">{planFact.plan}</span> план
             </span>
-            <span>
+            <span className="min-w-0">
               <span className="font-medium text-foreground">{planFact.fact}</span> факт
             </span>
           </div>

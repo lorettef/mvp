@@ -17,6 +17,8 @@ vi.mock('recharts', async () => {
   }
 })
 
+const portfolioAI = vi.hoisted(() => ({ generate: vi.fn() }))
+vi.mock('@/api/portfolioInsights', () => ({ portfolioInsightsApi: portfolioAI }))
 const navigateMock = vi.hoisted(() => vi.fn())
 function expectNavigationTo(path: string) {
   expect(navigateMock).toHaveBeenCalledTimes(1)
@@ -94,6 +96,18 @@ describe('CompaniesDashboard acceptance — unavailable KPI', () => {
     dashboardApiMock.performance.mockReset().mockResolvedValue([])
     companiesApiMock.list.mockReset().mockResolvedValue([])
     catalogApiMock.get.mockReset().mockResolvedValue({ industries: [{ slug: 'saas', label: 'SaaS' }] })
+  })
+
+  it('keeps a six-card desktop grid contract with expanded and collapsed filters', async () => {
+    renderDashboard()
+    const label = await screen.findByText('Компании в портфеле', { exact: true })
+    const grid = label.closest('.grid')!
+    expect(grid.children).toHaveLength(6)
+    expect(grid).toHaveClass('min-[1366px]:grid-cols-6')
+    for (const card of grid.children) expect(card).toHaveClass('min-w-0')
+    fireEvent.click(screen.getByRole('button', { name: 'Свернуть фильтры' }))
+    expect(grid).toHaveClass('min-[1366px]:grid-cols-6')
+    expect(grid.children).toHaveLength(6)
   })
 
   it.each(['no_plan', 'no_data'] as const)('explains unavailable plan execution for %s without inventing 0%%', async status => {
@@ -739,6 +753,31 @@ describe('CompaniesDashboard analytics filters', () => {
     expect(within(card).getByText(value)).toBeInTheDocument()
   }
 
+  it('places portfolio AI after summary/lifecycle and generates only for applied scope', async () => {
+    portfolioAI.generate.mockReset().mockResolvedValue({ scope: 'portfolio', provider: 'demo', text: 'Scope A analysis' })
+    renderDashboard()
+    await waitForInitial()
+    const ai = screen.getByRole('heading', { name: 'ИИ-анализ портфеля' }).closest('section')!
+    expect(ai.parentElement?.lastElementChild).toBe(ai)
+    expect(screen.getByRole('tab', { name: 'Активные компании (2)' }).compareDocumentPosition(ai) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Юнит-экономика компаний' }).compareDocumentPosition(ai) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(portfolioAI.generate).not.toHaveBeenCalled()
+    await selectOptions('Компании', [alpha.name])
+    await selectOptions('Сфера деятельности', ['Software as a Service'])
+    await selectOptions('Выполнение плана', ['Выполняет план'])
+    fireEvent.click(screen.getByRole('button', { name: 'Сформировать анализ' }))
+    expect(await screen.findByText('Scope A analysis')).toBeVisible()
+    expect(portfolioAI.generate).toHaveBeenCalledWith(lastFilters(), expect.any(AbortSignal))
+    expect(lastFilters()).toEqual({ companyIds: ['alpha'], industries: ['saas'], performanceStatus: ['on_track'] })
+    await selectOptions('Компании', [beta.name])
+    expect(screen.queryByText('Scope A analysis')).not.toBeInTheDocument()
+    expect(portfolioAI.generate).toHaveBeenCalledOnce()
+    portfolioAI.generate.mockResolvedValueOnce({ scope: 'portfolio', provider: 'demo', text: 'Scope B analysis' })
+    fireEvent.click(screen.getByRole('button', { name: 'Сформировать анализ' }))
+    expect(await screen.findByText('Scope B analysis')).toBeVisible()
+    expect(portfolioAI.generate).toHaveBeenLastCalledWith(lastFilters(), expect.any(AbortSignal))
+  })
+
   it('starts without filters and loads independent active company options', async () => {
     renderDashboard()
     await waitForInitial()
@@ -790,6 +829,11 @@ describe('CompaniesDashboard analytics filters', () => {
     await waitForInitial()
     expectKpi('Компании в портфеле', '2')
     expectKpi('Выручка портфеля', '₽3 000')
+    const grid=screen.getByRole('group',{name:'Графики компаний'})
+    expect(grid.children).toHaveLength(6)
+    expect(grid).toHaveClass('min-[1366px]:grid-cols-3')
+    const distribution=screen.getByRole('list',{name:'Выполнение плана по компаниям'})
+    expect(within(distribution).getByText('Отстают от плана: 1')).toBeInTheDocument()
     expect(await screen.findByText('2026-01', { selector: 'tspan' })).toBeInTheDocument()
     await selectOptions('Компании', [alpha.name])
     await screen.findByRole('tab', { name: 'Активные компании (1)' })
@@ -799,6 +843,11 @@ describe('CompaniesDashboard analytics filters', () => {
     expectKpi('Выполняют план', '100%')
     expectKpi('В зоне риска', '0')
     expectKpi('Средний runway', '10 мес.')
+    expect(within(distribution).getByText('Отстают от плана: 0')).toBeInTheDocument()
+    expect(within(distribution).getByText('Выполняют план: 1')).toBeInTheDocument()
+    const runway=screen.getByRole('list',{name:'Runway компаний — значения'})
+    expect(runway).toHaveTextContent(alpha.name)
+    expect(runway).not.toHaveTextContent(beta.name)
     const panel = screen.getByRole('tabpanel')
     expect(within(panel).getAllByText(alpha.name).length).toBeGreaterThan(0)
     expect(within(panel).queryByText(beta.name)).not.toBeInTheDocument()
@@ -806,7 +855,7 @@ describe('CompaniesDashboard analytics filters', () => {
     expect(screen.queryByText('2026-01', { selector: 'tspan' })).not.toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('tab', { name: 'Требует внимания (0)' }))
     expect(screen.getByText('Нет компаний, требующих внимания.')).toBeInTheDocument()
-    expect(screen.queryByText(beta.name)).not.toBeInTheDocument()
+    expect(within(screen.getByRole('list',{name:'Runway компаний — значения'})).queryByText(new RegExp(beta.name))).not.toBeInTheDocument()
   })
 
   it('blocks inverted dates, retains the last valid request range and allows correction', async () => {

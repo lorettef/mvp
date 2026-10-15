@@ -6,6 +6,7 @@ from datetime import date, datetime
 class BudgetUpsert(BaseModel):
     period: date
     type: str
+    cogs: float | None = Field(None, ge=0, allow_inf_nan=False)
     marketing: float = Field(..., ge=0)
     development: float = Field(..., ge=0)
     fot: float = Field(..., ge=0)
@@ -25,6 +26,7 @@ class BudgetResponse(BaseModel):
     company_id: UUID
     period: date
     type: str
+    cogs: float | None = None
     marketing: float
     development: float
     fot: float

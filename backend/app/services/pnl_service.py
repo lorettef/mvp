@@ -22,6 +22,7 @@ from app.schemas.unit_economics import UnitEconomicsMetricSource
 from app.services.common import div, f
 from app.services.hiring_service import HiringService
 from app.services.operating_profit import operating_profit
+from app.services.gross_profit import gross_profit
 
 
 def _add_months(period: date, n: int) -> date:
@@ -208,7 +209,12 @@ class PnLService:
     ) -> Optional[PnLScenario]:
         if metric is None and budget is None:
             return None
+        cogs = f(budget.cogs, default=None) if budget else None
+        gross = gross_profit(f(metric.revenue, default=None) if metric else None, cogs)
         return PnLScenario(
+            cogs=cogs,
+            gross_profit=gross.gross_profit,
+            gross_margin=gross.gross_margin,
             metric_source=(
                 UnitEconomicsMetricSource.model_validate(metric) if metric else None
             ),

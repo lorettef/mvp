@@ -29,7 +29,7 @@ class CompanyService:
         if existing.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Компания с таким названием уже существует"
+                detail="Компания с таким названием уже существует",
             )
 
         company = Company(
@@ -37,6 +37,7 @@ class CompanyService:
             name=data.name,
             industry=data.industry,
             geography=data.geography,
+            # Accept old clients without making this a financial source.
             gross_margin=data.gross_margin if data.gross_margin is not None else 0.75,
             business_model=data.business_model,
             selected_metrics=data.selected_metrics,
@@ -84,14 +85,20 @@ class CompanyService:
         company = await self.db.get(Company, company_id)
         if not company:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Компания не найдена"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Компания не найдена"
             )
         return company
 
     async def update_company(self, company: Company, data: CompanyUpdate) -> Company:
         """Обновление данных компании."""
-        for field in ("name", "industry", "geography", "gross_margin", "business_model", "selected_metrics"):
+        for field in (
+            "name",
+            "industry",
+            "geography",
+            "gross_margin",
+            "business_model",
+            "selected_metrics",
+        ):
             value = getattr(data, field)
             if value is not None:
                 setattr(company, field, value)

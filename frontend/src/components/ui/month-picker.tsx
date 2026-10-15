@@ -25,6 +25,8 @@ export interface MonthPickerProps {
   readonly disabled?: boolean
   readonly className?: string
   readonly 'aria-label'?: string
+  readonly 'aria-invalid'?: boolean
+  readonly 'aria-describedby'?: string
 }
 
 export function MonthPicker({
@@ -35,6 +37,8 @@ export function MonthPicker({
   disabled = false,
   className,
   'aria-label': ariaLabel,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
 }: MonthPickerProps) {
   const { i18n } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -67,6 +71,8 @@ export function MonthPicker({
           variant="outline"
           disabled={disabled}
           aria-label={ariaLabel}
+          aria-invalid={ariaInvalid}
+          aria-describedby={ariaDescribedBy}
           aria-expanded={open}
           className={cn('w-full justify-between font-normal', className)}
         >
@@ -78,8 +84,10 @@ export function MonthPicker({
       </Popover.Trigger>
       <Popover.Portal container={triggerRef.current?.closest('[role="dialog"]') ?? undefined}>
         <Popover.Content
+          data-month-picker-popover=""
           align="start"
           sideOffset={8}
+          onEscapeKeyDown={(event) => { event.preventDefault(); setOpen(false) }}
           className="z-50 w-[min(20rem,calc(100vw-2rem))] pointer-events-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none"
         >
           <div className="flex items-center justify-between border-b border-border pb-3">

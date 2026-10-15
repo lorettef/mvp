@@ -13,6 +13,7 @@ class PnLBudgetSource(BaseModel):
     id: UUID
     period: date
     type: Literal["plan", "fact"]
+    cogs: Optional[float] = None
     marketing: float
     development: float
     fot: float
@@ -25,6 +26,9 @@ class PnLScenario(BaseModel):
     metric_source: Optional[UnitEconomicsMetricSource] = None
     budget_source: Optional[PnLBudgetSource] = None
     revenue: Optional[float] = None
+    cogs: Optional[float] = None
+    gross_profit: Optional[float] = None
+    gross_margin: Optional[float] = None
     fot: Optional[float] = None
     social_payments: Optional[float] = None
     marketing: Optional[float] = None

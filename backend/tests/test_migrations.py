@@ -6,6 +6,7 @@ Guards against two regressions:
 2. Duplicate `create_table` calls across revisions (e.g. `hiring_plans`
    created in both 003 and 006) that fail with "table already exists".
 """
+
 import sqlite3
 from pathlib import Path
 
@@ -68,7 +69,7 @@ def test_alembic_upgrade_head_on_sqlite(tmp_path, monkeypatch):
 
     command.upgrade(_make_config(), "head")
 
-    assert _alembic_version(db_path) == "016_hiring_roles"
+    assert _alembic_version(db_path) == "017_budget_cogs"
     assert EXPECTED_TABLES <= _table_names(db_path)
 
 
@@ -85,3 +86,52 @@ def test_alembic_downgrade_base_on_sqlite(tmp_path, monkeypatch):
     remaining = _table_names(db_path)
     assert "organizations" not in remaining
     assert "companies" not in remaining
+
+
+def test_cogs_upgrade_keeps_legacy_unknown_and_downgrade_preserves_row(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "legacy-cogs.db"
+    monkeypatch.setattr(settings, "DATABASE_URL", f"sqlite+aiosqlite:///{path}")
+    cfg = _make_config()
+    command.upgrade(cfg, "016_hiring_roles")
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "INSERT INTO budgets (id, company_id, period, type, marketing, development, fot, gna) VALUES ('b', 'c', '2026-10-01', 'fact', 1, 2, 3, 4)"
+        )
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT cogs, gna FROM budgets WHERE id='b'").fetchone() == (
+            None,
+            4,
+        )
+        assert any(
+            r[1] == "cogs" and r[2] == "NUMERIC(14, 2)" and r[4] is None
+            for r in db.execute("PRAGMA table_info(budgets)")
+        )
+    command.downgrade(cfg, "016_hiring_roles")
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT gna FROM budgets WHERE id='b'").fetchone() == (4,)
+        assert all(r[1] != "cogs" for r in db.execute("PRAGMA table_info(budgets)"))
+
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT cogs, gna FROM budgets WHERE id='b'").fetchone() == (
+            None,
+            4,
+        )
+    assert _alembic_version(path) == "017_budget_cogs"
+
+
+def test_cogs_migration_postgres_sql(monkeypatch):
+    from io import StringIO
+
+    monkeypatch.setattr(
+        settings, "DATABASE_URL", "postgresql+asyncpg://user:pass@localhost/test"
+    )
+    cfg = _make_config()
+    cfg.output_buffer = StringIO()
+    command.upgrade(cfg, "016_hiring_roles:017_budget_cogs", sql=True)
+    sql = cfg.output_buffer.getvalue()
+    assert "ADD COLUMN cogs NUMERIC(14, 2)" in sql
+    assert "DEFAULT" not in sql and "UPDATE budgets" not in sql

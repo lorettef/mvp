@@ -11,24 +11,57 @@ from app.models.financing import Financing
 
 async def _seed_unit_economics(db, company_id):
     """Два факт-периода (ΔRevenue), когорта, бюджет, финансирование."""
-    db.add(Metric(
-        company_id=company_id, period=date(2026, 1, 1), type="fact",
-        revenue=100000, arpu=100, cac=1000, ltv=5000, churn=0.03,
-    ))
-    db.add(Metric(
-        company_id=company_id, period=date(2026, 2, 1), type="fact",
-        revenue=120000, arpu=100, cac=1000, ltv=5000, churn=0.03,
-    ))
-    db.add(Cohort(
-        company_id=company_id, period=date(2026, 2, 1), type="fact",
-        retention_m1=0.8, retention_m3=0.6, retention_m6=0.5, retention_m12=0.4,
-    ))
-    db.add(Budget(
-        company_id=company_id, period=date(2026, 2, 1), type="fact",
-        marketing=4000, development=8000, fot=6000, gna=2000,
-    ))
+    db.add(
+        Metric(
+            company_id=company_id,
+            period=date(2026, 1, 1),
+            type="fact",
+            revenue=100000,
+            arpu=100,
+            cac=1000,
+            ltv=5000,
+            churn=0.03,
+        )
+    )
+    db.add(
+        Metric(
+            company_id=company_id,
+            period=date(2026, 2, 1),
+            type="fact",
+            revenue=120000,
+            arpu=100,
+            cac=1000,
+            ltv=5000,
+            churn=0.03,
+        )
+    )
+    db.add(
+        Cohort(
+            company_id=company_id,
+            period=date(2026, 2, 1),
+            type="fact",
+            retention_m1=0.8,
+            retention_m3=0.6,
+            retention_m6=0.5,
+            retention_m12=0.4,
+        )
+    )
+    db.add(
+        Budget(
+            company_id=company_id,
+            period=date(2026, 2, 1),
+            type="fact",
+            marketing=4000,
+            development=8000,
+            fot=6000,
+            gna=2000,
+            cogs=30000,
+        )
+    )
     db.add(Financing(company_id=company_id, type="investment", amount=200000))
-    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
+    db.add(
+        Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0)
+    )
     await db.flush()
 
 
@@ -56,7 +89,7 @@ async def test_unit_economics_happy(client, seeded_company, seeded_admin, db_ses
     assert body["revenue_growth"] == 20000
     assert body["marketing_spend"] == 4000
     assert body["magic_number"] == 5.0
-    # payback = cac / (arpu * gross_margin) = 1000 / (100 * 0.75) = 13.33
+    # Exact Fact revenue 120000 / COGS 30000 gives 75%; payback = 1000 / (100 * 0.75) = 13.33
     assert body["payback_period"] == 13.33
     # romi = (ltv - cac) / cac = (5000 - 1000) / 1000 = 4.0
     assert body["romi"] == 4.0
@@ -77,13 +110,21 @@ async def test_unit_economics_partial_retention(
     """Когорта с частичным retention (None) не роняет расчёт; недостающие = None."""
     db_session.add(
         Metric(
-            company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
-            revenue=100000, arpu=100, cac=1000, ltv=5000, churn=0.03,
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="fact",
+            revenue=100000,
+            arpu=100,
+            cac=1000,
+            ltv=5000,
+            churn=0.03,
         )
     )
     db_session.add(
         Cohort(
-            company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="fact",
             retention_m1=0.8,
         )
     )
@@ -108,8 +149,14 @@ async def test_unit_economics_uses_plan_fallback_when_fact_missing(
     """D1: при отсутствии факт-метрик юнит-экономика считает из плана (fallback)."""
     db_session.add(
         Metric(
-            company_id=seeded_company.id, period=date(2026, 2, 1), type="plan",
-            revenue=90000, arpu=90, cac=1200, ltv=4000, churn=0.04,
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="plan",
+            revenue=90000,
+            arpu=90,
+            cac=1200,
+            ltv=4000,
+            churn=0.04,
         )
     )
     await db_session.flush()
@@ -152,17 +199,35 @@ async def test_unit_economics_empty(client, seeded_company, seeded_admin):
     assert body["alerts"] == []
 
 
-async def test_unit_economics_div_by_zero(client, seeded_company, seeded_admin, db_session):
+async def test_unit_economics_div_by_zero(
+    client, seeded_company, seeded_admin, db_session
+):
     # бюджет с нулевыми статьями и маркетингом = 0; финансирование есть
-    db_session.add(Budget(
-        company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
-        marketing=0, development=0, fot=0, gna=0,
-    ))
-    db_session.add(Financing(company_id=seeded_company.id, type="investment", amount=100000))
-    db_session.add(Metric(
-        company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
-        revenue=50000, cac=1000, ltv=3000, churn=0.04,
-    ))
+    db_session.add(
+        Budget(
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="fact",
+            marketing=0,
+            development=0,
+            fot=0,
+            gna=0,
+        )
+    )
+    db_session.add(
+        Financing(company_id=seeded_company.id, type="investment", amount=100000)
+    )
+    db_session.add(
+        Metric(
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="fact",
+            revenue=50000,
+            cac=1000,
+            ltv=3000,
+            churn=0.04,
+        )
+    )
     await db_session.flush()
 
     res = await client.get(

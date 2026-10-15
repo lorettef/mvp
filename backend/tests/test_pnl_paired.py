@@ -105,6 +105,7 @@ async def test_scenarios(client, db_session, seeded_company, seeded_admin, mt, b
         assert s["budget_source"] == (
             dict(
                 id=str(b.id),
+                cogs=None,
                 period=p.isoformat(),
                 type=kind,
                 fot=30000,

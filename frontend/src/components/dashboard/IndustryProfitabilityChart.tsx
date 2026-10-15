@@ -2,6 +2,7 @@ import { useId, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Section } from '@/components/shared/section'
+import { ChartContainer } from '@/components/shared/chart-container'
 import { Button } from '@/components/ui/button'
 import { fmtPct, fmtRub } from '@/lib/format'
 import type { IndustryProfitabilityItem } from '@/types/api'
@@ -40,10 +41,11 @@ export function IndustryProfitabilityTooltip({ active, payload }: {
   </div>
 }
 
-export function IndustryProfitabilityChart({ data, industryLabel, onResetFilters }: {
+export function IndustryProfitabilityChart({ data, industryLabel, onResetFilters, embedded = false }: {
   data: IndustryProfitabilityItem[]
   industryLabel: (slug: string) => string
   onResetFilters?: () => void
+  embedded?: boolean
 }) {
   const { t } = useTranslation()
   const descriptionId = useId()
@@ -58,14 +60,12 @@ export function IndustryProfitabilityChart({ data, industryLabel, onResetFilters
   const axisTicks = [...new Set([axisMin, axisMin / 2, 0, axisMax / 2, axisMax])]
   const title = t('dashboard.profitability.title')
   const qualityNotes = points.filter(point => point.companiesIncluded < point.companiesTotal || point.ebitdaMargin === null)
-  return <div role="region" aria-label={title} aria-describedby={descriptionId} className="min-w-0">
-    <Section title={title} description={t('dashboard.profitability.subtitle')} className="min-w-0"
-      headerClassName="px-4 py-3" contentClassName="p-4">
+  const content = <>
       <p id={descriptionId} className="sr-only">{t('dashboard.profitability.description')}</p>
       {!hasMargins ? <div className="space-y-3 py-8 text-center text-sm text-muted-foreground">
         <p>{t('dashboard.profitability.empty')}</p>
         {points.length === 0 && onResetFilters && <Button variant="outline" size="sm" onClick={onResetFilters}>{t('dashboard.filters.reset')}</Button>}
-      </div> : <div className="min-w-0" style={{ height: Math.max(240, points.length * 56 + 40) }}>
+      </div> : <ChartContainer height={Math.max(240, points.length * 56 + 40)}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={points} layout="vertical" maxBarSize={24} margin={{ top: 8, right: 24, bottom: 8, left: 0 }} accessibilityLayer>
             <CartesianGrid horizontal={false} stroke="hsl(var(--border))" strokeOpacity={0.7} strokeDasharray="3 3" />
@@ -80,7 +80,7 @@ export function IndustryProfitabilityChart({ data, industryLabel, onResetFilters
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-      </div>}
+      </ChartContainer>}
       {qualityNotes.length > 0 && <ul className="mt-3 space-y-1 border-t pt-3 text-xs text-muted-foreground">
         {qualityNotes.map(point => <li key={industryKey(point.industry)} className="[overflow-wrap:anywhere]">
           <span className="font-medium">{point.label}: </span>
@@ -96,6 +96,11 @@ export function IndustryProfitabilityChart({ data, industryLabel, onResetFilters
           <td>{t('dashboard.profitability.included', { included: point.companiesIncluded, total: point.companiesTotal })}</td>
         </tr>)}</tbody>
       </table></div>
-    </Section>
+  </>
+  return <div role="region" aria-label={title} aria-describedby={descriptionId} className="min-w-0 w-full">
+    {embedded ? content : <Section title={title} description={t('dashboard.profitability.subtitle')} className="min-w-0"
+      headerClassName="px-4 py-3" contentClassName="p-4">
+      {content}
+    </Section>}
   </div>
 }

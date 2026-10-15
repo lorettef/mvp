@@ -9,8 +9,8 @@ const authStoreMock = vi.hoisted(() => ({ user: null as User | null }))
 vi.mock('../store/authStore', () => ({
   useAuthStore: () => ({ user: authStoreMock.user }),
 }))
-vi.mock('./CompaniesDashboard', () => ({
-  CompaniesDashboard: () => <div>Portfolio view</div>,
+vi.mock('./PortfolioHome', () => ({
+  PortfolioHome: () => <div>Portfolio Home view</div>,
 }))
 vi.mock('./StartupDashboard', () => ({
   StartupDashboard: () => <div>Startup overview</div>,
@@ -50,7 +50,7 @@ describe('Dashboard routing', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('Portfolio view')).toBeInTheDocument()
+    expect(screen.getByText('Portfolio Home view')).toBeInTheDocument()
   })
 
   it('routes a standalone startup admin to its company', () => {
@@ -82,6 +82,6 @@ describe('Dashboard routing', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('Portfolio view')).toBeInTheDocument()
+    expect(screen.getByText('Portfolio Home view')).toBeInTheDocument()
   })
 })

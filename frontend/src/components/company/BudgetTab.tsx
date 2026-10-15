@@ -7,17 +7,20 @@ import { Button } from '@/components/ui/button'
 import { fmtRub, formatMonthLabel } from '@/lib/format'
 import { BudgetSourceEditor } from './BudgetSourceEditor'
 import { FinanceMatrix, FinanceSourceValue } from './FinanceMatrix'
+import { BudgetInlineCell } from './SourceInlineCells'
 
-type Article = 'marketing' | 'development' | 'fot' | 'gna'
+type Article = 'cogs' | 'marketing' | 'development' | 'fot' | 'gna'
 interface Props {
+  industry?: string | null
   budgets: Budget[]
   canEdit: boolean
   onSubmit: (data: BudgetUpsert) => Promise<unknown>
   onDelete?: (id: string) => Promise<unknown>
+  isSourcePending?: (source: BudgetSource) => boolean
 }
-interface Editing { source?: BudgetSource; period: string; type: 'plan' | 'fact'; chooseIdentity?: boolean }
+interface Editing { source?: BudgetSource; period: string; type: 'plan' | 'fact'; chooseIdentity?: boolean; deleting?: boolean }
 
-export function BudgetTab({ budgets, canEdit, onSubmit, onDelete }: Props) {
+export function BudgetTab({ industry, budgets, canEdit, onSubmit, onDelete, isSourcePending = () => false }: Props) {
   const { t, i18n } = useTranslation()
   const selectorId = useId()
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
@@ -31,7 +34,7 @@ export function BudgetTab({ budgets, canEdit, onSubmit, onDelete }: Props) {
   // Same horizon as P&L: latest 12 data periods, presented chronologically.
   const periods = [...byPeriod.keys()].sort().slice(-12)
   const selected = selectedMonth && periods.includes(selectedMonth) ? selectedMonth : periods[periods.length - 1]
-  const rows = (['marketing', 'development', 'fot', 'gna'] as Article[]).map((key) => ({ key, label: t(`company.budget.${key}`) }))
+  const rows = (['cogs', 'marketing', 'development', 'fot', 'gna'] as Article[]).map((key) => ({ key, label: t(`company.budget.${key}`) }))
   const getSource = (period: string, type: 'plan' | 'fact') => byPeriod.get(period)?.[type]
   const open = (period: string, type: 'plan' | 'fact') => {
     if (canEdit) setEditing({ source: getSource(period, type), period, type })
@@ -41,9 +44,13 @@ export function BudgetTab({ budgets, canEdit, onSubmit, onDelete }: Props) {
     tableLabel={t(mobile ? 'company.budget.mobileMatrix' : 'company.budget.matrix')}
     renderCell={(row, period, type, isMobile) => {
       const source = getSource(period, type)
-      return <FinanceSourceValue mobile={isMobile} missing={!source}
-        label={t(source ? 'company.budget.editCell' : 'company.budget.createCell', { article: row.label, period: formatMonthLabel(period.slice(0, 7), i18n.language), type: t(`common.${type}`) })}
+      const label = t(source ? 'company.budget.editCell' : 'company.budget.createCell', { article: row.label, period: formatMonthLabel(period.slice(0, 7), i18n.language), type: t(`common.${type}`) })
+      return <FinanceSourceValue recordActions mobile={isMobile} missing={!source}
+        label={label}
         actionLabel={t(source ? 'company.pnl.editAction' : 'company.budget.createAction')}
+        busy={source && isSourcePending(source)}
+        inline={canEdit && source ? <BudgetInlineCell key={source.id} source={source} field={row.key} label={label} busy={isSourcePending(source)} onSave={onSubmit}>{fmtRub(source[row.key])}</BudgetInlineCell> : undefined}
+        onDelete={canEdit && source && onDelete ? () => setEditing({ source, period, type, deleting: true }) : undefined}
         onOpen={canEdit ? () => open(period, type) : undefined}>
         {fmtRub(source?.[row.key])}
       </FinanceSourceValue>
@@ -72,7 +79,7 @@ export function BudgetTab({ budgets, canEdit, onSubmit, onDelete }: Props) {
       </>}
     </CardContent>
     {canEdit && editing && <BudgetSourceEditor
-      source={editing.source} initialPeriod={editing.period} initialType={editing.type} chooseIdentity={editing.chooseIdentity}
+      industry={industry} initialDelete={editing.deleting} source={editing.source} initialPeriod={editing.period} initialType={editing.type} chooseIdentity={editing.chooseIdentity}
       getSource={getSource} onDelete={onDelete} onClose={() => setEditing(null)}
       onSave={async (data) => { await onSubmit(data); setSelectedMonth(data.period) }}
     />}

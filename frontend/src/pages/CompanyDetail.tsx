@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -16,19 +16,24 @@ import { sensitivityApi } from '../api/sensitivity'
 import { useAuthStore } from '../store/authStore'
 import { getTenantKey } from '../auth/authSession'
 import { qk } from '../lib/queryKeys'
-import type { Metric, MetricUpsert, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, InsightScenario, FinancingCreate, FinancingUpdate } from '@/types/api'
+import type { Metric, MetricUpsert, UnitEconomicsMetricSource, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, FinancingCreate, FinancingUpdate } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CohortsTab } from '@/components/company/CohortsTab'
 import { BudgetTab } from '@/components/company/BudgetTab'
+import { DataEntryWizard } from '@/components/company/DataEntryWizard'
+import { SourceActionMenu } from '@/components/company/SourceActionMenu'
+import { MetricInlineCell } from '@/components/company/SourceInlineCells'
+import { UnitEconomicsSourceEditor } from '@/components/company/UnitEconomicsSourceEditor'
+import type { MetricInputField } from '@/lib/financialSourceForm'
+import { invalidateFinancialSources } from '@/lib/financialSourceQueries'
 import { UnitEconomicsTab } from '@/components/company/UnitEconomicsTab'
 import { TasksTab } from '@/components/company/TasksTab'
 import { MarketTab } from '@/components/company/MarketTab'
@@ -41,13 +46,14 @@ import { ValuationTab } from '@/components/company/ValuationTab'
 import { SensitivityTab } from '@/components/company/SensitivityTab'
 import { ReportsTab } from '@/components/company/ReportsTab'
 import { AIInsight } from '@/components/company/AIInsight'
+import { CompanyProfileOverview } from '@/components/company/CompanyProfileOverview'
 import { CompanyConfigDialog } from '@/components/company/CompanyConfigDialog'
 import { QueryState } from '@/components/common/QueryState'
 import { normalizeApiError } from '@/lib/apiError'
 import { SKIP_GLOBAL_ERROR } from '@/lib/toastError'
 import { cn } from '@/lib/utils'
 import { fmtPct, fmtPeriod, fmtRub, fmtSignedPct, formatMonthLabel } from '@/lib/format'
-import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, Trash2, Settings2 } from 'lucide-react'
+import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, Settings2 } from 'lucide-react'
 
 interface BulkRow {
   newUnits: string
@@ -99,20 +105,6 @@ const deriveMetric = (r: BulkRow) => {
   return { churn, ltv, cac }
 }
 
-const scenarioByTab: Record<string, InsightScenario> = {
-  unit: 'unit_economics',
-  cohorts: 'cohorts',
-  budget: 'budget',
-  tasks: 'readiness',
-  hiring: 'hiring',
-  pnl: 'pnl',
-  cashflow: 'cashflow',
-  credit: 'credit',
-  valuation: 'valuation',
-  sensitivity: 'sensitivity',
-  reports: 'reports',
-}
-
 export const CompanyDetail = () => {
   const { t, i18n } = useTranslation()
   const { companyId } = useParams<{ companyId: string }>()
@@ -126,8 +118,11 @@ export const CompanyDetail = () => {
   const [bulkCount, setBulkCount] = useState(3)
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyBulkRow(), emptyBulkRow(), emptyBulkRow()])
   const [bulkError, setBulkError] = useState<string | null>(null)
-  const [grossMarginPct, setGrossMarginPct] = useState('75')
-  const [metricDeleteId, setMetricDeleteId] = useState<string | null>(null)
+  const [deletingMetricSource, setDeletingMetricSource] = useState(false)
+  const [editingMetricSource, setEditingMetricSource] = useState<Metric | null>(null)
+  const [wizardScope, setWizardScope] = useState<string | null>(null)
+  const inFlightSources = useRef(new Set<string>())
+  const [pendingSources, setPendingSources] = useState<string[]>([])
   const [configOpen, setConfigOpen] = useState(false)
 
   const providerLabel = (p: string) =>
@@ -169,6 +164,8 @@ export const CompanyDetail = () => {
 
   const id = companyId ?? ''
   const tenantKey = getTenantKey()
+  const entryScope = `${tenantKey}:${id}`
+  useEffect(() => { setWizardScope(null) }, [tenantKey, id, user?.role])
 
   const companyQuery = useQuery({
     queryKey: qk.company(tenantKey, id),
@@ -190,10 +187,6 @@ export const CompanyDetail = () => {
   }
   const metricLabel = (key: string, fallback: string) => metricLabels.get(key) ?? fallback
 
-  useEffect(() => {
-    const gm = companyQuery.data?.grossMargin
-    setGrossMarginPct(gm != null ? String(Math.round(gm * 10000) / 100) : '75')
-  }, [companyQuery.data?.grossMargin, id])
 
   useEffect(() => {
     // URL — источник правды для вкладки; при смене компании ?tab пропадает → дефолт.
@@ -203,13 +196,13 @@ export const CompanyDetail = () => {
   const metricsQuery = useQuery({
     queryKey: qk.companyMetrics(tenantKey, id),
     queryFn: ({ signal }) => companiesApi.metrics(id, undefined, { signal }),
-    enabled: Boolean(id) && tab === 'metrics',
+    enabled: Boolean(id),
   })
 
   const cohortsQuery = useQuery({
     queryKey: qk.companyCohorts(tenantKey, id),
     queryFn: ({ signal }) => companiesApi.cohorts(id, undefined, { signal }),
-    enabled: Boolean(id) && tab === 'cohorts',
+    enabled: Boolean(id),
   })
 
   const budgetsQuery = useQuery({
@@ -221,7 +214,13 @@ export const CompanyDetail = () => {
   const unitEconomicsQuery = useQuery({
     queryKey: qk.companyUnitEconomics(tenantKey, id),
     queryFn: ({ signal }) => companiesApi.unitEconomics(id, { signal }),
-    enabled: Boolean(id) && tab === 'unit',
+    enabled: Boolean(id),
+  })
+
+  const healthQuery = useQuery({
+    queryKey: qk.companyHealth(tenantKey, id),
+    queryFn: ({ signal }) => companiesApi.health(id, { signal }),
+    enabled: Boolean(id),
   })
 
   const tasksQuery = useQuery({
@@ -287,13 +286,13 @@ export const CompanyDetail = () => {
   const pnlQuery = useQuery({
     queryKey: qk.companyPnl(tenantKey, id),
     queryFn: ({ signal }) => pnlApi.get(id, { signal }),
-    enabled: Boolean(id) && tab === 'pnl',
+    enabled: Boolean(id),
   })
 
   const cashflowQuery = useQuery({
     queryKey: qk.companyCashflow(tenantKey, id),
     queryFn: ({ signal }) => cashflowApi.get(id, { signal }),
-    enabled: Boolean(id) && tab === 'cashflow',
+    enabled: Boolean(id),
   })
 
   const creditQuery = useQuery({
@@ -314,12 +313,7 @@ export const CompanyDetail = () => {
     enabled: Boolean(id) && tab === 'sensitivity',
   })
 
-  const invalidateFinancialSource = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) }),
-      queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) }),
-    ])
-  }
+  const invalidateFinancialSource = () => invalidateFinancialSources(queryClient, tenantKey, id)
 
   const generatePlanMutation = useMutation({
     mutationFn: () => companiesApi.generatePlan(id),
@@ -342,13 +336,6 @@ export const CompanyDetail = () => {
     onSuccess: async () => {
       await invalidateFinancialSource()
       setShowForm(false)
-    },
-  })
-
-  const grossMarginMutation = useMutation({
-    mutationFn: (value: number) => companiesApi.update(id, { gross_margin: value / 100 }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.company(tenantKey, id) })
     },
   })
 
@@ -384,11 +371,6 @@ export const CompanyDetail = () => {
     bulkMutation.mutate()
   }
 
-  const handleGrossMarginSave = () => {
-    const v = Number(grossMarginPct)
-    if (Number.isFinite(v) && v >= 0 && v <= 100) grossMarginMutation.mutate(v)
-  }
-
   const bulkValid = bulkStartMonth !== '' && bulkCount >= 1 && bulkCount <= 12
 
   const cohortUpsert = useMutation({
@@ -396,11 +378,6 @@ export const CompanyDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.companyCohorts(tenantKey, id) })
     },
-  })
-
-  const deleteMetricMutation = useMutation({
-    mutationFn: (metricId: string) => companiesApi.deleteMetric(id, metricId),
-    onSuccess: invalidateFinancialSource,
   })
 
   const saveUnitSource = useMutation({
@@ -424,6 +401,25 @@ export const CompanyDetail = () => {
     onSuccess: invalidateFinancialSource,
     meta: SKIP_GLOBAL_ERROR,
   })
+
+  const sourceKey = (kind: 'metric' | 'budget', source: { period: string; type: 'plan' | 'fact' }) => `${id}:${kind}:${source.period}:${source.type}`
+  const isSourcePending = (kind: 'metric' | 'budget', source: { period: string; type: 'plan' | 'fact' }) => pendingSources.includes(sourceKey(kind, source))
+  // Full-record endpoints must not race two cells of the same source. Other
+  // records remain editable; the existing mutations await tenant-aware refetch.
+  const saveSource = async (kind: 'metric' | 'budget', data: { period: string; type: 'plan' | 'fact' }, save: () => Promise<unknown>) => {
+    const key = sourceKey(kind, data)
+    if (inFlightSources.current.has(key)) throw new Error(t('company.inline.recordBusy'))
+    inFlightSources.current.add(key)
+    setPendingSources([...inFlightSources.current])
+    try {
+      await save()
+    } finally {
+      inFlightSources.current.delete(key)
+      setPendingSources([...inFlightSources.current])
+    }
+  }
+  const saveMetricSourceRecord = (data: MetricUpsert) => saveSource('metric', data, () => saveUnitSource.mutateAsync(data))
+  const saveBudgetSourceRecord = (data: BudgetUpsert) => saveSource('budget', data, () => saveBudgetSource.mutateAsync(data))
 
   const deleteCohortMutation = useMutation({
     mutationFn: (cohortId: string) => companiesApi.deleteCohort(id, cohortId),
@@ -506,8 +502,13 @@ export const CompanyDetail = () => {
   const readiness = readinessQuery.data ?? null
 
   const canEdit = user?.role === 'admin' || user?.role === 'company'
-
-  const scenario = scenarioByTab[tab]
+  const metricCellLabel = (source: UnitEconomicsMetricSource, field: MetricInputField) => t('company.pnl.editCell', {
+    metric: metricLabel(field, t(field === 'revenue' ? 'company.metrics.revenue' : field === 'new_units' ? 'company.metrics.newUnits' : 'company.metrics.retention')),
+    period: formatMonthLabel(source.period.slice(0, 7), i18n.language), type: t(`common.${source.type}`),
+  })
+  const metricCell = (source: Metric | undefined, field: MetricInputField, formatted: ReactNode) => canEdit && source
+    ? <MetricInlineCell key={source.id} source={source} field={field} label={metricCellLabel(source, field)} busy={isSourcePending('metric', source)} onSave={saveMetricSourceRecord}>{formatted}</MetricInlineCell>
+    : formatted
 
   const periods = new Map<string, { plan?: Metric; fact?: Metric }>()
   for (const m of metrics) {
@@ -569,8 +570,13 @@ export const CompanyDetail = () => {
         </div>
       )}
 
+      <CompanyProfileOverview key={`overview:${entryScope}`} metrics={metricsQuery} cohorts={cohortsQuery} pnl={pnlQuery} cashflow={cashflowQuery} unit={unitEconomicsQuery} health={healthQuery} />
+
       <Tabs value={tab}>
         <TabsContent value="metrics">
+          {canEdit && <div className="mb-3 flex justify-end">
+            <Button type="button" onClick={() => setWizardScope(entryScope)}>{t('company.wizard.start')}</Button>
+          </div>}
           <QueryState
             isLoading={metricsQuery.isLoading}
             isError={metricsQuery.isError}
@@ -588,41 +594,6 @@ export const CompanyDetail = () => {
                   </Button>
                 )}
               </div>
-
-              {canEdit && (
-                <div className="mb-5 flex w-fit items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                  <div>
-                    <label
-                      htmlFor="gross-margin"
-                      className="block text-xs font-medium text-muted-foreground"
-                    >
-                      {t('company.metrics.grossMargin')}
-                    </label>
-                    <div className="mt-1 flex items-center gap-1">
-                      <Input
-                        id="gross-margin"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.5"
-                        className="h-8 w-24 border-0 bg-transparent px-0 py-0 text-lg font-semibold shadow-none [appearance:textfield] focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                        aria-label={t('company.metrics.grossMargin')}
-                        value={grossMarginPct}
-                        onChange={(e) => setGrossMarginPct(e.target.value)}
-                      />
-                      <span className="text-lg font-semibold text-foreground">%</span>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="bg-primary/80 font-semibold shadow-sm hover:bg-primary"
-                    onClick={handleGrossMarginSave}
-                    disabled={grossMarginMutation.isPending}
-                  >
-                    {grossMarginMutation.isPending ? t('common.saving') : t('common.save')}
-                  </Button>
-                </div>
-              )}
 
               <Dialog open={showForm && canEdit} onOpenChange={setShowForm}>
                 <DialogContent className="max-w-6xl" closeLabel={t('common.cancel')}>
@@ -829,10 +800,10 @@ export const CompanyDetail = () => {
                           {fmtPeriod(period)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {fmtRub(planRevenue)}
+                          {metricCell(entry.plan, 'revenue', fmtRub(planRevenue))}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-foreground">
-                          {fmtRub(factRevenue)}
+                          {metricCell(entry.fact, 'revenue', fmtRub(factRevenue))}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {dev == null ? (
@@ -854,26 +825,22 @@ export const CompanyDetail = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground hidden sm:table-cell">
-                          {entry.fact?.newUnits ?? '—'}
+                          {metricCell(entry.fact, 'new_units', entry.fact?.newUnits ?? '—')}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground hidden sm:table-cell">
-                          {fmtPct(entry.fact?.retentionRate)}
+                          {metricCell(entry.fact, 'retention_rate', fmtPct(entry.fact?.retentionRate))}
                         </TableCell>
                         {canEdit && (
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
                               {[entry.plan, entry.fact].map((metric) =>
                                 metric ? (
-                                  <Button
-                                    key={metric.id}
-                                    type="button"
-                                    size="icon"
-                                    variant="ghost"
-                                    aria-label={t('company.metrics.delete')}
-                                    onClick={() => setMetricDeleteId(metric.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
+                                  <div key={metric.id} className="flex">
+                                    <span className="self-center text-xs text-muted-foreground">{t(`common.${metric.type}`)}</span>
+                                    <SourceActionMenu label={metricCellLabel(metric, 'revenue')} busy={isSourcePending('metric', metric)}
+                                      onEdit={() => { setDeletingMetricSource(false); setEditingMetricSource(metric) }}
+                                      onDelete={() => { setDeletingMetricSource(true); setEditingMetricSource(metric) }} />
+                                  </div>
                                 ) : null,
                               )}
                             </div>
@@ -923,11 +890,12 @@ export const CompanyDetail = () => {
             error={budgetsQuery.error}
             onRetry={() => budgetsQuery.refetch()}
           >
-          <BudgetTab
+          <BudgetTab industry={company?.industry}
             key={`${tenantKey}:${id}`}
             budgets={budgets}
             canEdit={canEdit}
-            onSubmit={(data) => saveBudgetSource.mutateAsync(data)}
+            onSubmit={saveBudgetSourceRecord}
+            isSourcePending={(source) => isSourcePending('budget', source)}
             onDelete={(budgetId) => deleteBudgetSource.mutateAsync(budgetId)}
           />
           </QueryState>
@@ -948,7 +916,7 @@ export const CompanyDetail = () => {
             isLoading={unitEconomicsQuery.isLoading}
             canEdit={canEdit}
             metricLabel={metricLabel}
-            onSaveSource={(data) => saveUnitSource.mutateAsync(data)}
+            onSaveSource={saveMetricSourceRecord}
             onDeleteSource={(metricId) => deleteUnitSource.mutateAsync(metricId)}
             isSaving={saveUnitSource.isPending}
             isDeleting={deleteUnitSource.isPending}
@@ -1025,13 +993,15 @@ export const CompanyDetail = () => {
             isEmpty={pnlQuery.data == null}
             emptyText={t('company.pnl.empty')}
           >
-          <PnLTab
+          <PnLTab industry={company?.industry}
             key={`${tenantKey}:${id}`}
             data={pnlQuery.data} isLoading={pnlQuery.isLoading} canEdit={canEdit}
             metricLabel={metricLabel}
-            onSaveMetric={(data) => saveUnitSource.mutateAsync(data)}
+            onSaveMetric={saveMetricSourceRecord}
+            isMetricPending={(source) => isSourcePending('metric', source)}
+            isBudgetPending={(source) => isSourcePending('budget', source)}
             onDeleteMetric={(metricId) => deleteUnitSource.mutateAsync(metricId)}
-            onSaveBudget={(data) => saveBudgetSource.mutateAsync(data)}
+            onSaveBudget={saveBudgetSourceRecord}
             onDeleteBudget={(budgetId) => deleteBudgetSource.mutateAsync(budgetId)}
           />
           </QueryState>
@@ -1116,29 +1086,23 @@ export const CompanyDetail = () => {
         </TabsContent>
       </Tabs>
 
-      {scenario && (
-        <Card className="border bg-card">
-          <CardContent className="p-5">
-            <AIInsight companyId={id} scenario={scenario} />
+      {canEdit && (
+        <Card role="region" aria-labelledby="company-ai-title" className="min-w-0 border bg-card">
+          <CardContent className="space-y-3 p-5">
+            <h3 id="company-ai-title" className="text-base font-semibold">{t('company.ai.title')}</h3>
+            <p className="text-sm text-muted-foreground">{t('company.ai.description')}</p>
+            <AIInsight key={entryScope} companyId={id} scenario="overview" />
           </CardContent>
         </Card>
       )}
 
-      <ConfirmDialog
-        open={metricDeleteId !== null}
-        onOpenChange={(open) => {
-          if (!open) setMetricDeleteId(null)
-        }}
-        title={t('company.delete.title')}
-        description={t('company.delete.description')}
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        danger
-        onConfirm={() => {
-          if (metricDeleteId !== null) deleteMetricMutation.mutate(metricDeleteId)
-          setMetricDeleteId(null)
-        }}
-      />
+      {canEdit && editingMetricSource?.companyId === id && <UnitEconomicsSourceEditor key={`${id}:${editingMetricSource.id}`} source={editingMetricSource} initialDelete={deletingMetricSource}
+        editComment metricLabel={metricLabel} onSave={saveMetricSourceRecord}
+        onDelete={(metricId) => deleteUnitSource.mutateAsync(metricId)} onClose={() => setEditingMetricSource(null)} />}
+
+      {canEdit && wizardScope === entryScope && <DataEntryWizard industry={company?.industry} key={entryScope} companyId={id} tenantKey={tenantKey}
+        metricLabel={metricLabel} onClose={() => setWizardScope(null)} />}
+
 
       <CompanyConfigDialog
         open={configOpen}

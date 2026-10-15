@@ -108,6 +108,7 @@ export interface Company {
   industry: string | null
   businessModel: string | null
   geography: string | null
+  /** Deprecated legacy storage; use UnitEconomicsResponse.grossMargin. */
   grossMargin: number
   selectedMetrics: string[] | null
   archivedAt: string | null
@@ -343,6 +344,7 @@ export interface CohortUpsert {
 }
 
 export interface Budget {
+  cogs?: number | null
   id: string
   companyId: string
   period: string
@@ -356,6 +358,7 @@ export interface Budget {
 }
 
 export interface BudgetUpsert {
+  cogs?: number | null
   period: string
   type: 'plan' | 'fact'
   marketing: number
@@ -385,6 +388,7 @@ export interface UnitEconomicsMetricSource {
 }
 
 export interface UnitEconomicsResponse {
+  grossMargin?: number | null
   companyId: string
   sourceMetric: UnitEconomicsMetricSource | null
   revenue: number | null
@@ -635,11 +639,14 @@ export interface FinancingUpdate {
 
 // P&L (profit & loss statement)
 export type PnLMetricSource = UnitEconomicsMetricSource
-export type BudgetSource = Pick<Budget, 'id' | 'period' | 'type' | 'marketing' | 'development' | 'fot' | 'gna'>
+export type BudgetSource = Pick<Budget, 'id' | 'period' | 'type' | 'cogs' | 'marketing' | 'development' | 'fot' | 'gna'>
 
 export type PnLBudgetSource = BudgetSource
 
 export interface PnLScenario {
+  cogs?: number | null
+  grossProfit?: number | null
+  grossMargin?: number | null
   metricSource: PnLMetricSource | null
   budgetSource: PnLBudgetSource | null
   revenue: number | null
@@ -875,6 +882,12 @@ export type InsightScenario =
 export interface InsightResponse {
   companyId: string
   scenario: string
+  provider: string
+  text: string
+}
+
+export interface PortfolioInsightResponse {
+  scope: 'portfolio'
   provider: string
   text: string
 }

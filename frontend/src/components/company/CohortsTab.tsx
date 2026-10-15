@@ -10,36 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, Trash2 } from 'lucide-react'
-import { fmtPct, fmtPeriod, fmtRub } from '@/lib/format'
+import { fmtPeriod, fmtRub } from '@/lib/format'
+import { CohortRetentionCell } from './CohortRetentionCell'
+import { retentionAt } from '@/lib/companyOverview'
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
-
-const RETENTION_KEYS = [
-  'retentionM1',
-  'retentionM2',
-  'retentionM3',
-  'retentionM4',
-  'retentionM5',
-  'retentionM6',
-  'retentionM7',
-  'retentionM8',
-  'retentionM9',
-  'retentionM10',
-  'retentionM11',
-  'retentionM12',
- ] as const
-
-const retentionAt = (c: Cohort, i: number): number | null => {
-  const key = RETENTION_KEYS[i]
-  return key === undefined ? null : c[key]
-}
-
-// Heatmap: green >70%, amber 50–70%, red <50% (kogor.md:156-159)
-const heatClass = (v: number): string => {
-  if (v > 0.7) return 'bg-success/15 text-success'
-  if (v >= 0.5) return 'bg-warning/15 text-warning'
-  return 'bg-danger/15 text-danger'
-}
 
 const activeUsers = (c: Cohort): number | null => {
   const retention = retentionAt(c, 11)
@@ -252,27 +227,7 @@ export function CohortsTab({
                         {type === 'plan' ? t('common.plan') : t('common.fact')}
                       </TableCell>
                       <TableCell className="text-right tabular-nums text-foreground">{c.size}</TableCell>
-                      {MONTHS.map((m, idx) => {
-                        const v = retentionAt(c, idx)
-                        return (
-                          <TableCell key={m} className="text-center">
-                            {v === null ? (
-                              <span className="text-muted-foreground">—</span>
-                            ) : (
-                              <span
-                                title={t('company.cohorts.cellTitle', {
-                                  month: m,
-                                  retention: fmtPct(v),
-                                  users: Math.round(c.size * v),
-                                })}
-                                className={`inline-block rounded-sm px-2 py-1 text-xs font-medium ${heatClass(v)}`}
-                              >
-                                {fmtPct(v)}
-                              </span>
-                            )}
-                          </TableCell>
-                        )
-                      })}
+                      {MONTHS.map((m, idx) => <TableCell key={m} className="text-center"><CohortRetentionCell cohort={c} index={idx} /></TableCell>)}
                       <TableCell className="text-right tabular-nums text-foreground">
                         {activeUsers(c) ?? '—'}
                       </TableCell>

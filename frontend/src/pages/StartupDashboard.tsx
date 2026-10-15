@@ -22,7 +22,7 @@ import { DashboardAIInsight } from '@/components/dashboard/DashboardAIInsight'
 import { NextActions, type SuggestedAction } from '@/components/dashboard/NextActions'
 import { TrendChart } from '@/components/dashboard/TrendChart'
 import { monthSeries } from '@/lib/kpi'
-import { fmtFactor, fmtPct, fmtRub } from '@/lib/format'
+import { fmtFactor, fmtPct, fmtRub, formatMonthLabel } from '@/lib/format'
 import { Settings2, Sparkles, LayoutGrid, ArrowRight, Plus } from 'lucide-react'
 import type { Cohort, Metric, PnLResponse, Task, TaskCreate } from '@/types/api'
 
@@ -47,7 +47,7 @@ function MetricValue({ label, value, sub, description }: { label: string; value:
 }
 
 export function StartupDashboard({ companyId }: { companyId: string }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
@@ -195,10 +195,10 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
                 {t('dashboard.addCompany')}
               </Button>
             )}
-            <Button size="sm" variant="outline" onClick={scrollToAi}>
+            {canEdit && <Button size="sm" variant="outline" onClick={scrollToAi}>
               <Sparkles className="h-4 w-4" />
               {t('overview.actions.aiAnalysis')}
-            </Button>
+            </Button>}
             {canEdit && (
               <Button size="sm" variant="outline" onClick={() => setConfigOpen(true)}>
                 <Settings2 className="h-4 w-4" />
@@ -295,8 +295,9 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
             <MetricValue label={t('overview.unit.payback')} value={unit?.paybackPeriod != null ? t('overview.unit.months', { value: unit.paybackPeriod }) : '—'} />
             <MetricValue
               label={t('overview.unit.grossMargin')}
-              value={fmtPct(company.grossMargin)}
-              sub={t('overview.unit.grossMarginParam')}
+              value={fmtPct(unit?.grossMargin)}
+              description={t('company.unit.grossMarginHelp')}
+              sub={unit?.sourceMetric ? t('company.unit.source', { type: t(`common.${unit.sourceMetric.type}`), period: formatMonthLabel(unit.sourceMetric.period.slice(0, 7), i18n.language) }) : undefined}
             />
             <MetricValue label={t('overview.unit.arpu')} value={fmtRub(metrics.find((m) => m.type === 'fact')?.arpu ?? null)} description={t('overview.metricHelp.arpu')} />
           </div>
@@ -360,7 +361,7 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
         </Section>
       </div>
 
-      <div ref={aiRef}>
+      {canEdit && <div ref={aiRef}>
         <Section title={t('overview.ai.title')}>
           <DashboardAIInsight
             companyId={companyId}
@@ -370,7 +371,7 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
             onOpenTasks={() => deepLink('tasks')}
           />
         </Section>
-      </div>
+      </div>}
 
       <Section title={t('overview.actions.title')}>
         <NextActions

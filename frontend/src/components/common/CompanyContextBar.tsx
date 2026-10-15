@@ -7,7 +7,7 @@ import { getTenantKey } from '@/auth/authSession'
 import { companiesApi } from '@/api/companies'
 import { catalogApi } from '@/api/catalog'
 import { qk } from '@/lib/queryKeys'
-import { companyGroups } from '@/lib/navigation'
+import { canViewPortfolio, companyGroups } from '@/lib/navigation'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +26,7 @@ export function CompanyContextBar() {
   const tenantKey = getTenantKey()
   const companyMatch = useMatch('/companies/:companyId')
 
-  const isFund = user?.role === 'admin' && user?.organizationType !== 'startup'
+  const isFund = canViewPortfolio(user)
   const pathCompanyId = companyMatch?.params.companyId
   const currentCompanyId = isFund ? pathCompanyId : (user?.companyId ?? undefined)
   const currentTab = searchParams.get('tab')
@@ -94,8 +94,8 @@ export function CompanyContextBar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
-            <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-              {t('nav.backToPortfolio')}
+            <DropdownMenuItem onClick={() => navigate('/companies')}>
+              {t('nav.backToCompanies')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {activeCompanies.map((c) => (

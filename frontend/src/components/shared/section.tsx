@@ -21,7 +21,7 @@ export function Section({
   actionsClassName?: string
 }) {
   return (
-    <section className={cn("rounded-lg border bg-card", className)}>
+    <section className={cn("min-w-0 rounded-lg border bg-card", className)}>
       {(title || description || actions) && (
         <div className={cn("flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4", headerClassName)}>
           <div className="min-w-0">
@@ -33,7 +33,7 @@ export function Section({
           {actions ? <div className={cn("flex items-center gap-2", actionsClassName)}>{actions}</div> : null}
         </div>
       )}
-      <div className={cn("p-5", contentClassName)}>{children}</div>
+      <div className={cn("min-w-0 p-5", contentClassName)}>{children}</div>
     </section>
   )
 }

@@ -1,3 +1,4 @@
+import { PortfolioAIInsight } from '@/components/dashboard/PortfolioAIInsight'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -13,18 +14,18 @@ import { QueryState } from '@/components/common/QueryState'
 import { StartupInvite } from '@/components/common/StartupInvite'
 import { PageHeader } from '@/components/shared/page-header'
 import { Section } from '@/components/shared/section'
-import { MetricCard } from '@/components/shared/metric-card'
+import { PortfolioKpiStrip } from '@/components/dashboard/PortfolioKpiStrip'
 import { FundCompaniesTable } from '@/components/dashboard/FundCompaniesTable'
 import { CompanyRevenueComparisonChart } from '@/components/dashboard/CompanyRevenueComparisonChart'
 import { CompanyRevenueShareChart } from '@/components/dashboard/CompanyRevenueShareChart'
 import { IndustryProfitabilityChart } from '@/components/dashboard/IndustryProfitabilityChart'
 import { PortfolioRevenueChart } from '@/components/dashboard/PortfolioRevenueChart'
+import { PortfolioPerformanceStatusChart, PortfolioRunwayChart } from '@/components/dashboard/PortfolioStatusCharts'
 import { DashboardFiltersPanel } from '@/components/dashboard/DashboardFiltersPanel'
 import { PortfolioPlanFactTable, PortfolioUnitEconomicsTable } from '@/components/dashboard/PortfolioSummaryTables'
 import { useDashboardFilters } from '@/hooks/useDashboardFilters'
-import { fmtRub, fmtSignedPct } from '@/lib/format'
 import { dashboardAttentionLabel } from '@/lib/dashboardAttention'
-import { Building2, TrendingUp, CircleCheck, AlertTriangle, CalendarClock, RotateCcw, Trash2, ArrowRight, SlidersHorizontal } from 'lucide-react'
+import { RotateCcw, Trash2, ArrowRight, SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Range = 3 | 6 | 12
@@ -93,15 +94,6 @@ export const CompaniesDashboard = () => {
     mutationFn: (companyId: string) => companiesApi.remove(companyId),
     onSuccess: (_, companyId) => invalidateViews(companyId),
   })
-
-  const total = data?.totalCompanies ?? 0
-  const onTrack = data?.onTrack ?? 0
-  const behind = data?.behind ?? 0
-  // «Выполняют план» — доля компаний С планом, которые его выполняют. Компании
-  // без плана (no_plan) и без данных (no_data) не входят в знаменатель, иначе
-  // пустой портфель показывал бы вводящие в заблуждение «0%».
-  const planCompanies = onTrack + behind
-  const onTrackPct = planCompanies > 0 ? Math.round((onTrack / planCompanies) * 100) : null
 
   const industryLabels = new Map((catalogQuery.data?.industries ?? []).map((i) => [i.slug, i.label]))
   const industryLabel = (slug: string | null) => (slug ? (industryLabels.get(slug) ?? slug) : '—')
@@ -178,41 +170,12 @@ export const CompaniesDashboard = () => {
         </div>}
         <QueryState isLoading={isLoading} isError={Boolean(error)} error={error} onRetry={() => refetch()}>
           <div className="min-w-0 space-y-4" aria-busy={updating}>
-            <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3', sidebarExpanded ? '2xl:grid-cols-6' : 'xl:grid-cols-6')}>
-              <MetricCard compact label={t('dashboard.cards.companies')} value={String(total)} icon={<Building2 className="h-4 w-4" />} />
-              <MetricCard compact label={t('dashboard.cards.portfolioRevenue')} value={fmtRub(data?.portfolioRevenue ?? null)}
-                description={data?.portfolioRevenue == null ? t('dashboard.cards.unavailable.revenue') : undefined}
-                icon={<TrendingUp className="h-4 w-4" />} />
-              <MetricCard
-                compact
-                label={t('dashboard.cards.revenueGrowth')}
-                description={data?.revenueGrowth == null ? t('dashboard.cards.unavailable.growth') : undefined}
-                value={
-                  data?.revenueGrowth == null ? (
-                    '—'
-                  ) : (
-                    <span className={data.revenueGrowth >= 0 ? 'text-success' : 'text-destructive'}>{fmtSignedPct(data.revenueGrowth * 100)}</span>
-                  )
-                }
-                icon={<TrendingUp className="h-4 w-4" />}
-              />
-              <MetricCard compact label={t('dashboard.cards.onTrack')} value={onTrackPct == null ? '—' : `${onTrackPct}%`}
-                description={onTrackPct == null ? t('dashboard.cards.unavailable.onTrack') : undefined}
-                icon={<CircleCheck className="h-4 w-4" />} />
-              <MetricCard compact label={t('dashboard.cards.atRisk')} value={String(data?.companiesAtRisk ?? 0)} icon={<AlertTriangle className="h-4 w-4" />} />
-              <MetricCard
-                compact
-                label={t('dashboard.cards.avgRunway')}
-                description={data?.avgRunway == null ? t('dashboard.cards.unavailable.runway') : undefined}
-                value={data?.avgRunway != null ? t('overview.kpi.runwayMonths', { value: Number(data.avgRunway.toFixed(1)) }) : '—'}
-                icon={<CalendarClock className="h-4 w-4" />}
-              />
-            </div>
+            <PortfolioKpiStrip data={data} className={!sidebarExpanded ? 'xl:grid-cols-6' : undefined} />
 
-            <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
+            <div role="group" aria-label={t('dashboard.analytics.grid')} className="grid min-w-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-2 min-[1366px]:grid-cols-3">
               <Section
-                title={t('dashboard.performance.title')}
-                className="min-w-0"
+                title={t('dashboard.analytics.revenue')}
+                className="min-w-0 h-full"
                 headerClassName="px-4 py-3 sm:items-center"
                 contentClassName="p-4"
                 actionsClassName="max-w-full"
@@ -262,16 +225,22 @@ export const CompaniesDashboard = () => {
                   <PortfolioRevenueChart data={performanceQuery.data ?? []} series={mode === 'both' ? ['fact', 'plan'] : [mode]} />
                 </QueryState>
               </Section>
-              <CompanyRevenueShareChart companies={companies}
-                onResetFilters={filterState.activeGroups > 0 ? filterState.resetFilters : undefined} />
+              <Section title={t('dashboard.analytics.share')} className="h-full" headerClassName="px-4 py-3" contentClassName="p-4">
+                <CompanyRevenueShareChart embedded companies={companies} onResetFilters={filterState.activeGroups > 0 ? filterState.resetFilters : undefined} />
+              </Section>
+              <Section title={t('dashboard.analytics.comparison')} className="h-full" headerClassName="px-4 py-3" contentClassName="p-4">
+                <CompanyRevenueComparisonChart embedded companies={companies} onResetFilters={filterState.activeGroups > 0 ? filterState.resetFilters : undefined} />
+              </Section>
+              <Section title={t('dashboard.analytics.industry')} className="h-full" headerClassName="px-4 py-3" contentClassName="p-4">
+                <IndustryProfitabilityChart embedded data={data?.profitabilityByIndustry ?? []} industryLabel={slug => industryLabel(slug)} onResetFilters={filterState.activeGroups > 0 ? filterState.resetFilters : undefined} />
+              </Section>
+              <Section title={t('dashboard.analytics.status')} className="h-full" headerClassName="px-4 py-3" contentClassName="p-4">
+                <PortfolioPerformanceStatusChart companies={companies} />
+              </Section>
+              <Section title={t('dashboard.analytics.runway')} className="h-full" headerClassName="px-4 py-3" contentClassName="p-4">
+                <PortfolioRunwayChart companies={companies} />
+              </Section>
             </div>
-
-            <CompanyRevenueComparisonChart companies={companies}
-              onResetFilters={filterState.activeGroups > 0 ? filterState.resetFilters : undefined} />
-
-            <IndustryProfitabilityChart data={data?.profitabilityByIndustry ?? []}
-              industryLabel={slug => industryLabel(slug)}
-              onResetFilters={filterState.activeGroups > 0 ? filterState.resetFilters : undefined} />
 
             <PortfolioPlanFactTable companies={companies} onOpen={openCompany}
               onResetFilters={filterState.activeGroups > 0 ? filterState.resetFilters : undefined} />
@@ -406,6 +375,7 @@ export const CompaniesDashboard = () => {
             </Section>
           </div>
         </QueryState>
+        <PortfolioAIInsight filters={filters} />
       </div>
     </div>
   )

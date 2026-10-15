@@ -29,7 +29,6 @@ export function CompanyConfigDialog({ open, company, tenantKey, onOpenChange }: 
   const [geography, setGeography] = useState('')
   const [industry, setIndustry] = useState('')
   const [businessModel, setBusinessModel] = useState('')
-  const [grossMargin, setGrossMargin] = useState('')
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([])
 
   const catalogQuery = useQuery<CatalogResponse>({
@@ -44,7 +43,6 @@ export function CompanyConfigDialog({ open, company, tenantKey, onOpenChange }: 
     setGeography(company.geography ?? '')
     setIndustry(company.industry ?? '')
     setBusinessModel(company.businessModel ?? '')
-    setGrossMargin(company.grossMargin != null ? String(Math.round(company.grossMargin * 10000) / 100) : '')
     setSelectedMetrics(company.selectedMetrics ?? [])
   }, [open, company])
 
@@ -78,13 +76,11 @@ export function CompanyConfigDialog({ open, company, tenantKey, onOpenChange }: 
   const updateMutation = useMutation({
     mutationFn: () => {
       if (!company) return Promise.reject(new Error('no company'))
-      const gross = Number(grossMargin)
       return companiesApi.update(company.id, {
         name: name.trim(),
         geography,
         industry: industry || undefined,
         business_model: businessModel || undefined,
-        gross_margin: Number.isFinite(gross) && gross >= 0 && gross <= 100 ? gross / 100 : undefined,
         selected_metrics: selectedMetrics,
       })
     },
@@ -213,21 +209,7 @@ export function CompanyConfigDialog({ open, company, tenantKey, onOpenChange }: 
               </p>
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="config-gross-margin" className="text-sm font-medium text-foreground">
-                {t('dashboard.onboarding.grossMargin')}
-              </label>
-              <Input
-                id="config-gross-margin"
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                placeholder={t('dashboard.onboarding.grossMarginPlaceholder')}
-                value={grossMargin}
-                onChange={(e) => setGrossMargin(e.target.value)}
-              />
-            </div>
+
           </div>
 
           <DialogFooter>

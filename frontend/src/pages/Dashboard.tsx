@@ -2,8 +2,9 @@ import { Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '../store/authStore'
-import { CompaniesDashboard } from './CompaniesDashboard'
+import { PortfolioHome } from './PortfolioHome'
 import { StartupDashboard } from './StartupDashboard'
+import { canViewPortfolio } from '@/lib/navigation'
 
 export const Dashboard = () => {
   const { t } = useTranslation()
@@ -13,8 +14,8 @@ export const Dashboard = () => {
     return <Navigate to="/login" replace />
   }
 
-  if (user.role === 'admin' && user.organizationType !== 'startup') {
-    return <CompaniesDashboard />
+  if (canViewPortfolio(user)) {
+    return <PortfolioHome />
   }
 
   if (user.companyId) {

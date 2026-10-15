@@ -1,8 +1,10 @@
 import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import i18n from '@/i18n'
 import { BudgetTab } from './BudgetTab'
 import type { Budget } from '@/types/api'
+import { fmtRub } from '@/lib/format'
 
 function makeBudget(over: Partial<Budget> = {}): Budget {
   return { id: 'plan-id', companyId: 'comp1', period: '2026-02-01', type: 'plan', marketing: 10000.25, development: 20000, fot: 30000, gna: 0, createdAt: '', updatedAt: '', ...over }
@@ -12,9 +14,17 @@ const fact = makeBudget({ id: 'fact-id', type: 'fact', marketing: 11000, fot: 31
 const callbacks = () => ({ canEdit: true, onSubmit: vi.fn().mockResolvedValue({}), onDelete: vi.fn().mockResolvedValue({}) })
 const desktop = () => within(screen.getByRole('table', { name: 'Бюджет: месяцы, план и факт' }))
 const mobile = () => within(screen.getByRole('table', { name: 'Бюджет: выбранный месяц, план и факт' }))
-const cell = (article = 'Маркетинг', type = 'План', view = desktop(), month = 'Февраль 2026') => view.getByRole('button', { name: new RegExp(`^${article} · ${month} · ${type} —`) })
+const cell = (article = 'Маркетинг', type = 'План', view = desktop(), month = 'Февраль 2026') => view.queryByRole('button', { name: new RegExp(`^${article} · ${month} · ${type} —`) }) ?? view.getByRole('button', { name: new RegExp(`^Действия со строкой: ${article} · ${month} · ${type} —`) })
+const openFullSource = (button: HTMLElement) => {
+  const action = within(button.closest('td')!).queryByRole('button', { name: /^(Действия со строкой|Row actions):/ })
+  if (action) {
+    fireEvent.keyDown(action, { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitem', { name: /^(Редактировать запись|Edit record)$/ }))
+  } else fireEvent.doubleClick(button) // Missing-source guidance / full create flow.
+}
 const dialog = () => within(screen.getByRole('dialog'))
 const fill = (values = ['0', '20.25', '40000', '0']) => {
+  fireEvent.change(dialog().getByRole('spinbutton', { name: 'Себестоимость (COGS)' }), { target: { value: '0' } })
   for (const [index, name] of ['Маркетинг', 'Разработка', 'ФОТ', 'G&A'].entries()) fireEvent.change(dialog().getByRole('spinbutton', { name }), { target: { value: values[index] } })
 }
 function chooseMonth(label: string) {
@@ -28,11 +38,11 @@ afterEach(async () => { if (i18n.language !== 'ru') await act(async () => { awai
 describe('Budget Plan/Fact matrix', () => {
   it('renders articles vertically and historical/current/future months chronologically with two scenario subheaders', () => {
     render(<BudgetTab budgets={[makeBudget({ period: '2030-11-01' }), plan, fact, makeBudget({ period: '2025-01-01', type: 'fact' })]} {...callbacks()} />)
-    expect(desktop().getAllByRole('rowheader').map((x) => x.textContent)).toEqual(['Маркетинг', 'Разработка', 'ФОТ', 'G&A'])
+    expect(desktop().getAllByRole('rowheader').map((x) => x.textContent)).toEqual(['Себестоимость (COGS)', 'Маркетинг', 'Разработка', 'ФОТ', 'G&A'])
     expect(desktop().getAllByRole('columnheader').slice(1, 4).map((x) => x.textContent)).toEqual(['Январь 2025', 'Февраль 2026', 'Ноябрь 2030'])
     expect(desktop().getAllByRole('columnheader', { name: 'План' })).toHaveLength(3)
     expect(desktop().getAllByRole('columnheader', { name: 'Факт' })).toHaveLength(3)
-    expect(desktop().getAllByRole('cell')).toHaveLength(24)
+    expect(desktop().getAllByRole('cell')).toHaveLength(30)
     expect(screen.queryByText('Отклонение')).not.toBeInTheDocument()
     expect(screen.getByTestId('budget-desktop')).toHaveClass('overflow-x-auto', 'min-w-0', 'max-w-full')
     expect(desktop().getByRole('rowheader', { name: 'Маркетинг' })).toHaveClass('sticky', 'left-0', 'bg-card', 'border-r', 'z-10')
@@ -45,7 +55,7 @@ describe('Budget Plan/Fact matrix', () => {
     expect(months[11]).toHaveTextContent('Март 2026')
   })
   it.each(['plan', 'fact'] as const)('distinguishes missing %s counterpart from real zero', (type) => {
-    render(<BudgetTab budgets={[makeBudget({ type, marketing: 0 })]} {...callbacks()} />)
+    render(<BudgetTab budgets={[makeBudget({ type, cogs: 0, marketing: 0 })]} {...callbacks()} />)
     const row = desktop().getByRole('rowheader', { name: 'Маркетинг' }).closest('tr')!
     expect(within(row).getByText('₽0')).toBeInTheDocument()
     expect(within(row).getByText('—')).toBeInTheDocument()
@@ -64,7 +74,7 @@ describe('Create Budget source', () => {
     const props = callbacks()
     const existing = makeBudget({ type: type === 'plan' ? 'fact' : 'plan' })
     const view = render(<BudgetTab budgets={[existing]} {...props} />)
-    fireEvent.doubleClick(cell('Маркетинг', type === 'plan' ? 'План' : 'Факт'))
+    openFullSource(cell('Маркетинг', type === 'plan' ? 'План' : 'Факт'))
     expect(dialog().getByRole('textbox', { name: 'Период' })).toHaveValue('Февраль 2026')
     expect(dialog().getByRole('textbox', { name: 'Период' })).toHaveAttribute('readonly')
     expect(dialog().getByRole('textbox', { name: 'Тип' })).toHaveValue(type === 'plan' ? 'План' : 'Факт')
@@ -77,11 +87,11 @@ describe('Create Budget source', () => {
       expect(label.nextElementSibling).toBe(input)
     }
     fireEvent.click(dialog().getByRole('button', { name: 'Сохранить' }))
-    expect(dialog().getAllByText('Заполните обязательное поле.')).toHaveLength(4)
+    expect(dialog().getAllByText('Заполните обязательное поле.')).toHaveLength(5)
     expect(props.onSubmit).not.toHaveBeenCalled()
     fill()
     fireEvent.click(dialog().getByRole('button', { name: 'Сохранить' }))
-    const payload = { period: '2026-02-01', type, marketing: 0, development: 20.25, fot: 40000, gna: 0 }
+    const payload = { period: '2026-02-01', type, cogs: 0, marketing: 0, development: 20.25, fot: 40000, gna: 0 }
     expect(props.onSubmit).toHaveBeenCalledWith(payload)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     view.rerender(<BudgetTab budgets={[existing, makeBudget({ ...payload, id: 'server-created' })]} {...props} />)
@@ -99,13 +109,13 @@ describe('Create Budget source', () => {
     expect(dialog().getAllByRole('spinbutton').every((x) => (x as HTMLInputElement).value === '')).toBe(true)
     fill()
     fireEvent.click(dialog().getByRole('button', { name: 'Сохранить' }))
-    expect(props.onSubmit).toHaveBeenCalledWith({ period: '2026-03-01', type: 'fact', marketing: 0, development: 20.25, fot: 40000, gna: 0 })
+    expect(props.onSubmit).toHaveBeenCalledWith({ period: '2026-03-01', type: 'fact', cogs: 0, marketing: 0, development: 20.25, fot: 40000, gna: 0 })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
   it.each(['', '-1', 'NaN', 'not a number'])('rejects invalid value %s without coercing to zero', (value) => {
     const props = callbacks()
     render(<BudgetTab budgets={[fact]} {...props} />)
-    fireEvent.doubleClick(cell())
+    openFullSource(cell())
     fill()
     fireEvent.change(dialog().getByRole('spinbutton', { name: 'Маркетинг' }), { target: { value } })
     fireEvent.click(dialog().getByRole('button', { name: 'Сохранить' }))
@@ -127,17 +137,17 @@ describe('Create Budget source', () => {
 describe('Edit and delete the entire source', () => {
   it.each(['Маркетинг', 'Разработка', 'ФОТ', 'G&A'])('%s opens all raw values', (article) => {
     render(<BudgetTab budgets={[plan, fact]} {...callbacks()} />)
-    fireEvent.doubleClick(cell(article))
+    openFullSource(cell(article))
     for (const [name, value] of [['Маркетинг', 10000.25], ['Разработка', 20000], ['ФОТ', 30000], ['G&A', 0]] as const) expect(dialog().getByRole('spinbutton', { name })).toHaveValue(value)
     expect(dialog().queryByRole('combobox')).not.toBeInTheDocument()
     expect(dialog().getByRole('textbox', { name: 'Тип' })).toHaveAttribute('readonly')
   })
-  it.each(['Enter', ' '])('supports %s for existing and missing cells', (key) => {
+  it.each(['Enter', ' '])('supports %s on explicit source edit and missing source create', async (key) => {
     render(<BudgetTab budgets={[plan]} {...callbacks()} />)
-    cell('ФОТ').focus()
-    expect(cell('ФОТ')).toHaveFocus()
-    expect(cell('ФОТ')).toHaveClass('focus-visible:ring-2')
-    fireEvent.keyDown(cell('ФОТ'), { key })
+    const action = within(cell('ФОТ').closest('td')!).getByRole('button', { name: /^Действия со строкой:/ })
+    action.focus()
+    await userEvent.setup().keyboard(key === 'Enter' ? '{Enter}' : key)
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Редактировать запись' }))
     expect(dialog().getByRole('spinbutton', { name: 'ФОТ' })).toHaveValue(30000)
     fireEvent.click(dialog().getAllByRole('button', { name: 'Отмена' })[0])
     fireEvent.keyDown(cell('ФОТ', 'Факт'), { key })
@@ -149,10 +159,10 @@ describe('Edit and delete the entire source', () => {
     props.onSubmit.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve }))
     const view = render(<BudgetTab budgets={[plan, fact]} {...props} />)
     const caption = type === 'plan' ? 'План' : 'Факт'
-    fireEvent.doubleClick(cell('ФОТ', caption))
+    openFullSource(cell('ФОТ', caption))
     fill()
     fireEvent.click(dialog().getByRole('button', { name: 'Сохранить' }))
-    const payload = { period: '2026-02-01', type, marketing: 0, development: 20.25, fot: 40000, gna: 0 }
+    const payload = { period: '2026-02-01', type, cogs: 0, marketing: 0, development: 20.25, fot: 40000, gna: 0 }
     expect(props.onSubmit).toHaveBeenCalledOnce()
     expect(props.onSubmit).toHaveBeenCalledWith(payload)
     expect(dialog().getByRole('button', { name: 'Сохранить' })).toBeDisabled()
@@ -166,7 +176,7 @@ describe('Edit and delete the entire source', () => {
     const props = callbacks()
     props.onSubmit.mockRejectedValue({ response: { data: { detail: 'Access denied' } } })
     render(<BudgetTab budgets={[plan]} {...props} />)
-    fireEvent.doubleClick(cell())
+    openFullSource(cell())
     fill()
     fireEvent.click(dialog().getByRole('button', { name: 'Сохранить' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Access denied')
@@ -179,7 +189,7 @@ describe('Edit and delete the entire source', () => {
     const props = callbacks()
     const view = render(<BudgetTab budgets={[plan, fact]} {...props} />)
     const caption = type === 'plan' ? 'План' : 'Факт'
-    fireEvent.doubleClick(cell('G&A', caption))
+    openFullSource(cell('G&A', caption))
     fireEvent.click(dialog().getByRole('button', { name: 'Удалить исходную запись' }))
     expect(screen.getByRole('dialog', { name: `Удалить бюджет за Февраль 2026 — ${caption}?` })).toBeInTheDocument()
     expect(props.onDelete).not.toHaveBeenCalled()
@@ -198,7 +208,7 @@ describe('Edit and delete the entire source', () => {
     const props = callbacks()
     props.onDelete.mockRejectedValueOnce(new Error('offline'))
     render(<BudgetTab budgets={[plan]} {...props} />)
-    fireEvent.doubleClick(cell())
+    openFullSource(cell())
     fireEvent.click(dialog().getByRole('button', { name: 'Удалить исходную запись' }))
     fireEvent.click(dialog().getByRole('button', { name: 'Удалить' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('offline')
@@ -220,7 +230,7 @@ describe('Mobile, permissions and translations', () => {
     expect(dialog().getByRole('spinbutton', { name: 'Маркетинг' })).toHaveValue(null)
     fireEvent.click(dialog().getAllByRole('button', { name: 'Отмена' })[0])
     fireEvent.change(selector, { target: { value: '2026-02-01' } })
-    fireEvent.click(cell('ФОТ', 'Факт', mobile()))
+    openFullSource(cell('ФОТ', 'Факт', mobile()))
     expect(dialog().getByRole('spinbutton', { name: 'ФОТ' })).toHaveValue(31000)
     fireEvent.click(dialog().getByRole('button', { name: 'Удалить исходную запись' }))
     fireEvent.click(dialog().getByRole('button', { name: 'Удалить' }))
@@ -254,9 +264,97 @@ describe('Mobile, permissions and translations', () => {
     expect(table.getByRole('columnheader', { name: 'February 2026' })).toBeInTheDocument()
     expect(table.getByRole('columnheader', { name: 'Plan' })).toBeInTheDocument()
     expect(table.getByRole('columnheader', { name: 'Fact' })).toBeInTheDocument()
-    fireEvent.doubleClick(table.getByRole('button', { name: /^Marketing · .* · Plan —/ }))
+    openFullSource(table.getByRole('button', { name: /^Marketing · .* · Plan —/ }))
     expect(dialog().getByRole('spinbutton', { name: 'Marketing' })).toHaveValue(10000.25)
     fireEvent.click(dialog().getByRole('button', { name: 'Delete source record' }))
     expect(screen.getByRole('dialog', { name: 'Delete budget for February 2026 — Plan?' })).toBeInTheDocument()
+  })
+})
+
+describe('Existing Budget inline editing', () => {
+  it.each((['plan','fact'] as const).flatMap((type) => (['marketing','development','fot','gna'] as const).map((field) => ({ type,field }))))('edits $type/$field without changing siblings or the other scenario', async ({type,field}) => {
+    const props = callbacks()
+    const view = render(<BudgetTab budgets={[plan,fact]} {...props} />)
+    const labels = { marketing:'Маркетинг',development:'Разработка',fot:'ФОТ',gna:'G&A' }
+    const caption = type === 'plan' ? 'План' : 'Факт'
+    fireEvent.doubleClick(cell(labels[field],caption))
+    const input = desktop().getByRole('spinbutton')
+    const source = type === 'plan' ? plan : fact
+    expect(input).toHaveValue(source[field])
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.change(input,{ target:{ value:'20.25' } })
+    fireEvent.keyDown(input,{ key:'Enter' })
+    fireEvent.blur(input)
+    expect(props.onSubmit).toHaveBeenCalledOnce()
+    expect(props.onSubmit).toHaveBeenCalledWith({ period:source.period,type,marketing:source.marketing,development:source.development,fot:source.fot,gna:source.gna,[field]:20.25 })
+    await waitFor(() => expect(desktop().queryByRole('spinbutton')).not.toBeInTheDocument())
+    // Success alone cannot make the local draft a financial display value.
+    expect(cell(labels[field],caption).textContent).toBe(fmtRub(source[field]))
+    const updated = { ...source,[field]:21.25 }
+    view.rerender(<BudgetTab budgets={[type === 'plan' ? updated : plan,type === 'fact' ? updated : fact]} {...props} />)
+    expect(cell(labels[field],caption).textContent).toBe(fmtRub(21.25))
+    expect(cell(labels[field],type === 'plan' ? 'Факт' : 'План').textContent).toBe(fmtRub((type === 'plan' ? fact : plan)[field]))
+  })
+  it('accepts real zero via blur and cancels a subsequent draft with Escape', async () => {
+    const props = callbacks()
+    render(<BudgetTab budgets={[plan,fact]} {...props} />)
+    fireEvent.doubleClick(cell('ФОТ','Факт'))
+    const input = desktop().getByRole('spinbutton')
+    fireEvent.change(input,{ target:{ value:'0' } })
+    fireEvent.blur(input)
+    await waitFor(() => expect(desktop().queryByRole('spinbutton')).not.toBeInTheDocument())
+    expect(props.onSubmit).toHaveBeenCalledWith({period:fact.period,type:'fact',marketing:11000,development:20000,fot:0,gna:0})
+    fireEvent.doubleClick(cell('G&A','Факт'))
+    fireEvent.change(desktop().getByRole('spinbutton'),{ target:{ value:'100' } })
+    fireEvent.keyDown(desktop().getByRole('spinbutton'),{ key:'Escape' })
+    expect(props.onSubmit).toHaveBeenCalledOnce()
+    expect(cell('G&A','Факт')).toHaveFocus()
+  })
+  it('retains failed draft without automatic blur retries', async () => {
+    const props = callbacks()
+    props.onSubmit.mockRejectedValue({response:{data:{detail:'Access denied'}}})
+    render(<BudgetTab budgets={[plan]} {...props} />)
+    fireEvent.doubleClick(cell())
+    const input = desktop().getByRole('spinbutton')
+    fireEvent.change(input,{target:{value:'1.25'}})
+    fireEvent.blur(input)
+    expect(await desktop().findByRole('alert')).toHaveTextContent('Access denied')
+    expect(input).toHaveValue(1.25)
+    expect(input).toHaveFocus()
+    fireEvent.blur(input)
+    expect(props.onSubmit).toHaveBeenCalledOnce()
+  })
+  it.each(['','-1'])('rejects invalid existing Budget value %s', (raw) => {
+    const props = callbacks()
+    render(<BudgetTab budgets={[plan]} {...props} />)
+    fireEvent.doubleClick(cell())
+    const input = desktop().getByRole('spinbutton')
+    fireEvent.change(input,{target:{value:raw}})
+    fireEvent.keyDown(input,{key:'Enter'})
+    expect(input).toHaveAttribute('aria-invalid','true')
+    expect(props.onSubmit).not.toHaveBeenCalled()
+  })
+})
+
+describe('Budget persisted-record actions', () => {
+  it('menu delete removes only March Plan, keeping March Fact and April records', async () => {
+    const marchPlan = makeBudget({ id: 'march-plan', period: '2026-03-01' })
+    const marchFact = makeBudget({ id: 'march-fact', period: '2026-03-01', type: 'fact', fot: 123 })
+    const april = makeBudget({ id: 'april', period: '2026-04-01', fot: 456 })
+    const props = callbacks()
+    const view = render(<BudgetTab budgets={[marchPlan, marchFact, april]} {...props} />)
+    const trigger = within(cell('ФОТ', 'План', desktop(), 'Март 2026').closest('td')!).getByRole('button', { name: /^Действия/ })
+    await userEvent.click(trigger)
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Удалить запись' }))
+    expect(screen.getByRole('dialog', { name: 'Удалить бюджет за Март 2026 — План?' })).toBeInTheDocument()
+    for (const label of ['ФОТ', 'Маркетинг', 'Разработка', 'G&A']) expect(dialog().getByText(/Будет удалена вся/)).toHaveTextContent(label)
+    await userEvent.click(dialog().getByRole('button', { name: 'Удалить' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(props.onDelete).toHaveBeenCalledOnce()
+    expect(props.onDelete).toHaveBeenCalledWith('march-plan')
+    view.rerender(<BudgetTab budgets={[marchFact, april]} {...props} />)
+    expect(cell('ФОТ', 'Факт', desktop(), 'Март 2026')).toHaveTextContent('₽123')
+    expect(cell('ФОТ', 'План', desktop(), 'Апрель 2026')).toHaveTextContent('₽456')
+    expect(cell('ФОТ', 'План', desktop(), 'Март 2026')).toHaveTextContent('—')
   })
 })

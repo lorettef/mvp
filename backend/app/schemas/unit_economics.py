@@ -53,6 +53,7 @@ class UnitEconomicsResponse(BaseModel):
     )
     revenue_growth: Optional[float] = None  # ΔRevenue (последний − предыдущий факт)
     marketing_spend: Optional[float] = None  # Затраты на маркетинг (факт)
+    gross_margin: Optional[float] = None  # Exact source Metric + Budget COGS
     payback_period: Optional[float] = None  # CAC / (ARPU × gross_margin), мес
     romi: Optional[float] = None  # (LTV − CAC) / CAC
 

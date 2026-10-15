@@ -18,6 +18,7 @@ import { TrendingUp, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
+import { ChartContainer } from '@/components/shared/chart-container'
 import {
   Select,
   SelectTrigger,
@@ -217,7 +218,7 @@ export const Forecast = () => {
           <CardContent className="p-6">
             <h3 className="font-semibold text-foreground mb-4">{t('forecast.result')}</h3>
 
-            <div className="h-80">
+            <ChartContainer height={320}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={prepareChartData()}
@@ -282,7 +283,7 @@ export const Forecast = () => {
                   />
                 </ComposedChart>
               </ResponsiveContainer>
-            </div>
+            </ChartContainer>
 
             <div className="mt-4 grid grid-cols-3 gap-4">
               <Card className="border bg-card">

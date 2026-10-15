@@ -51,6 +51,7 @@ function renderBar(initialEntry: string) {
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/dashboard" element={<CompanyContextBar />} />
+          <Route path="/companies" element={<h1>Companies list</h1>} />
           <Route path="/companies/:companyId" element={<CompanyContextBar />} />
         </Routes>
       </MemoryRouter>
@@ -120,5 +121,25 @@ describe('CompanyContextBar', () => {
 
     await new Promise((r) => setTimeout(r, 0))
     expect(container.querySelector('nav[aria-label="Навигация компании"]')).not.toBeInTheDocument()
+  })
+
+  it('returns a fund profile to Companies through the context switcher', async () => {
+    authStoreMock.user = { role: 'admin', organizationType: 'fund', companyId: null }
+    renderBar('/companies/comp1?tab=pnl')
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Сменить компанию' }))
+    await user.click(screen.getByRole('menuitem', { name: 'К компаниям' }))
+    expect(await screen.findByRole('heading', { name: 'Companies list' })).toBeVisible()
+  })
+
+  it('retains startup Overview and finance tab deep links', async () => {
+    authStoreMock.user = { role: 'company', organizationType: 'startup', companyId: 'comp1' }
+    renderBar('/companies/comp1?tab=pnl')
+    const overview = await screen.findByRole('link', { name: 'Обзор' })
+    expect(overview).toHaveAttribute('href', '/dashboard')
+    await userEvent.setup().click(overview)
+    expect(screen.getByRole('link', { name: 'Обзор' })).toHaveAttribute('aria-current', 'page')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Финансы' }))
+    expect(screen.getByRole('menuitem', { name: 'P&L' })).toBeVisible()
   })
 })

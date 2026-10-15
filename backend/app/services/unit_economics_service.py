@@ -6,13 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cohort import Cohort
 from app.models.budget import Budget
-from app.models.company import Company
 from app.schemas.hiring import DEFAULT_EMPLOYER_RATE
 from app.schemas.unit_economics import (
     UnitEconomicsMetricSource,
     UnitEconomicsResponse,
     RetentionBreakdown,
 )
+from app.services.gross_profit import gross_profit
 from app.services.common import (
     div,
     f,
@@ -71,14 +71,35 @@ class UnitEconomicsService:
             budget = await latest_budget(self.db, company_id, limit=1)
             cash_total = (await financing_sums(self.db, company_id)).total
         cash = cash_total if cash_total != 0.0 else None
-        company = await self.db.get(Company, company_id)
+        # Runway/marketing retain their established latest-budget semantics.
+        # Gross Margin alone requires exact Metric + Budget identity.
+        source_budget = None
+        if latest_metric is not None:
+            if (
+                budget is not None
+                and budget.company_id == company_id
+                and budget.period == latest_metric.period
+                and budget.type == latest_metric.type
+            ):
+                source_budget = budget
+            else:
+                source_budget = (
+                    await self.db.execute(
+                        select(Budget).where(
+                            Budget.company_id == company_id,
+                            Budget.period == latest_metric.period,
+                            Budget.type == latest_metric.type,
+                        )
+                    )
+                ).scalar_one_or_none()
 
         revenue = f(latest_metric.revenue, None) if latest_metric else None
         arpu = f(latest_metric.arpu, None) if latest_metric else None
         cac = f(latest_metric.cac, None) if latest_metric else None
         ltv = f(latest_metric.ltv, None) if latest_metric else None
         churn = float(latest_metric.churn) if latest_metric else None
-        gross_margin = float(company.gross_margin) if company else None
+        cogs = f(source_budget.cogs, None) if source_budget else None
+        gross_margin = gross_profit(revenue, cogs).gross_margin
 
         # LTV / CAC
         ltv_cac = div(ltv, cac, None, round_to=2)
@@ -107,7 +128,14 @@ class UnitEconomicsService:
 
         # Payback = CAC / (ARPU × gross_margin); ROMI = (LTV − CAC) / CAC
         payback_period = (
-            round(cac / (arpu * gross_margin), 2) if (arpu and gross_margin) else None
+            round(cac / (arpu * gross_margin), 2)
+            if cac is not None
+            and cac >= 0
+            and arpu is not None
+            and arpu > 0
+            and gross_margin is not None
+            and gross_margin > 0
+            else None
         )
         romi = round((ltv - cac) / cac, 4) if cac else None
 
@@ -131,6 +159,7 @@ class UnitEconomicsService:
             magic_number=magic_number,
             revenue_growth=revenue_growth,
             marketing_spend=marketing_spend,
+            gross_margin=gross_margin,
             payback_period=payback_period,
             romi=romi,
             retention=retention,

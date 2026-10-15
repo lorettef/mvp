@@ -75,7 +75,7 @@ describe('UnitEconomicsTab', () => {
         data={makeData({ ltvCac: null, runwayMonths: null, magicNumber: null })}
       />
     )
-    expect(screen.getAllByText('—').length).toBe(3)
+    expect(screen.getAllByText('—').length).toBe(4)
     expect(document.body.textContent).not.toContain('NaN')
     expect(document.body.textContent).not.toContain('Infinity')
   })
@@ -109,9 +109,9 @@ describe('UnitEconomicsTab', () => {
     expect(screen.getByText(`Источник: ${type === 'fact' ? 'Факт' : 'План'} · Февраль 2026`)).toBeInTheDocument()
   })
 
-  it.each(['Выручка', 'Стоимость привлечения клиента (CAC)', 'Пожизненная ценность клиента (LTV)', 'Отток клиентов (Churn)'])('opens the same source on double-click of %s', (metric) => {
+  it('opens the same source on double-click of Revenue', () => {
     render(<UnitEconomicsTab data={makeData()} {...editable()} />)
-    fireEvent.doubleClick(screen.getByRole('button', { name: `${metric} — редактировать исходные данные` }))
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'Выручка — редактировать исходные данные' }))
     expect(editor()).toBeInTheDocument()
     expect(within(editor()).getByText('Источник: Факт · Февраль 2026')).toBeInTheDocument()
   })
@@ -293,6 +293,19 @@ describe('UnitEconomicsTab', () => {
     for (const label of ['LTV', 'CAC', 'Churn', 'LTV/CAC', 'Runway', 'Payback', 'ROMI', 'Magic Number']) {
       expect(within(dialog).queryByRole('spinbutton', { name: new RegExp(label) })).not.toBeInTheDocument()
     }
+  })
+
+  it.each(['Стоимость привлечения клиента (CAC)','Пожизненная ценность клиента (LTV)','Отток клиентов (Churn)'])('double-click and Enter on %s never edit a derived value', (name) => {
+    const props=editable()
+    render(<UnitEconomicsTab data={makeData()} {...props} />)
+    const label=screen.getAllByText(name).find(element=>element.tagName==='DT')!
+    const value=label.nextElementSibling!
+    expect(value.querySelector('button,[tabindex]')).toBeNull()
+    fireEvent.doubleClick(value)
+    fireEvent.keyDown(value,{key:'Enter'})
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(props.onSaveSource).not.toHaveBeenCalled()
   })
 
   it('uses EN terminology and source editor labels', async () => {

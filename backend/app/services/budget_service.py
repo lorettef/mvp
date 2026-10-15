@@ -26,6 +26,9 @@ class BudgetService:
         budget = result.scalar_one_or_none()
 
         if budget:
+            # Legacy clients omit COGS: preserve a value already entered by new clients.
+            if "cogs" in data.model_fields_set:
+                budget.cogs = data.cogs
             budget.marketing = data.marketing
             budget.development = data.development
             budget.fot = data.fot
@@ -37,6 +40,7 @@ class BudgetService:
                 company_id=company_id,
                 period=data.period,
                 type=data.type,
+                cogs=data.cogs,
                 marketing=data.marketing,
                 development=data.development,
                 fot=data.fot,

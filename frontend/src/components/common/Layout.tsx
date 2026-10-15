@@ -4,12 +4,13 @@ import { analytics } from '../../api/analytics'
 import { AppHeader } from '@/components/common/AppHeader'
 import { CompanyContextBar } from '@/components/common/CompanyContextBar'
 import { useAuthStore } from '@/store/authStore'
+import { canViewPortfolio } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 
 export const Layout = () => {
   const { pathname } = useLocation()
   const user = useAuthStore((state) => state.user)
-  const compactDashboard = pathname === '/dashboard' && user?.role === 'admin' && user.organizationType !== 'startup'
+  const compactDashboard = (pathname === '/dashboard' || pathname === '/companies') && canViewPortfolio(user)
   useEffect(() => {
     analytics.track('session_started')
   }, [])

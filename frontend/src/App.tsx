@@ -18,6 +18,7 @@ const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login
 const Register = lazy(() => import('./pages/Register').then((m) => ({ default: m.Register })))
 const InvitePage = lazy(() => import('./pages/InvitePage').then((m) => ({ default: m.InvitePage })))
 const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })))
+const Companies = lazy(() => import('./pages/Companies').then((m) => ({ default: m.Companies })))
 const CompanyDetail = lazy(() =>
   import('./pages/CompanyDetail').then((m) => ({ default: m.CompanyDetail })),
 )
@@ -67,6 +68,7 @@ function App() {
                 <Route element={<ProtectedRoute />}>
                   <Route element={<Layout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/companies" element={<Companies />} />
                     <Route path="/companies/:companyId" element={<CompanyDetail />} />
                     <Route path="/recommendations" element={<Recommendations />} />
                     <Route path="/forecast" element={<Forecast />} />

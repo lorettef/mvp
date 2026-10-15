@@ -97,6 +97,20 @@ async def test_edit_recalculates_derived_values_on_same_record(
     client, seeded_company, seeded_admin, db_session
 ):
     first = await put(client, seeded_company, seeded_admin, raw())
+    saved = await client.put(
+        f"/api/v1/companies/{seeded_company.id}/budgets",
+        headers=auth_headers(seeded_admin),
+        json={
+            "period": "2026-02-01",
+            "type": "fact",
+            "marketing": 0,
+            "development": 0,
+            "fot": 0,
+            "gna": 0,
+            "cogs": 250,
+        },
+    )
+    assert saved.status_code == 200
     before = await summary(client, seeded_company, seeded_admin)
     assert (before["cac"], before["ltv"], before["churn"], before["ltv_cac"]) == (
         20,
@@ -125,7 +139,8 @@ async def test_edit_recalculates_derived_values_on_same_record(
         30,
     )
     assert body["revenue"] == 6000
-    assert body["payback_period"] == pytest.approx(0.22)
+    assert body["gross_margin"] == pytest.approx(5750 / 6000)
+    assert body["payback_period"] == pytest.approx(0.17)
     assert body["romi"] == 29
 
 

@@ -8,14 +8,45 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.database import engine
-from app.api.v1 import auth, metrics, recommendations, forecast, subscription, companies, dashboard, cohorts, budgets, unit_economics, tasks, market, hiring, pnl, cashflow, financing, credit, valuation, sensitivity, reports, recalculate, plan_generation, insights, analytics, admin, invites, catalog, company_recommendations, health
+from app.api.v1 import portfolio_insights
+from app.api.v1 import (
+    auth,
+    metrics,
+    recommendations,
+    forecast,
+    subscription,
+    companies,
+    dashboard,
+    cohorts,
+    budgets,
+    unit_economics,
+    tasks,
+    market,
+    hiring,
+    pnl,
+    cashflow,
+    financing,
+    credit,
+    valuation,
+    sensitivity,
+    reports,
+    recalculate,
+    plan_generation,
+    insights,
+    analytics,
+    admin,
+    invites,
+    catalog,
+    company_recommendations,
+    health,
+)
 
 # Настройка логирования
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,12 +59,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Ошибка при закрытии соединений: {e}")
 
+
 # Создание приложения
 app = FastAPI(
     title="Startup Investment Bridge API",
     version="1.0.0",
     description="Гибридная платформа для управления юнит-экономикой",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Rate limiter integration
@@ -47,8 +79,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
-    expose_headers=["*"]
+    expose_headers=["*"],
 )
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -57,8 +90,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=()"
+        )
         return response
+
 
 app.add_middleware(SecurityHeadersMiddleware)
 
@@ -67,15 +103,15 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(invites.router, prefix="/api/v1/invites", tags=["invites"])
 app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["metrics"])
 app.include_router(
-    recommendations.router,
-    prefix="/api/v1/recommendations",
-    tags=["recommendations"]
+    recommendations.router, prefix="/api/v1/recommendations", tags=["recommendations"]
 )
 app.include_router(forecast.router, prefix="/api/v1/forecast", tags=["forecast"])
 app.include_router(companies.router, prefix="/api/v1/companies", tags=["companies"])
 app.include_router(cohorts.router, prefix="/api/v1/companies", tags=["cohorts"])
 app.include_router(budgets.router, prefix="/api/v1/companies", tags=["budgets"])
-app.include_router(unit_economics.router, prefix="/api/v1/companies", tags=["unit-economics"])
+app.include_router(
+    unit_economics.router, prefix="/api/v1/companies", tags=["unit-economics"]
+)
 app.include_router(tasks.router, prefix="/api/v1/companies", tags=["tasks"])
 app.include_router(
     company_recommendations.router,
@@ -91,19 +127,23 @@ app.include_router(valuation.router, prefix="/api/v1/companies", tags=["valuatio
 app.include_router(sensitivity.router, prefix="/api/v1/companies", tags=["sensitivity"])
 app.include_router(reports.router, prefix="/api/v1/companies", tags=["reports"])
 app.include_router(recalculate.router, prefix="/api/v1/companies", tags=["recalculate"])
-app.include_router(plan_generation.router, prefix="/api/v1/companies", tags=["plan-generation"])
+app.include_router(
+    plan_generation.router, prefix="/api/v1/companies", tags=["plan-generation"]
+)
 app.include_router(insights.router, prefix="/api/v1/companies", tags=["insights"])
+app.include_router(
+    portfolio_insights.router, prefix="/api/v1/insights", tags=["insights"]
+)
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(market.router, prefix="/api/v1/market", tags=["market"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
 app.include_router(
-    subscription.router,
-    prefix="/api/v1/subscription",
-    tags=["subscription"]
+    subscription.router, prefix="/api/v1/subscription", tags=["subscription"]
 )
 app.include_router(catalog.router, prefix="/api/v1/catalog", tags=["catalog"])
 app.include_router(health.router, prefix="/api/v1/companies", tags=["health"])
+
 
 @app.get("/health")
 async def health_check():
@@ -112,8 +152,9 @@ async def health_check():
         "status": "ok",
         "service": "Startup Investment Bridge API",
         "version": "1.0.0",
-        "demo_mode": settings.DEMO_MODE
+        "demo_mode": settings.DEMO_MODE,
     }
+
 
 @app.get("/")
 async def root():
@@ -122,5 +163,5 @@ async def root():
         "service": "Startup Investment Bridge",
         "version": "1.0.0",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }

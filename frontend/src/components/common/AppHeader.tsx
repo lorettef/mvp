@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { logout } from '@/auth/authSession'
 import { switchLanguage } from '@/i18n'
 import { useTheme } from '@/components/theme-provider'
-import { globalNav } from '@/lib/navigation'
+import { canViewPortfolio, globalNav, isGlobalNavActive, type GlobalNavItem } from '@/lib/navigation'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -22,7 +22,10 @@ export function AppHeader() {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const isActive = (href: string) => location.pathname === href
+  const isFund = canViewPortfolio(user)
+  const navItems = globalNav.filter((item) => !item.fundOnly || isFund)
+  const label = (item: GlobalNavItem) => t(isFund && item.portfolioLabelKey ? item.portfolioLabelKey : item.labelKey)
+  const isActive = (item: GlobalNavItem) => isGlobalNavActive(item, location.pathname)
 
   const linkClass = (active: boolean) =>
     cn(
@@ -39,14 +42,14 @@ export function AppHeader() {
         </Link>
 
         <nav aria-label={t('nav.globalLabel')} className="hidden items-center gap-1 md:flex">
-          {globalNav.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.key}
               to={item.href}
-              aria-current={isActive(item.href) ? 'page' : undefined}
-              className={linkClass(isActive(item.href))}
+              aria-current={isActive(item) ? 'page' : undefined}
+              className={linkClass(isActive(item))}
             >
-              {t(item.labelKey)}
+              {label(item)}
             </Link>
           ))}
         </nav>
@@ -70,22 +73,22 @@ export function AppHeader() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-72 p-0">
-            <SheetTitle className="sr-only">{t('nav.dashboard')}</SheetTitle>
+            <SheetTitle className="sr-only">{t('nav.globalLabel')}</SheetTitle>
             <div className="flex h-full flex-col">
               <div className="px-5 py-5">
                 <Logo subtitle={user?.companyName || t('nav.myCompany')} />
               </div>
 
               <nav aria-label={t('nav.globalLabel')} className="flex-1 space-y-1 px-3 py-2">
-                {globalNav.map((item) => (
+                {navItems.map((item) => (
                   <Link
                     key={item.key}
                     to={item.href}
                     onClick={() => setMobileOpen(false)}
-                    aria-current={isActive(item.href) ? 'page' : undefined}
-                    className={cn('block', linkClass(isActive(item.href)))}
+                    aria-current={isActive(item) ? 'page' : undefined}
+                    className={cn('block', linkClass(isActive(item)))}
                   >
-                    {t(item.labelKey)}
+                    {label(item)}
                   </Link>
                 ))}
               </nav>

@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import { RevenueChartTooltip } from './RevenueChartTooltip'
+import { ChartContainer } from '@/components/shared/chart-container'
 
 export interface TrendPoint {
   month: string
@@ -21,14 +22,16 @@ export function TrendChart({
   data,
   lines = ['fact', 'plan'],
   height = 288,
+  showDots = false,
 }: {
   data: TrendPoint[]
   lines?: ('fact' | 'plan')[]
   height?: number
+  showDots?: boolean
 }) {
   const { t } = useTranslation()
   return (
-    <div style={{ height }}>
+    <ChartContainer height={height}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -55,7 +58,7 @@ export function TrendChart({
               strokeWidth={2}
               name={t('common.fact')}
               connectNulls
-              dot={false}
+              dot={showDots}
             />
           )}
           {lines.includes('plan') && (
@@ -67,11 +70,11 @@ export function TrendChart({
               strokeDasharray="5 5"
               name={t('common.plan')}
               connectNulls
-              dot={false}
+              dot={showDots}
             />
           )}
         </LineChart>
       </ResponsiveContainer>
-    </div>
+    </ChartContainer>
   )
 }

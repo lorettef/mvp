@@ -57,6 +57,7 @@ export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel
     v == null ? '—' : t('company.unit.monthsShort', { value: v.toFixed(1) })
 
   const stats = [
+    { label: t('company.unit.grossMargin'), description: t('company.unit.grossMarginHelp'), value: fmtPct(data.grossMargin), ok: null },
     {
       label: t('company.unit.ratio'),
       description: t('company.unit.ratioHelp'),
@@ -104,7 +105,7 @@ export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel
   const source = data.sourceMetric
   const editable = Boolean(canEdit && source && onSaveSource && onDeleteSource)
   const basic = [
-    { label: t('company.unit.revenue'), value: fmtRub(data.revenue) },
+    { label: t('company.unit.revenue'), value: fmtRub(data.revenue), sourceValue: true },
     { label: t('company.unit.cac'), value: fmtRub(data.cac) },
     { label: t('company.unit.ltv'), value: fmtRub(data.ltv) },
     { label: t('company.unit.churn'), value: fmtPct(data.churn) },
@@ -150,11 +151,11 @@ export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel
               type: t(`common.${source.type}`), period: formatMonthLabel(source.period.slice(0, 7), i18n.language),
             })}</p>}
             <dl className="space-y-2 text-sm">
-              {basic.map(({ label, value }) => (
+              {basic.map(({ label, value, sourceValue }) => (
                 <div key={label} className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">{label}</dt>
                   <dd className="shrink-0 text-foreground">
-                    {editable ? (
+                    {editable && sourceValue ? (
                       <button type="button" aria-label={t('company.unit.editValue', { metric: label })}
                         className="cursor-pointer rounded px-1.5 py-1 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onDoubleClick={openEditor}

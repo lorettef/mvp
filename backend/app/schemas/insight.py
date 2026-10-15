@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -25,4 +26,10 @@ class InsightResponse(BaseModel):
     company_id: UUID
     scenario: str
     provider: str  # deepseek | gigachat | demo
+    text: str
+
+
+class PortfolioInsightResponse(BaseModel):
+    scope: Literal["portfolio"] = "portfolio"
+    provider: str
     text: str

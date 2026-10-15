@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { normalizeApiError } from '@/lib/apiError'
 import { formatMonthLabel } from '@/lib/format'
+import { metricInputValues, numericInputError, retentionFromInput } from '@/lib/financialSourceForm'
 
 interface Props {
+  initialDelete?: boolean
   source: UnitEconomicsMetricSource
   metricLabel?: (key: string, fallback: string) => string
   onSave: (data: MetricUpsert) => Promise<unknown>
@@ -18,21 +20,15 @@ interface Props {
   isDeleting?: boolean
 }
 
-export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) => fallback, onSave, onDelete, onClose, editComment = false, isSaving, isDeleting }: Props) {
+export function UnitEconomicsSourceEditor({ initialDelete = false, source, metricLabel = (_, fallback) => fallback, onSave, onDelete, onClose, editComment = false, isSaving, isDeleting }: Props) {
   const { t, i18n } = useTranslation()
   const prefix = useId()
-  const [values, setValues] = useState({
-    new_units: String(source.newUnits),
-    arpu: source.arpu == null ? '' : String(source.arpu),
-    revenue: String(source.revenue),
-    marketing_spend: String(source.marketingSpend),
-    retention_rate: String(source.retentionRate * 100),
-  })
+  const [values, setValues] = useState(() => metricInputValues(source))
   const [comment, setComment] = useState(source.comment ?? '')
   type Field = keyof typeof values
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [apiError, setApiError] = useState<string | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(initialDelete)
   const [pending, setPending] = useState(false)
   const inFlight = useRef(false)
   const busy = pending || isSaving || isDeleting
@@ -50,13 +46,8 @@ export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) 
     if (inFlight.current || busy) return
     const nextErrors: Partial<Record<Field, string>> = {}
     for (const { key } of fields) {
-      const raw = values[key].trim()
-      const value = Number(raw)
-      if (!raw) nextErrors[key] = t('company.unit.required')
-      else if (key === 'new_units' && (!Number.isSafeInteger(value) || value < 0)) nextErrors[key] = t('company.unit.integer')
-      else if (key === 'arpu' && (!Number.isFinite(value) || value <= 0)) nextErrors[key] = t('company.unit.positive')
-      else if (key === 'retention_rate' && (!Number.isFinite(value) || value < 0 || value > 100)) nextErrors[key] = t('company.unit.retentionRange')
-      else if (!Number.isFinite(value) || value < 0) nextErrors[key] = t('company.unit.nonnegative')
+      const error = numericInputError(values[key], key)
+      if (error) nextErrors[key] = t(error)
     }
     setErrors(nextErrors)
     const first = fields.find(({ key }) => nextErrors[key])
@@ -75,7 +66,7 @@ export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) 
         arpu: Number(values.arpu),
         revenue: Number(values.revenue),
         marketing_spend: Number(values.marketing_spend),
-        retention_rate: Number(values.retention_rate) / 100,
+        retention_rate: retentionFromInput(values.retention_rate),
         ...(editComment ? { comment: comment === (source.comment ?? '') ? source.comment : comment } : source.comment != null ? { comment: source.comment } : {}),
       })
       onClose()
@@ -105,7 +96,7 @@ export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) 
 
   return (
     <>
-      <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose() }}>
+      {!confirmDelete && <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose() }}>
         <DialogContent closeLabel={t('common.cancel')}>
           <DialogHeader>
             <DialogTitle>{t('company.unit.editSource')}</DialogTitle>
@@ -143,8 +134,8 @@ export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) 
               onClick={() => { setApiError(null); setConfirmDelete(true) }}>{t('company.unit.deleteSource')}</Button>
           </div>
         </DialogContent>
-      </Dialog>
-      <Dialog open={confirmDelete} onOpenChange={(open) => { if (!busy) { setConfirmDelete(open); setApiError(null) } }}>
+      </Dialog>}
+      {confirmDelete && <Dialog open={confirmDelete} onOpenChange={(open) => { if (!busy) { setConfirmDelete(open); setApiError(null) } }}>
         <DialogContent closeLabel={t('common.cancel')}>
           <DialogHeader>
             <DialogTitle>{t('company.unit.deleteTitle', { period })}</DialogTitle>
@@ -156,7 +147,7 @@ export function UnitEconomicsSourceEditor({ source, metricLabel = (_, fallback) 
             <Button type="button" variant="destructive" disabled={Boolean(busy)} onClick={() => void remove()}>{t('common.delete')}</Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
     </>
   )
 }

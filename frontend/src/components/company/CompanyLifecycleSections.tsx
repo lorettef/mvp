@@ -115,7 +115,6 @@ export function CompanyLifecycleSections({ tenantKey, dashboardCompanies }: Comp
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>{industryLabel(company.industry)}</span>
                 {company.businessModel && <span>{businessModelLabel(company.businessModel)}</span>}
-                <span>{t('dashboard.lifecycle.grossMargin', { value: company.grossMargin })}</span>
                 {!archived && summary && (
                   <span>
                     {t('dashboard.table.revenueFact')}: {fmtRub(summary.latestRevenue)} ·{' '}

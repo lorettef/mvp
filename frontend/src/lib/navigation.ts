@@ -1,7 +1,21 @@
+import type { User } from '@/store/authStore'
+
 export interface GlobalNavItem {
   key: string
   labelKey: string
   href: string
+  portfolioLabelKey?: string
+  fundOnly?: boolean
+  matchChildren?: boolean
+}
+
+/** Preserve the existing portfolio role dispatch, including legacy admins. */
+export function canViewPortfolio(user: Pick<User, 'role' | 'organizationType'> | null | undefined): boolean {
+  return user?.role === 'admin' && user.organizationType !== 'startup'
+}
+
+export function isGlobalNavActive(item: GlobalNavItem, pathname: string): boolean {
+  return pathname === item.href || Boolean(item.matchChildren && pathname.startsWith(`${item.href}/`))
 }
 
 export interface CompanyNavLeaf {
@@ -22,11 +36,12 @@ export interface CompanyNavGroup {
 
 /**
  * Единственный источник глобальной навигации.
- * Отдельных роутов «Companies / Tasks / Reports» в приложении нет — они живут
- * внутри Dashboard / вкладок компании. Настройки доступны через UserMenu.
+ * Portfolio Home and Companies are separate views. Company modules retain
+ * their tab deep links. Settings remain available through UserMenu.
  */
 export const globalNav: GlobalNavItem[] = [
-  { key: 'dashboard', labelKey: 'nav.dashboard', href: '/dashboard' },
+  { key: 'dashboard', labelKey: 'nav.dashboard', portfolioLabelKey: 'nav.home', href: '/dashboard' },
+  { key: 'companies', labelKey: 'nav.companies', href: '/companies', fundOnly: true, matchChildren: true },
 ]
 
 /**

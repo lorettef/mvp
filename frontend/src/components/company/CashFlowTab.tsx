@@ -1,164 +1,56 @@
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { CashFlowResponse } from '@/types/api'
+import type { CashFlowMonth, CashFlowResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { fmtPeriod, fmtRub } from '@/lib/format'
+import { fmtRub, formatMonthLabel } from '@/lib/format'
+import { FinanceMatrix } from './FinanceMatrix'
+import { CompanyCashFlowChart } from './CompanyProfileCharts'
 
-interface CashFlowTabProps {
-  data?: CashFlowResponse
-  isLoading?: boolean
-}
-
-interface RowProps {
-  label: string
-  value: string
-  bold?: boolean
-  accent?: 'positive' | 'negative'
-}
-
-function Row({ label, value, bold, accent }: RowProps) {
-  const valueClass =
-    accent === 'positive'
-      ? 'text-success'
-      : accent === 'negative'
-        ? 'text-destructive'
-        : 'text-foreground'
-  return (
-    <div className="flex items-center justify-between py-1.5">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`${bold ? 'font-semibold' : ''} ${valueClass}`}>{value}</span>
-    </div>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border p-4">
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-        {title}
-      </p>
-      {children}
-    </div>
-  )
-}
+interface CashFlowTabProps { data?: CashFlowResponse; isLoading?: boolean }
+const rows: Array<{ key: Exclude<keyof CashFlowMonth, 'period'>; label: string; bold?: boolean }> = [
+  { key: 'netProfit', label: 'netProfit' },
+  { key: 'operatingCf', label: 'operatingRow' },
+  { key: 'investingCf', label: 'investingRow' },
+  { key: 'financingCf', label: 'financingRow' },
+  { key: 'totalCf', label: 'totalRow', bold: true },
+  { key: 'netCashFlow', label: 'netRow', bold: true },
+  { key: 'closingBalance', label: 'balanceRow', bold: true },
+]
 
 export function CashFlowTab({ data, isLoading }: CashFlowTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const selectorId = useId()
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
+  // A sorted copy: the query cache and API order remain untouched.
+  const months = [...(data?.months ?? [])].sort((a, b) => a.period.localeCompare(b.period))
+  const selected = months.find(m => m.period === selectedMonth) ?? months[months.length - 1]
+  const monthLabel = (period: string) => formatMonthLabel(period.slice(0, 7), i18n.language)
+  const matrixRows = rows.map(row => ({ ...row, label: t(`company.cashflow.${row.label}`) }))
+  const matrix = (visible: CashFlowMonth[], mobile: boolean) => <FinanceMatrix mode="single"
+    periods={visible.map(m => m.period)} rows={matrixRows} mobile={mobile}
+    columnLabel={t('company.budget.article')} tableLabel={t(mobile ? 'company.cashflow.mobileMatrix' : 'company.cashflow.matrix')}
+    renderCell={(row, period) => <span>{fmtRub(visible.find(m => m.period === period)?.[row.key])}</span>} />
 
-  if (isLoading) {
-    return (
-      <Card className="border bg-card">
-        <CardContent className="p-5">
-          <Skeleton className="h-6 w-64 mb-4" />
-          <Skeleton className="h-72 w-full" />
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (!data) {
-    return (
-      <Card className="border bg-card">
-        <CardContent className="p-5">
-          <p className="text-muted-foreground text-sm">
-            {t('company.cashflow.empty')}
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const closingAccent =
-    data.closingBalance == null
-      ? undefined
-      : data.closingBalance >= 0
-        ? ('positive' as const)
-        : ('negative' as const)
-
-  return (
-    <>
-      <Card className="border bg-card">
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-foreground">
-            {t('company.cashflow.title')}
-          </h3>
-          <span className="text-sm text-muted-foreground">
-            {fmtPeriod(data.period)}
-          </span>
-        </div>
-
-        <p className="text-sm text-muted-foreground mb-4">{data.summary}</p>
-
-        <div className="space-y-4">
-          <Section title={t('company.cashflow.operating')}>
-            <Row label={t('company.cashflow.netProfit')} value={fmtRub(data.netProfit)} />
-            <Row label={t('company.cashflow.amortization')} value={fmtRub(data.amortization)} />
-            <Row label={t('company.cashflow.totalOperating')} value={fmtRub(data.operatingCf)} bold />
-          </Section>
-
-          <Section title={t('company.cashflow.investing')}>
-            <Row label={t('company.cashflow.capex')} value={fmtRub(data.capex)} />
-            <Row
-              label={t('company.cashflow.totalInvesting')}
-              value={fmtRub(data.investingCf)}
-              bold
-            />
-          </Section>
-
-          <Section title={t('company.cashflow.financing')}>
-            <Row label={t('company.cashflow.investments')} value={fmtRub(data.investments)} />
-            <Row label={t('company.cashflow.credits')} value={fmtRub(data.credits)} />
-            <Row label={t('company.cashflow.totalFinancing')} value={fmtRub(data.financingCf)} bold />
-          </Section>
-
-          <div className="rounded-lg border border-border p-4">
-            <Row label={t('company.cashflow.totalCf')} value={fmtRub(data.totalCf)} bold />
-            <Row label={t('company.cashflow.opening')} value={fmtRub(data.openingBalance)} />
-            <Row
-              label={t('company.cashflow.closing')}
-              value={fmtRub(data.closingBalance)}
-              bold
-              accent={closingAccent}
-            />
-          </div>
-        </div>
-        </CardContent>
-      </Card>
-      {data.months.length > 0 && (
-        <Card className="border bg-card">
-          <CardContent className="p-5">
-            <h3 className="font-semibold text-foreground mb-4">{t('company.cashflow.monthly')}</h3>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('common.period')}</TableHead>
-                    <TableHead className="text-right">{t('company.cashflow.netProfit')}</TableHead>
-                    <TableHead className="text-right">{t('company.cashflow.totalOperating')}</TableHead>
-                    <TableHead className="text-right">{t('company.cashflow.totalCf')}</TableHead>
-                    <TableHead className="text-right">{t('company.cashflow.closing')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.months.map((m) => (
-                    <TableRow key={m.period}>
-                      <TableCell className="font-medium text-foreground">{fmtPeriod(m.period)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.netProfit)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtRub(m.operatingCf)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-foreground">{fmtRub(m.totalCf)}</TableCell>
-                      <TableCell className={`text-right tabular-nums font-medium ${(m.closingBalance ?? 0) < 0 ? 'text-destructive' : 'text-foreground'}`}>
-                        {fmtRub(m.closingBalance)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </>
-  )
+  if (isLoading) return <Card><CardContent className="p-4"><Skeleton className="mb-4 h-6 w-56" /><Skeleton className="h-64 w-full" /></CardContent></Card>
+  if (!months.length) return <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">{t('company.cashflow.empty')}</p></CardContent></Card>
+  return <Card className="min-w-0 max-w-full border bg-card">
+    <CardContent className="min-w-0 p-3 sm:p-4">
+      <h3 className="font-semibold">{t('company.cashflow.title')}</h3>
+      <p className="mt-1 mb-3 text-xs text-muted-foreground">{t('company.cashflow.sourceHelp')}</p>
+      <section className="mb-4 min-w-0" aria-label={t('company.profile.charts.cashflow')}>
+        <h4 className="mb-3 font-medium">{t('company.profile.charts.cashflow')}</h4>
+        <CompanyCashFlowChart months={months} />
+      </section>
+      <div className="hidden min-w-0 max-w-full overflow-x-auto md:block" data-testid="cashflow-desktop">{matrix(months, false)}</div>
+      <div className="md:hidden" data-testid="cashflow-mobile">
+        <label htmlFor={selectorId} className="mb-1 block text-sm font-medium">{t('common.period')}</label>
+        <select id={selectorId} className="mb-3 h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          value={selected?.period ?? ''} onChange={event => setSelectedMonth(event.target.value)}>
+          {months.map(m => <option key={m.period} value={m.period}>{monthLabel(m.period)}</option>)}
+        </select>
+        {selected && matrix([selected], true)}
+      </div>
+    </CardContent>
+  </Card>
 }

@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import { RevenueChartTooltip } from './RevenueChartTooltip'
+import { ChartContainer } from '@/components/shared/chart-container'
 import type { PerformancePoint } from '@/types/api'
 
 export function PortfolioRevenueChart({
@@ -32,7 +33,7 @@ export function PortfolioRevenueChart({
   }
 
   return (
-    <div className="min-w-0" role="region" aria-label={t('dashboard.performance.chartLabel')} style={{ height }}>
+    <ChartContainer height={height} role="region" aria-label={t('dashboard.performance.chartLabel')}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} barGap={6} maxBarSize={36} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} accessibilityLayer>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.7} vertical={false} />
@@ -73,6 +74,6 @@ export function PortfolioRevenueChart({
           )}
         </BarChart>
       </ResponsiveContainer>
-    </div>
+    </ChartContainer>
   )
 }

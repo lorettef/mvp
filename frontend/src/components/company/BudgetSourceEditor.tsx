@@ -7,8 +7,12 @@ import { MonthPicker } from '@/components/ui/month-picker'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { normalizeApiError } from '@/lib/apiError'
 import { formatMonthLabel } from '@/lib/format'
+import { budgetInputFields, numericInputError } from '@/lib/financialSourceForm'
+import { BudgetAmountFields } from './BudgetAmountFields'
 
 interface Props {
+  industry?: string | null
+  initialDelete?: boolean
   source?: BudgetSource
   initialPeriod?: string
   initialType?: 'plan' | 'fact'
@@ -19,9 +23,10 @@ interface Props {
   onClose: () => void
 }
 
-const fields = ['marketing', 'development', 'fot', 'gna'] as const
+const fields = budgetInputFields
 type Field = typeof fields[number]
 const initialValues = (source?: BudgetSource): Record<Field, string> => ({
+  cogs: source?.cogs == null ? '' : String(source.cogs),
   marketing: source ? String(source.marketing) : '',
   development: source ? String(source.development) : '',
   fot: source ? String(source.fot) : '',
@@ -29,16 +34,18 @@ const initialValues = (source?: BudgetSource): Record<Field, string> => ({
 })
 
 /** One entire source record; P&L supplies a source, Budget also allows creation. */
-export function BudgetSourceEditor({ source, initialPeriod = '', initialType = 'plan', chooseIdentity = false, getSource, onSave, onDelete, onClose }: Props) {
+export function BudgetSourceEditor({ industry, initialDelete = false, source, initialPeriod = '', initialType = 'plan', chooseIdentity = false, getSource, onSave, onDelete, onClose }: Props) {
   const { t, i18n } = useTranslation()
   const prefix = useId()
   const [periodValue, setPeriodValue] = useState(source?.period ?? initialPeriod)
   const [typeValue, setTypeValue] = useState(source?.type ?? initialType)
   const selectedSource = source ?? getSource?.(periodValue, typeValue)
+  const legacyCogs = Boolean(selectedSource && selectedSource.cogs == null)
   const [values, setValues] = useState(() => initialValues(selectedSource))
+  const [badInputs, setBadInputs] = useState<Set<Field>>(new Set())
   const [errors, setErrors] = useState<Partial<Record<Field | 'period', string>>>({})
   const [apiError, setApiError] = useState<string | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(initialDelete)
   const [pending, setPending] = useState(false)
   const inFlight = useRef(false)
   const period = formatMonthLabel(periodValue.slice(0, 7), i18n.language)
@@ -52,6 +59,7 @@ export function BudgetSourceEditor({ source, initialPeriod = '', initialType = '
       previousIdentity.current = identity
       setValues(initialValues(selectedSource))
       setErrors({})
+      setBadInputs(new Set())
       setApiError(null)
     }
   }, [identity, selectedSource])
@@ -62,8 +70,8 @@ export function BudgetSourceEditor({ source, initialPeriod = '', initialType = '
       const nextErrors: typeof errors = {}
       if (!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(periodValue)) nextErrors.period = t('company.unit.required')
       for (const key of fields) {
-        if (!values[key].trim()) nextErrors[key] = t('company.unit.required')
-        else if (!Number.isFinite(Number(values[key])) || Number(values[key]) < 0) nextErrors[key] = t('company.unit.nonnegative')
+        const error = badInputs.has(key) ? 'company.unit.nonnegative' : key === 'cogs' && legacyCogs && !values.cogs.trim() ? undefined : numericInputError(values[key])
+        if (error) nextErrors[key] = t(error)
       }
       setErrors(nextErrors)
       const first = fields.find((key) => nextErrors[key])
@@ -77,7 +85,7 @@ export function BudgetSourceEditor({ source, initialPeriod = '', initialType = '
     setApiError(null)
     try {
       if (deleting) await onDelete!(selectedSource!.id)
-      else await onSave({ period: periodValue, type: typeValue, fot: Number(values.fot), marketing: Number(values.marketing), development: Number(values.development), gna: Number(values.gna) })
+      else await onSave({ period: periodValue, type: typeValue, cogs: values.cogs.trim() ? Number(values.cogs) : null, fot: Number(values.fot), marketing: Number(values.marketing), development: Number(values.development), gna: Number(values.gna) })
       onClose()
     } catch (error) {
       setApiError(t(deleting ? 'company.unit.deleteFailed' : 'company.unit.saveFailed', { message: normalizeApiError(error).message }))
@@ -85,7 +93,7 @@ export function BudgetSourceEditor({ source, initialPeriod = '', initialType = '
   }
 
   return <>
-    <Dialog open onOpenChange={(open) => { if (!open && !pending) onClose() }}>
+    {!confirmDelete && <Dialog open onOpenChange={(open) => { if (!open && !pending) onClose() }}>
       <DialogContent closeLabel={t('common.cancel')}>
         <DialogHeader>
           <DialogTitle>{t(selectedSource ? 'company.pnl.editBudget' : 'company.budget.add')}</DialogTitle>
@@ -111,13 +119,9 @@ export function BudgetSourceEditor({ source, initialPeriod = '', initialType = '
               </select> : <Input id={`${prefix}-type`} value={type} readOnly />}
             </div>
           </div>
-          {fields.map((key) => <div key={key} className="space-y-1">
-            <label htmlFor={`${prefix}-${key}`} className="block text-sm font-medium">{t(`company.budget.${key}`)}</label>
-            <Input id={`${prefix}-${key}`} type="number" inputMode="decimal" min={0} step="any" required disabled={pending}
-              value={values[key]} aria-invalid={Boolean(errors[key])} aria-describedby={errors[key] ? `${prefix}-${key}-error` : undefined}
-              onChange={(event) => { setValues((old) => ({ ...old, [key]: event.target.value })); setErrors((old) => ({ ...old, [key]: undefined })); setApiError(null) }} />
-            {errors[key] && <p id={`${prefix}-${key}-error`} className="text-sm text-destructive">{errors[key]}</p>}
-          </div>)}
+          <BudgetAmountFields key={identity} industry={industry} cogsRequired={!legacyCogs} prefix={prefix} values={values} errors={errors} disabled={pending}
+            onBadInput={(field, bad) => setBadInputs(old => { const next = new Set(old); if (bad) next.add(field); else next.delete(field); return next })}
+            onChange={(key, value) => { setValues((old) => ({ ...old, [key]: value })); setErrors((old) => ({ ...old, [key]: undefined })); setApiError(null) }} />
           {!confirmDelete && apiError && <p role="alert" className="text-sm text-destructive">{apiError}</p>}
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" disabled={pending} onClick={onClose}>{t('common.cancel')}</Button>
@@ -129,8 +133,8 @@ export function BudgetSourceEditor({ source, initialPeriod = '', initialType = '
             onClick={() => { setApiError(null); setConfirmDelete(true) }}>{t('company.unit.deleteSource')}</Button>
         </div>}
       </DialogContent>
-    </Dialog>
-    <Dialog open={confirmDelete} onOpenChange={(open) => { if (!pending) { setConfirmDelete(open); setApiError(null) } }}>
+    </Dialog>}
+    {confirmDelete && <Dialog open={confirmDelete} onOpenChange={(open) => { if (!pending) { setConfirmDelete(open); setApiError(null) } }}>
       <DialogContent closeLabel={t('common.cancel')}>
         <DialogHeader>
           <DialogTitle>{t('company.budget.deleteTitle', { period, type })}</DialogTitle>
@@ -142,6 +146,6 @@ export function BudgetSourceEditor({ source, initialPeriod = '', initialType = '
           <Button type="button" variant="destructive" disabled={pending} onClick={() => void submit(true)}>{t('common.delete')}</Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog>}
   </>
 }
