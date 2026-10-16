@@ -1,8 +1,8 @@
 import pytest
-from sqlalchemy import func, select
-
 from app.models.metric import Metric
 from app.services.unit_economics_service import UnitEconomicsService
+from sqlalchemy import func, select
+
 from .conftest import auth_headers
 
 
@@ -40,15 +40,15 @@ async def summary(client, company, user):
 
 
 async def test_source_is_latest_fact_with_exact_raw_inputs(
-    client, seeded_company, seeded_admin, db_session
+    client, seeded_company, seeded_company_user, db_session
 ):
-    await put(client, seeded_company, seeded_admin, raw("2026-01-01"))
+    await put(client, seeded_company, seeded_company_user, raw("2026-01-01"))
     data = raw(
         new_units=45, arpu=95, revenue=4275, marketing_spend=14400, retention_rate=0.82
     )
-    latest = await put(client, seeded_company, seeded_admin, data)
-    await put(client, seeded_company, seeded_admin, raw("2026-12-01", "plan"))
-    body = await summary(client, seeded_company, seeded_admin)
+    latest = await put(client, seeded_company, seeded_company_user, data)
+    await put(client, seeded_company, seeded_company_user, raw("2026-12-01", "plan"))
+    body = await summary(client, seeded_company, seeded_company_user)
     assert body["source_metric"] == {"id": latest["id"], **data}
     assert body["cac"] == 320
     assert body["ltv"] == 527.78
@@ -72,15 +72,15 @@ async def test_source_is_latest_fact_with_exact_raw_inputs(
 
 
 async def test_plan_fallback_and_empty_source(
-    client, seeded_company, seeded_admin, db_session
+    client, seeded_company, seeded_company_user, db_session
 ):
-    assert (await summary(client, seeded_company, seeded_admin))[
+    assert (await summary(client, seeded_company, seeded_company_user))[
         "source_metric"
     ] is None
-    await put(client, seeded_company, seeded_admin, raw("2026-01-01", "plan"))
+    await put(client, seeded_company, seeded_company_user, raw("2026-01-01", "plan"))
     data = raw("2026-02-01", "plan")
-    latest = await put(client, seeded_company, seeded_admin, data)
-    body = await summary(client, seeded_company, seeded_admin)
+    latest = await put(client, seeded_company, seeded_company_user, data)
+    body = await summary(client, seeded_company, seeded_company_user)
     assert body["source_metric"] == {"id": latest["id"], **data}
     metrics = list(
         (
@@ -94,12 +94,12 @@ async def test_plan_fallback_and_empty_source(
 
 
 async def test_edit_recalculates_derived_values_on_same_record(
-    client, seeded_company, seeded_admin, db_session
+    client, seeded_company, seeded_company_user, db_session
 ):
-    first = await put(client, seeded_company, seeded_admin, raw())
+    first = await put(client, seeded_company, seeded_company_user, raw())
     saved = await client.put(
         f"/api/v1/companies/{seeded_company.id}/budgets",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
         json={
             "period": "2026-02-01",
             "type": "fact",
@@ -111,7 +111,7 @@ async def test_edit_recalculates_derived_values_on_same_record(
         },
     )
     assert saved.status_code == 200
-    before = await summary(client, seeded_company, seeded_admin)
+    before = await summary(client, seeded_company, seeded_company_user)
     assert (before["cac"], before["ltv"], before["churn"], before["ltv_cac"]) == (
         20,
         1000,
@@ -122,7 +122,7 @@ async def test_edit_recalculates_derived_values_on_same_record(
     data = raw(
         new_units=20, arpu=300, revenue=6000, marketing_spend=1000, retention_rate=0.8
     )
-    updated = await put(client, seeded_company, seeded_admin, data)
+    updated = await put(client, seeded_company, seeded_company_user, data)
     assert updated["id"] == first["id"]
     count = await db_session.scalar(
         select(func.count())
@@ -130,7 +130,7 @@ async def test_edit_recalculates_derived_values_on_same_record(
         .where(Metric.company_id == seeded_company.id)
     )
     assert count == 1
-    body = await summary(client, seeded_company, seeded_admin)
+    body = await summary(client, seeded_company, seeded_company_user)
     assert body["source_metric"] == {"id": first["id"], **data}
     assert (body["cac"], body["ltv"], body["churn"], body["ltv_cac"]) == (
         50,
@@ -145,18 +145,20 @@ async def test_edit_recalculates_derived_values_on_same_record(
 
 
 async def test_delete_reselects_previous_fact_then_plan_then_empty(
-    client, seeded_company, seeded_admin
+    client, seeded_company, seeded_company_user
 ):
-    plan = await put(client, seeded_company, seeded_admin, raw("2026-03-01", "plan"))
-    previous = await put(client, seeded_company, seeded_admin, raw("2026-01-01"))
-    latest = await put(client, seeded_company, seeded_admin, raw())
+    plan = await put(
+        client, seeded_company, seeded_company_user, raw("2026-03-01", "plan")
+    )
+    previous = await put(client, seeded_company, seeded_company_user, raw("2026-01-01"))
+    latest = await put(client, seeded_company, seeded_company_user, raw())
     for deleted, expected in [(latest, previous), (previous, plan), (plan, None)]:
         response = await client.delete(
             f"/api/v1/companies/{seeded_company.id}/metrics/{deleted['id']}",
-            headers=auth_headers(seeded_admin),
+            headers=auth_headers(seeded_company_user),
         )
         assert response.status_code == 200
-        body = await summary(client, seeded_company, seeded_admin)
+        body = await summary(client, seeded_company, seeded_company_user)
         if expected is None:
             assert body["source_metric"] is None
             assert body["ltv_cac"] is None
@@ -168,15 +170,16 @@ async def test_delete_reselects_previous_fact_then_plan_then_empty(
 async def test_source_read_only_and_tenant_access(
     client,
     seeded_company,
-    seeded_admin,
     seeded_observer,
     seeded_company_user,
     other_admin,
 ):
-    metric = await put(client, seeded_company, seeded_admin, raw())
-    assert (await summary(client, seeded_company, seeded_observer))["source_metric"][
-        "id"
-    ] == metric["id"]
+    metric = await put(client, seeded_company, seeded_company_user, raw())
+    response = await client.get(
+        f"/api/v1/companies/{seeded_company.id}/unit-economics",
+        headers=auth_headers(seeded_observer),
+    )
+    assert response.status_code == 403
     await put(client, seeded_company, seeded_company_user, raw(arpu=120))
     response = await client.put(
         f"/api/v1/companies/{seeded_company.id}/metrics",

@@ -1,13 +1,8 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.api.dependencies import require_portfolio_read
 from app.core.database import get_db
-from app.api.dependencies import require_role, ROLE_ADMIN
 from app.schemas.dashboard import (
     DashboardFilters,
     DashboardHealth,
@@ -16,6 +11,10 @@ from app.schemas.dashboard import (
     PerformancePoint,
 )
 from app.services.dashboard_service import DashboardService
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -74,7 +73,7 @@ def _organization_id(user: dict) -> str:
 
 @router.get("", response_model=DashboardResponse)
 async def get_dashboard(
-    user: dict = Depends(require_role(ROLE_ADMIN)),
+    user: dict = Depends(require_portfolio_read),
     db: AsyncSession = Depends(get_db),
     filters: DashboardFilters = Depends(dashboard_filters),
 ):
@@ -91,7 +90,7 @@ async def get_dashboard_performance(
         le=24,
         description="Last N available periods after dates; omitted: six without dates, all within explicit dates",
     ),
-    user: dict = Depends(require_role(ROLE_ADMIN)),
+    user: dict = Depends(require_portfolio_read),
     db: AsyncSession = Depends(get_db),
     filters: DashboardFilters = Depends(dashboard_filters),
 ):

@@ -33,11 +33,13 @@ export function FundCompaniesTable({
   companies: CompanyStatusItem[]
   industryLabel: (slug: string | null) => string
   canArchive: boolean
-  onOpen: (id: string) => void
-  onAiAnalysis: (id: string) => void
+  onOpen?: (id: string) => void
+  onAiAnalysis?: (id: string) => void
   onArchive: (id: string) => void
 }) {
   const { t } = useTranslation()
+  const Name = onOpen ? 'button' : 'div'
+  const interactionClass = onOpen ? 'cursor-pointer transition-colors hover:bg-blue-50 focus-visible:bg-blue-50 dark:hover:bg-blue-950/30 dark:focus-visible:bg-blue-950/30' : ''
 
   const healthLabel = (h: string) => {
     switch (h) {
@@ -97,12 +99,12 @@ export function FundCompaniesTable({
 
   const actions = (c: CompanyStatusItem) => (
     <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-      <Button size="sm" variant="ghost" onClick={() => onOpen(c.id)} aria-label={t('dashboard.table.open')}>
+      {onOpen && <Button size="sm" variant="ghost" onClick={() => onOpen(c.id)} aria-label={t('dashboard.table.open')}>
         <ArrowUpRight className="h-4 w-4" />
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => onAiAnalysis(c.id)} aria-label={t('dashboard.table.aiAnalysis')}>
+      </Button>}
+      {onAiAnalysis && <Button size="sm" variant="ghost" onClick={() => onAiAnalysis(c.id)} aria-label={t('dashboard.table.aiAnalysis')}>
         <Sparkles className="h-4 w-4" />
-      </Button>
+      </Button>}
       {canArchive && (
         <Button size="sm" variant="ghost" onClick={() => onArchive(c.id)} aria-label={t('dashboard.lifecycle.archive')}>
           <Archive className="h-4 w-4" />
@@ -132,28 +134,28 @@ export function FundCompaniesTable({
             {companies.map((c) => (
               <tr
                 key={c.id}
-                tabIndex={0}
-                aria-label={`${t('dashboard.table.open')}: ${c.name}`}
-                onClick={() => onOpen(c.id)}
-                onKeyDown={(event) => {
+                tabIndex={onOpen ? 0 : undefined}
+                aria-label={onOpen ? `${t('dashboard.table.open')}: ${c.name}` : undefined}
+                onClick={onOpen ? () => onOpen(c.id) : undefined}
+                onKeyDown={onOpen ? (event) => {
                   if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
                     event.preventDefault()
                     onOpen(c.id)
                   }
-                }}
-                className="cursor-pointer border-b border-border/50 transition-colors hover:bg-blue-50 focus-visible:bg-blue-50 dark:hover:bg-blue-950/30 dark:focus-visible:bg-blue-950/30 last:border-0"
+                } : undefined}
+                className={`border-b border-border/50 last:border-0 ${interactionClass}`}
               >
                 <td className="px-3 py-3">
-                  <button
-                    type="button"
-                    onClick={(event) => { event.stopPropagation(); onOpen(c.id) }}
-                    className="flex items-center gap-2 text-left font-medium text-foreground hover:underline"
+                  <Name
+                    type={onOpen ? 'button' : undefined}
+                    onClick={onOpen ? (event) => { event.stopPropagation(); onOpen(c.id) } : undefined}
+                    className={`flex items-center gap-2 text-left font-medium text-foreground ${onOpen ? 'hover:underline' : ''}`}
                   >
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
                       {c.name[0]?.toUpperCase()}
                     </span>
                     <span className="min-w-0 truncate">{c.name}</span>
-                  </button>
+                  </Name>
                   {c.lastUpdate && (
                     <p className="mt-0.5 pl-9 text-xs text-muted-foreground">
                       {t('dashboard.table.lastUpdate')}: {c.lastUpdate.slice(0, 7)}
@@ -182,22 +184,22 @@ export function FundCompaniesTable({
         {companies.map((c) => (
           <div
             key={c.id}
-            role="link"
-            tabIndex={0}
-            aria-label={`${t('dashboard.table.open')}: ${c.name}`}
-            onClick={() => onOpen(c.id)}
-            onKeyDown={(event) => {
+            role={onOpen ? 'link' : undefined}
+            tabIndex={onOpen ? 0 : undefined}
+            aria-label={onOpen ? `${t('dashboard.table.open')}: ${c.name}` : undefined}
+            onClick={onOpen ? () => onOpen(c.id) : undefined}
+            onKeyDown={onOpen ? (event) => {
               if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
                 event.preventDefault()
                 onOpen(c.id)
               }
-            }}
-            className="cursor-pointer space-y-3 px-4 py-4 transition-colors hover:bg-blue-50 focus-visible:bg-blue-50 dark:hover:bg-blue-950/30 dark:focus-visible:bg-blue-950/30"
+            } : undefined}
+            className={`space-y-3 px-4 py-4 ${interactionClass}`}
           >
             <div className="flex items-start justify-between gap-3">
-              <button
-                type="button"
-                onClick={(event) => { event.stopPropagation(); onOpen(c.id) }}
+              <Name
+                type={onOpen ? 'button' : undefined}
+                onClick={onOpen ? (event) => { event.stopPropagation(); onOpen(c.id) } : undefined}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
@@ -207,7 +209,7 @@ export function FundCompaniesTable({
                   <span className="block truncate text-sm font-medium text-foreground">{c.name}</span>
                   <span className="block truncate text-xs text-muted-foreground">{industryLabel(c.industry)}</span>
                 </span>
-              </button>
+              </Name>
               <div className="shrink-0">{actions(c)}</div>
             </div>
 

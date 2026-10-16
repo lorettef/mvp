@@ -28,7 +28,7 @@ const unitMetrics: SummaryMetric[] = [
 
 interface SummaryTableProps {
   companies: CompanyStatusItem[]
-  onOpen: (id: string) => void
+  onOpen?: (id: string) => void
   onResetFilters?: () => void
 }
 
@@ -74,12 +74,12 @@ function PortfolioSummaryTable({ companies, onOpen, onResetFilters, metrics, sho
     </div>
   )
   const activate = (event: KeyboardEvent<HTMLElement>, id: string) => {
-    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+    if (onOpen && event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault()
       onOpen(id)
     }
   }
-  const interactionClass = 'cursor-pointer transition-colors hover:bg-blue-50 focus-visible:bg-blue-50 dark:hover:bg-blue-950/30 dark:focus-visible:bg-blue-950/30'
+  const interactionClass = onOpen ? 'cursor-pointer transition-colors hover:bg-blue-50 focus-visible:bg-blue-50 dark:hover:bg-blue-950/30 dark:focus-visible:bg-blue-950/30' : ''
 
   return (
     <div role="region" aria-label={title} className="min-w-0">
@@ -103,8 +103,8 @@ function PortfolioSummaryTable({ companies, onOpen, onResetFilters, metrics, sho
                 </tr>
               </thead>
               <tbody>
-                {rows.map(company => <tr key={company.id} tabIndex={0} aria-label={`${t('dashboard.table.open')}: ${company.name}`}
-                  onClick={() => onOpen(company.id)} onKeyDown={event => activate(event, company.id)}
+                {rows.map(company => <tr key={company.id} tabIndex={onOpen ? 0 : undefined} aria-label={onOpen ? `${t('dashboard.table.open')}: ${company.name}` : undefined}
+                  onClick={onOpen ? () => onOpen(company.id) : undefined} onKeyDown={onOpen ? event => activate(event, company.id) : undefined}
                   className={`border-b border-border/60 last:border-0 ${interactionClass}`}>
                   <th scope="row" className="px-4 py-3 text-left align-top font-medium [overflow-wrap:anywhere]">
                     {company.name}<p className="mt-1 text-xs font-normal text-muted-foreground">{periodLabel(company)}</p>
@@ -116,8 +116,8 @@ function PortfolioSummaryTable({ companies, onOpen, onResetFilters, metrics, sho
           </div>
           <ul aria-label={title} className="divide-y divide-border/60 sm:hidden">
             {rows.map(company => <li key={company.id}>
-              <div role="link" tabIndex={0} aria-label={`${t('dashboard.table.open')}: ${company.name}`}
-                onClick={() => onOpen(company.id)} onKeyDown={event => activate(event, company.id)}
+              <div role={onOpen ? 'link' : undefined} tabIndex={onOpen ? 0 : undefined} aria-label={onOpen ? `${t('dashboard.table.open')}: ${company.name}` : undefined}
+                onClick={onOpen ? () => onOpen(company.id) : undefined} onKeyDown={onOpen ? event => activate(event, company.id) : undefined}
                 className={`space-y-3 px-4 py-4 ${interactionClass}`}>
                 <div className="[overflow-wrap:anywhere]">
                   <h4 className="text-sm font-medium">{company.name}</h4>

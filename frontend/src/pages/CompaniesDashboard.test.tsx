@@ -4,8 +4,10 @@ import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CompaniesDashboard } from './CompaniesDashboard'
-import type { CompanyStatusItem, DashboardFilters, DashboardResponse } from '@/types/api'
+import type { CompanyStatusItem, DashboardResponse } from '@/types/api'
 import type { ReactElement } from 'react'
+import { useState } from 'react'
+import { StartupInvite } from '@/components/common/StartupInvite'
 
 // Keep real Recharts series/legend rendering; jsdom has no layout measurements.
 vi.mock('recharts', async () => {
@@ -51,7 +53,7 @@ const invitesApiMock = vi.hoisted(() => ({
 }))
 
 const authStoreMock = vi.hoisted(() => ({
-  user: { role: 'admin' },
+  user: { role: 'admin', productRole: 'fund', organizationId: 'org-1', companyId: null },
 }))
 
 vi.mock('@/api/companies', () => ({
@@ -79,6 +81,14 @@ function renderDashboard() {
   )
 }
 
+function renderInvite() {
+  function Harness() {
+    const [open, setOpen] = useState(false)
+    return <><button onClick={() => setOpen(true)}>Пригласить стартап</button><StartupInvite open={open} onOpenChange={setOpen} /></>
+  }
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { mutations: { retry: false } } })}><Harness /></QueryClientProvider>)
+}
+
 describe('CompaniesDashboard acceptance — unavailable KPI', () => {
   const company: CompanyStatusItem = { id: 'acceptance', name: 'Acceptance company', industry: 'saas',
     geography: null, businessModel: null, health: 'healthy', status: 'no_plan', latestRevenue: 100,
@@ -98,16 +108,51 @@ describe('CompaniesDashboard acceptance — unavailable KPI', () => {
     catalogApiMock.get.mockReset().mockResolvedValue({ industries: [{ slug: 'saas', label: 'SaaS' }] })
   })
 
-  it('keeps a six-card desktop grid contract with expanded and collapsed filters', async () => {
+  it('Investor cannot navigate or mutate Active, Attention, Archived or summary rows', async () => {
+    authStoreMock.user.productRole = 'investor'
+    const archived = { id: 'archived', name: 'Archived startup', industry: 'saas', archivedAt: '2026-01-01' }
+    companiesApiMock.list.mockImplementation(({ archived: inactive } = {}) => Promise.resolve(inactive ? [archived] : []))
+    dashboardApiMock.get.mockResolvedValue({ ...response, companies: [{ ...company, attention: [{ kind: 'no_plan', label: 'No plan', severity: 'warning' }] }] })
+    companiesApiMock.archive.mockClear(); companiesApiMock.restore.mockClear(); companiesApiMock.remove.mockClear()
+    const view = renderDashboard()
+    try {
+      await screen.findByRole('tab', { name: 'Активные компании (1)' })
+      const rows = screen.getAllByRole('row').filter(row => row.textContent?.includes(company.name))
+      for (const row of rows) {
+        expect(row).not.toHaveAttribute('tabindex')
+        fireEvent.click(row); fireEvent.keyDown(row, { key: 'Enter' }); fireEvent.keyDown(row, { key: ' ' })
+      }
+      expect(screen.queryByRole('button', { name: 'Открыть' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Архивировать' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Пригласить стартап' })).not.toBeInTheDocument()
+      expect(screen.queryByText('ИИ-анализ портфеля')).not.toBeInTheDocument()
+      await userEvent.setup().click(screen.getByRole('tab', { name: /^Требует внимания/ }))
+      const attention = screen.getByRole('tabpanel')
+      expect(within(attention).queryByRole('button')).not.toBeInTheDocument()
+      fireEvent.click(within(attention).getByText(company.name))
+      await userEvent.setup().click(screen.getByRole('tab', { name: /^Неактивные/ }))
+      const name = await screen.findByText('Archived startup')
+      fireEvent.click(name); fireEvent.keyDown(name.closest('li')!, { key: 'Enter' })
+      expect(within(screen.getByRole('tabpanel')).queryByRole('button')).not.toBeInTheDocument()
+      expect(navigateMock).not.toHaveBeenCalled()
+      expect(companiesApiMock.archive).not.toHaveBeenCalled()
+      expect(companiesApiMock.restore).not.toHaveBeenCalled()
+      expect(companiesApiMock.remove).not.toHaveBeenCalled()
+    } finally {
+      view.unmount()
+      authStoreMock.user.productRole = 'fund'
+    }
+  })
+
+  it('keeps a six-card desktop grid without a filter sidebar', async () => {
     renderDashboard()
     const label = await screen.findByText('Компании в портфеле', { exact: true })
     const grid = label.closest('.grid')!
     expect(grid.children).toHaveLength(6)
     expect(grid).toHaveClass('min-[1366px]:grid-cols-6')
     for (const card of grid.children) expect(card).toHaveClass('min-w-0')
-    fireEvent.click(screen.getByRole('button', { name: 'Свернуть фильтры' }))
-    expect(grid).toHaveClass('min-[1366px]:grid-cols-6')
-    expect(grid.children).toHaveLength(6)
+    expect(screen.queryByRole('complementary', { name: 'Фильтры' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Фильтры' })).not.toBeInTheDocument()
   })
 
   it.each(['no_plan', 'no_data'] as const)('explains unavailable plan execution for %s without inventing 0%%', async status => {
@@ -169,16 +214,12 @@ describe('CompaniesDashboard acceptance — unavailable KPI', () => {
     expect(screen.queryByText('0.8499999999999999 мес.', { exact: true })).not.toBeInTheDocument()
   })
 
-  it('keeps the dashboard visible on catalog failure and exposes a retry for filter options', async () => {
+  it('keeps Companies visible on catalog failure with industry slug fallback', async () => {
     catalogApiMock.get.mockRejectedValueOnce(new Error('Catalog unavailable'))
     renderDashboard()
     await screen.findByRole('tab', { name: 'Активные компании (1)' })
-    const user = userEvent.setup()
-    await user.click(within(screen.getByRole('complementary', { name: 'Фильтры' })).getByRole('button', { name: /^Сфера деятельности:/ }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить варианты.')
-    catalogApiMock.get.mockResolvedValue({ industries: [{ slug: 'saas', label: 'SaaS' }] })
-    await user.click(screen.getByRole('button', { name: 'Повторить' }))
-    expect(await screen.findByRole('menuitemcheckbox', { name: 'SaaS' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Активные компании (1)' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Фильтры' })).not.toBeInTheDocument()
   })
 
   it('shows dashboard errors with retry instead of empty or stale analytics', async () => {
@@ -207,7 +248,7 @@ describe('CompaniesDashboard acceptance — unavailable KPI', () => {
   })
 })
 
-describe('CompaniesDashboard startup invites', () => {
+describe('Existing startup Invite dialog behavior', () => {
   beforeEach(() => {
     companiesApiMock.create.mockReset()
     companiesApiMock.list.mockReset()
@@ -241,7 +282,7 @@ describe('CompaniesDashboard startup invites', () => {
       expiresAt: '2026-09-09T00:00:00Z',
       email: null,
     })
-    renderDashboard()
+    renderInvite()
     const openButton = await screen.findByRole('button', { name: 'Пригласить стартап' })
 
     fireEvent.click(openButton)
@@ -269,7 +310,7 @@ describe('CompaniesDashboard startup invites', () => {
       email: null,
     })
 
-    renderDashboard()
+    renderInvite()
     fireEvent.click(await screen.findByRole('button', { name: 'Пригласить стартап' }))
     fireEvent.click(screen.getByRole('button', { name: 'Создать ссылку' }))
 
@@ -286,7 +327,7 @@ describe('CompaniesDashboard startup invites', () => {
       email: null,
     })
 
-    renderDashboard()
+    renderInvite()
     fireEvent.click(await screen.findByRole('button', { name: 'Пригласить стартап' }))
     fireEvent.click(screen.getByRole('button', { name: 'Создать ссылку' }))
     const linkInput = await screen.findByDisplayValue(/\/invite\/copy-token/)
@@ -299,12 +340,10 @@ describe('CompaniesDashboard startup invites', () => {
     expect(await screen.findByText('Скопировано')).toBeInTheDocument()
   })
 
-  it('places Invite with the title and removes the subtitle and dashboard recalculation', async () => {
+  it('leaves the Companies page without its own Invite trigger', async () => {
     renderDashboard()
-    const title = await screen.findByRole('heading', { name: 'Портфель компаний', level: 1 })
-    const header = title.closest('div')!.parentElement!
-    expect(within(header).getByRole('button', { name: 'Пригласить стартап' })).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Пригласить стартап' })).toHaveLength(1)
+    await screen.findByRole('heading', { name: 'Портфель компаний', level: 1 })
+    expect(screen.queryByRole('button', { name: 'Пригласить стартап' })).not.toBeInTheDocument()
     expect(screen.queryByText('Обзор всех стартапов акселератора')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Принудительный пересчёт|Пересчитывается/ })).not.toBeInTheDocument()
   })
@@ -312,7 +351,7 @@ describe('CompaniesDashboard startup invites', () => {
   it('keeps invite loading and prevents duplicate create requests', async () => {
     let resolveInvite!: (value: { token: string }) => void
     invitesApiMock.create.mockImplementation(() => new Promise((resolve) => { resolveInvite = resolve }))
-    renderDashboard()
+    renderInvite()
     fireEvent.click(await screen.findByRole('button', { name: 'Пригласить стартап' }))
     const createButton = screen.getByRole('button', { name: 'Создать ссылку' })
     fireEvent.click(createButton)
@@ -325,7 +364,7 @@ describe('CompaniesDashboard startup invites', () => {
 
   it('allows retrying invite creation after a failed request', async () => {
     invitesApiMock.create.mockRejectedValueOnce(new Error('Invite unavailable')).mockResolvedValue({ token: 'retried-token' })
-    renderDashboard()
+    renderInvite()
     fireEvent.click(await screen.findByRole('button', { name: 'Пригласить стартап' }))
     fireEvent.click(screen.getByRole('button', { name: 'Создать ссылку' }))
     await waitFor(() => expect(invitesApiMock.create).toHaveBeenCalledTimes(1))
@@ -338,7 +377,7 @@ describe('CompaniesDashboard startup invites', () => {
   it('explains clipboard failure and keeps the invitation available for manual copy and retry', async () => {
     invitesApiMock.create.mockResolvedValue({ token: 'manual-copy-token' })
     vi.mocked(navigator.clipboard.writeText).mockRejectedValueOnce(new Error('Clipboard denied')).mockResolvedValue(undefined)
-    renderDashboard()
+    renderInvite()
     fireEvent.click(await screen.findByRole('button', { name: 'Пригласить стартап' }))
     fireEvent.click(screen.getByRole('button', { name: 'Создать ссылку' }))
     const input = await screen.findByDisplayValue(/\/invite\/manual-copy-token/)
@@ -375,9 +414,10 @@ describe('CompaniesDashboard company creation', () => {
     catalogApiMock.get.mockResolvedValue({ industries: [], business_models: [], profiles: {} })
   })
 
-  it('offers invites but no direct company creation form to a fund', async () => {
+  it('offers no direct company creation or Invite in Companies content', async () => {
     renderDashboard()
-    expect(await screen.findByRole('button', { name: 'Пригласить стартап' })).toBeInTheDocument()
+    await screen.findByRole('heading', { name: 'Портфель компаний', level: 1 })
+    expect(screen.queryByRole('button', { name: 'Пригласить стартап' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Добавить компанию' })).not.toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Название компании' })).not.toBeInTheDocument()
     expect(companiesApiMock.create).not.toHaveBeenCalled()
@@ -676,474 +716,25 @@ describe('CompaniesDashboard lifecycle tabs', () => {
   })
 })
 
-describe('CompaniesDashboard analytics filters', () => {
-  const alpha: CompanyStatusItem = {
-    id: 'alpha', name: 'Filter Alpha', industry: 'saas', geography: null, businessModel: null,
-    status: 'on_track', health: 'healthy', latestRevenue: 1200, latestPlanRevenue: 1000,
-    revenueGrowth: 0.1, runwayMonths: 10, lastUpdate: '2026-02-01', attention: [], taskProgress: null,
-    fact: { period: '2026-02-01', revenue: 1200, newUnits: 12, arpu: 100, marketingSpend: 999,
-      retentionRate: 0.925, churn: 0.075, ltv: 1500, cac: 20 },
-    plan: { period: '2026-02-01', revenue: 1000, newUnits: 10, arpu: 100, marketingSpend: 777,
-      retentionRate: 0.9, churn: 0.1, ltv: 1000, cac: 25 },
-  }
-  const beta: CompanyStatusItem = {
-    ...alpha, id: 'beta', name: 'Filter Beta', industry: 'fintech', status: 'behind', health: 'critical',
-    latestRevenue: 1800, latestPlanRevenue: 2000, revenueGrowth: 0.3, runwayMonths: 2,
-    fact: { ...alpha.fact!, revenue: 1800 }, plan: { ...alpha.plan!, revenue: 2000 },
-    attention: [{ kind: 'behind_plan', label: 'Отстаёт от плана', severity: 'warning' }],
-  }
-  const full: DashboardResponse = {
-    totalCompanies: 2, avgRevenue: 1500, avgCac: 10, avgLtv: 100, avgChurn: 0.05,
-    portfolioRevenue: 3000, revenueGrowth: 0.2, companiesAtRisk: 1, avgRunway: 6,
-    companiesWithoutData: 0, onTrack: 1, behind: 1, noPlan: 0, noData: 0, companies: [alpha, beta],
-    profitabilityByIndustry: [
-      { industry: 'saas', revenue: 1200, totalOpex: 960, ebitda: 240, ebitdaMargin: 0.2, companiesTotal: 1, companiesIncluded: 1 },
-      { industry: 'fintech', revenue: 1800, totalOpex: 2000, ebitda: -200, ebitdaMargin: -0.1111, companiesTotal: 1, companiesIncluded: 1 },
-    ],
-  }
-  const selected: DashboardResponse = {
-    ...full, totalCompanies: 1, portfolioRevenue: 1200, revenueGrowth: 0.1,
-    companiesAtRisk: 0, avgRunway: 10, onTrack: 1, behind: 0, companies: [alpha],
-    profitabilityByIndustry: [full.profitabilityByIndustry![0]],
-  }
-  const empty: DashboardResponse = {
-    ...full, totalCompanies: 0, portfolioRevenue: null, revenueGrowth: null,
-    avgRevenue: null, avgCac: null, avgLtv: null, avgChurn: null, companiesAtRisk: 0,
-    avgRunway: null, onTrack: 0, behind: 0, companies: [], profitabilityByIndustry: [],
-  }
-  const allPoints = [{ month: '2026-01', fact: 3000, plan: 3000 }]
-  const selectedPoints = [{ month: '2026-02', fact: 1200, plan: 1000 }]
-
-  function responseFor(filters: DashboardFilters = {}) {
-    if (filters.industries?.includes('edtech') || filters.health?.includes('no_data')) return empty
-    if (filters.companyIds?.length === 1 || filters.health?.length || filters.performanceStatus?.length || filters.industries?.length === 1) return selected
-    return full
-  }
-
+describe('Companies full-scope workspace', () => {
   beforeEach(() => {
-    navigateMock.mockReset()
-    companiesApiMock.archive.mockReset().mockResolvedValue({})
-    companiesApiMock.restore.mockReset().mockResolvedValue({})
-    companiesApiMock.remove.mockReset().mockResolvedValue({})
-    companiesApiMock.list.mockReset().mockImplementation(({ archived }) => Promise.resolve(archived
-      ? [{ id: 'inactive', name: 'Filter Inactive' }]
-      : [{ id: 'alpha', name: alpha.name }, { id: 'beta', name: beta.name }]))
-    dashboardApiMock.get.mockReset().mockImplementation(({ filters }) => Promise.resolve(responseFor(filters)))
-    dashboardApiMock.performance.mockReset().mockImplementation((_months, { filters }) => {
-      const response = responseFor(filters)
-      return Promise.resolve(response === empty ? [] : response === selected ? selectedPoints : allPoints)
-    })
-    catalogApiMock.get.mockReset().mockResolvedValue({ industries: [
-      { slug: 'saas', label: 'Software as a Service' }, { slug: 'fintech', label: 'Финтех' }, { slug: 'edtech', label: 'Образование' },
-    ] })
-    invitesApiMock.create.mockReset()
+    authStoreMock.user.productRole = 'fund'
+    dashboardApiMock.get.mockReset().mockResolvedValue({ totalCompanies: 1, companies: [{ id: 'full', name: 'Full portfolio company', industry: 'saas', status: 'no_data', health: 'no_data', latestRevenue: null, latestPlanRevenue: null, revenueGrowth: null, runwayMonths: null, lastUpdate: null, geography: null, businessModel: null, attention: [], taskProgress: null }], profitabilityByIndustry: [] })
+    dashboardApiMock.performance.mockReset().mockResolvedValue([])
+    companiesApiMock.list.mockReset().mockResolvedValue([])
+    catalogApiMock.get.mockReset().mockResolvedValue({ industries: [] })
+    portfolioAI.generate.mockReset().mockResolvedValue({ scope: 'portfolio', provider: 'demo', text: 'Full scope' })
   })
 
-  function sidebar() { return screen.getByRole('complementary', { name: 'Фильтры' }) }
-  function lastFilters(): DashboardFilters { return dashboardApiMock.get.mock.calls[dashboardApiMock.get.mock.calls.length - 1][0].filters }
-  async function selectOptions(label: string, names: string[]) {
-    const user = userEvent.setup()
-    await user.click(within(sidebar()).getByRole('button', { name: new RegExp(`^${label}:`) }))
-    for (const name of names) await user.click(await screen.findByRole('menuitemcheckbox', { name }))
-    await user.keyboard('{Escape}')
-  }
-  async function waitForInitial() { await screen.findByRole('tab', { name: 'Активные компании (2)' }) }
-  function expectKpi(label: string, value: string) {
-    const card = screen.getByText(label, { selector: 'span,button' }).closest<HTMLDivElement>('.rounded-lg')!
-    expect(within(card).getByText(value)).toBeInTheDocument()
-  }
-
-  it('places portfolio AI after summary/lifecycle and generates only for applied scope', async () => {
-    portfolioAI.generate.mockReset().mockResolvedValue({ scope: 'portfolio', provider: 'demo', text: 'Scope A analysis' })
+  it('has six analytics charts and no filters, and always requests the default portfolio scope', async () => {
     renderDashboard()
-    await waitForInitial()
+    expect(await screen.findByRole('tab', { name: 'Активные компании (1)' })).toBeVisible()
+    expect(screen.getByRole('group', { name: 'Графики компаний' }).querySelectorAll('h3')).toHaveLength(6)
+    expect(screen.queryByRole('button', { name: 'Фильтры' })).not.toBeInTheDocument()
+    expect(dashboardApiMock.get).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) })
+    expect(dashboardApiMock.performance).toHaveBeenCalledWith(6, { signal: expect.any(AbortSignal) })
     const ai = screen.getByRole('heading', { name: 'ИИ-анализ портфеля' }).closest('section')!
-    expect(ai.parentElement?.lastElementChild).toBe(ai)
-    expect(screen.getByRole('tab', { name: 'Активные компании (2)' }).compareDocumentPosition(ai) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Юнит-экономика компаний' }).compareDocumentPosition(ai) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(portfolioAI.generate).not.toHaveBeenCalled()
-    await selectOptions('Компании', [alpha.name])
-    await selectOptions('Сфера деятельности', ['Software as a Service'])
-    await selectOptions('Выполнение плана', ['Выполняет план'])
-    fireEvent.click(screen.getByRole('button', { name: 'Сформировать анализ' }))
-    expect(await screen.findByText('Scope A analysis')).toBeVisible()
-    expect(portfolioAI.generate).toHaveBeenCalledWith(lastFilters(), expect.any(AbortSignal))
-    expect(lastFilters()).toEqual({ companyIds: ['alpha'], industries: ['saas'], performanceStatus: ['on_track'] })
-    await selectOptions('Компании', [beta.name])
-    expect(screen.queryByText('Scope A analysis')).not.toBeInTheDocument()
-    expect(portfolioAI.generate).toHaveBeenCalledOnce()
-    portfolioAI.generate.mockResolvedValueOnce({ scope: 'portfolio', provider: 'demo', text: 'Scope B analysis' })
-    fireEvent.click(screen.getByRole('button', { name: 'Сформировать анализ' }))
-    expect(await screen.findByText('Scope B analysis')).toBeVisible()
-    expect(portfolioAI.generate).toHaveBeenLastCalledWith(lastFilters(), expect.any(AbortSignal))
+    await userEvent.setup().click(within(ai).getByRole('button', { name: 'Сформировать анализ' }))
+    await waitFor(() => expect(portfolioAI.generate).toHaveBeenCalledWith({}, expect.any(AbortSignal)))
   })
-
-  it('starts without filters and loads independent active company options', async () => {
-    renderDashboard()
-    await waitForInitial()
-    expect(lastFilters()).toEqual({})
-    expect(dashboardApiMock.performance).toHaveBeenCalledWith(6, expect.objectContaining({ filters: {}, signal: expect.any(AbortSignal) }))
-    expect(companiesApiMock.list).toHaveBeenCalledWith(expect.objectContaining({ archived: false, signal: expect.any(AbortSignal) }))
-    expect(within(sidebar()).getByRole('button', { name: 'Сбросить фильтры' })).toBeDisabled()
-    expect(within(sidebar()).getByRole('button', { name: 'Компании: Все компании' })).toBeInTheDocument()
-  })
-
-  it('supports one/multiple companies, stable options and clearing selection', async () => {
-    renderDashboard()
-    await waitForInitial()
-    await selectOptions('Компании', [alpha.name])
-    await screen.findByRole('tab', { name: 'Активные компании (1)' })
-    expect(lastFilters()).toEqual({ companyIds: ['alpha'] })
-    expect(within(sidebar()).getByRole('button', { name: 'Компании: 1 компания' })).toBeInTheDocument()
-    await selectOptions('Компании', [beta.name])
-    await screen.findByRole('tab', { name: 'Активные компании (2)' })
-    expect(lastFilters()).toEqual({ companyIds: ['alpha', 'beta'] })
-    expect(within(sidebar()).getByRole('button', { name: 'Компании: 2 компании' })).toBeInTheDocument()
-    const user = userEvent.setup()
-    await user.click(within(sidebar()).getByRole('button', { name: /^Компании:/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Очистить выбор' }))
-    await waitFor(() => expect(within(sidebar()).getByRole('button', { name: 'Компании: Все компании' })).toBeInTheDocument())
-    expect(companiesApiMock.list.mock.calls.filter(([options]) => options.archived === false)).toHaveLength(1)
-  })
-
-  it('uses catalog labels while sending slugs and shares every filter with performance + months', async () => {
-    renderDashboard()
-    await waitForInitial()
-    await selectOptions('Компании', [beta.name, alpha.name])
-    await selectOptions('Сфера деятельности', ['Software as a Service', 'Финтех'])
-    await selectOptions('Состояние', ['В норме'])
-    await selectOptions('Выполнение плана', ['Выполняет план'])
-    fireEvent.change(within(sidebar()).getByLabelText('С'), { target: { value: '2026-01-01' } })
-    fireEvent.change(within(sidebar()).getByLabelText('По'), { target: { value: '2026-02-28' } })
-    const filters = { companyIds: ['alpha', 'beta'], industries: ['fintech', 'saas'],
-      health: ['healthy'], performanceStatus: ['on_track'], periodFrom: '2026-01-01', periodTo: '2026-02-28' }
-    await waitFor(() => expect(lastFilters()).toEqual(filters))
-    expect(dashboardApiMock.performance).toHaveBeenLastCalledWith(6, expect.objectContaining({ filters, signal: expect.any(AbortSignal) }))
-    expect(await screen.findByText('Активных групп фильтров: 5')).toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: '12' }))
-    await waitFor(() => expect(dashboardApiMock.performance).toHaveBeenLastCalledWith(12, expect.objectContaining({ filters })))
-  })
-
-  it('updates all KPI, Active, Attention and rendered chart data from new responses', async () => {
-    renderDashboard()
-    await waitForInitial()
-    expectKpi('Компании в портфеле', '2')
-    expectKpi('Выручка портфеля', '₽3 000')
-    const grid=screen.getByRole('group',{name:'Графики компаний'})
-    expect(grid.children).toHaveLength(6)
-    expect(grid).toHaveClass('min-[1366px]:grid-cols-3')
-    const distribution=screen.getByRole('list',{name:'Выполнение плана по компаниям'})
-    expect(within(distribution).getByText('Отстают от плана: 1')).toBeInTheDocument()
-    expect(await screen.findByText('2026-01', { selector: 'tspan' })).toBeInTheDocument()
-    await selectOptions('Компании', [alpha.name])
-    await screen.findByRole('tab', { name: 'Активные компании (1)' })
-    expectKpi('Компании в портфеле', '1')
-    expectKpi('Выручка портфеля', '₽1 200')
-    expectKpi('Рост выручки', '+10.0%')
-    expectKpi('Выполняют план', '100%')
-    expectKpi('В зоне риска', '0')
-    expectKpi('Средний runway', '10 мес.')
-    expect(within(distribution).getByText('Отстают от плана: 0')).toBeInTheDocument()
-    expect(within(distribution).getByText('Выполняют план: 1')).toBeInTheDocument()
-    const runway=screen.getByRole('list',{name:'Runway компаний — значения'})
-    expect(runway).toHaveTextContent(alpha.name)
-    expect(runway).not.toHaveTextContent(beta.name)
-    const panel = screen.getByRole('tabpanel')
-    expect(within(panel).getAllByText(alpha.name).length).toBeGreaterThan(0)
-    expect(within(panel).queryByText(beta.name)).not.toBeInTheDocument()
-    expect(await screen.findByText('2026-02', { selector: 'tspan' })).toBeInTheDocument()
-    expect(screen.queryByText('2026-01', { selector: 'tspan' })).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('tab', { name: 'Требует внимания (0)' }))
-    expect(screen.getByText('Нет компаний, требующих внимания.')).toBeInTheDocument()
-    expect(within(screen.getByRole('list',{name:'Runway компаний — значения'})).queryByText(new RegExp(beta.name))).not.toBeInTheDocument()
-  })
-
-  it('blocks inverted dates, retains the last valid request range and allows correction', async () => {
-    renderDashboard()
-    await waitForInitial()
-    const from = within(sidebar()).getByLabelText('С')
-    const to = within(sidebar()).getByLabelText('По')
-    fireEvent.change(from, { target: { value: '2026-01-01' } })
-    fireEvent.change(to, { target: { value: '2026-02-01' } })
-    await waitFor(() => expect(lastFilters()).toEqual({ periodFrom: '2026-01-01', periodTo: '2026-02-01' }))
-    const dashboardCalls = dashboardApiMock.get.mock.calls.length
-    const performanceCalls = dashboardApiMock.performance.mock.calls.length
-    fireEvent.change(from, { target: { value: '2026-03-01' } })
-    expect(screen.getByRole('alert')).toHaveTextContent('Дата начала не может быть позже даты окончания')
-    expect(from).toHaveAttribute('aria-invalid', 'true')
-    expect(to).toHaveAttribute('aria-invalid', 'true')
-    expect(dashboardApiMock.get).toHaveBeenCalledTimes(dashboardCalls)
-    expect(dashboardApiMock.performance).toHaveBeenCalledTimes(performanceCalls)
-    await selectOptions('Состояние', ['В норме'])
-    expect(lastFilters()).toEqual({ periodFrom: '2026-01-01', periodTo: '2026-02-01', health: ['healthy'] })
-    fireEvent.change(to, { target: { value: '2026-04-01' } })
-    await waitFor(() => expect(lastFilters()).toEqual({ periodFrom: '2026-03-01', periodTo: '2026-04-01', health: ['healthy'] }))
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  })
-
-  it('treats an empty filtered portfolio as valid and reset restores data', async () => {
-    renderDashboard()
-    await waitForInitial()
-    await selectOptions('Сфера деятельности', ['Образование'])
-    expect(await screen.findByText('Компании по выбранным фильтрам не найдены.')).toBeInTheDocument()
-    expectKpi('Компании в портфеле', '0')
-    expectKpi('Выручка портфеля', '—')
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByText('Добавьте метрики, чтобы увидеть динамику выручки.')).toBeInTheDocument()
-    await userEvent.setup().click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Сбросить фильтры' }))
-    await screen.findByRole('tab', { name: 'Активные компании (2)' })
-    expectKpi('Выручка портфеля', '₽3 000')
-    expect(screen.getByText('2026-01', { selector: 'tspan' })).toBeInTheDocument()
-    expect(within(sidebar()).getByRole('button', { name: 'Сбросить фильтры' })).toBeDisabled()
-  })
-
-  it('reset clears all fields and statuses without reloading the page', async () => {
-    renderDashboard()
-    await waitForInitial()
-    await selectOptions('Компании', [alpha.name])
-    await selectOptions('Сфера деятельности', ['Software as a Service'])
-    await selectOptions('Состояние', ['В норме'])
-    await selectOptions('Выполнение плана', ['Выполняет план'])
-    fireEvent.change(within(sidebar()).getByLabelText('С'), { target: { value: '2026-01-01' } })
-    fireEvent.change(within(sidebar()).getByLabelText('По'), { target: { value: '2026-02-28' } })
-    await userEvent.setup().click(within(sidebar()).getByRole('button', { name: 'Сбросить фильтры' }))
-    await screen.findByRole('tab', { name: 'Активные компании (2)' })
-    expect(within(sidebar()).getByLabelText('С')).toHaveValue('')
-    expect(within(sidebar()).getByLabelText('По')).toHaveValue('')
-    expect(within(sidebar()).getByRole('button', { name: 'Сбросить фильтры' })).toBeDisabled()
-    expect(screen.queryByText(/Активных групп фильтров/)).not.toBeInTheDocument()
-  })
-
-  it('keeps inactive data outside analytics filters and explains it', async () => {
-    renderDashboard()
-    await waitForInitial()
-    await selectOptions('Компании', [alpha.name])
-    await selectOptions('Состояние', ['В норме'])
-    await userEvent.setup().click(screen.getByRole('tab', { name: 'Неактивные (1)' }))
-    expect(screen.getByText('Filter Inactive')).toBeInTheDocument()
-    expect(screen.getByText('Аналитические фильтры применяются только к активному портфелю.')).toBeInTheDocument()
-    expect(companiesApiMock.list.mock.calls.filter(([options]) => options.archived)).toHaveLength(1)
-  })
-
-  it('does not show previous chart series alongside newly loaded KPI', async () => {
-    let resolvePerformance!: (value: typeof selectedPoints) => void
-    dashboardApiMock.performance.mockImplementation((_months, { filters }) => filters.companyIds?.length
-      ? new Promise(resolve => { resolvePerformance = resolve }) : Promise.resolve(allPoints))
-    renderDashboard()
-    await waitForInitial()
-    await screen.findByText('2026-01', { selector: 'tspan' })
-    await selectOptions('Компании', [alpha.name])
-    await screen.findByRole('tab', { name: 'Активные компании (1)' })
-    expectKpi('Выручка портфеля', '₽1 200')
-    expect(screen.queryByText('2026-01', { selector: 'tspan' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Выручка портфеля по месяцам' })).not.toBeInTheDocument()
-    expect(screen.getByText('Обновляем данные по фильтрам…')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Пригласить стартап' })).toBeInTheDocument()
-    await act(async () => resolvePerformance(selectedPoints))
-    expect(await screen.findByText('2026-02', { selector: 'tspan' })).toBeInTheDocument()
-  })
-
-  it('aborts superseded filter requests and ignores late responses', async () => {
-    let resolveOld!: (value: DashboardResponse) => void
-    let oldSignal!: AbortSignal
-    dashboardApiMock.get.mockImplementation(({ filters, signal }) => filters.companyIds?.length === 1
-      ? new Promise(resolve => { resolveOld = resolve; oldSignal = signal }) : Promise.resolve(full))
-    renderDashboard()
-    await waitForInitial()
-    await selectOptions('Компании', [alpha.name])
-    expect(screen.getByRole('tab', { name: 'Активные компании (2)' })).toBeInTheDocument()
-    await selectOptions('Компании', [beta.name])
-    await waitFor(() => expect(oldSignal.aborted).toBe(true))
-    await act(async () => resolveOld(selected))
-    expect(screen.getByRole('tab', { name: 'Активные компании (2)' })).toBeInTheDocument()
-    expectKpi('Выручка портфеля', '₽3 000')
-    expect(await screen.findByText('2026-01', { selector: 'tspan' })).toBeInTheDocument()
-  })
-
-  it('supports keyboard collapse, reopen and mobile Sheet closing with focus return', async () => {
-    renderDashboard()
-    await waitForInitial()
-    const user = userEvent.setup()
-    within(sidebar()).getByRole('button', { name: 'Свернуть фильтры' }).focus()
-    await user.keyboard('{Enter}')
-    expect(screen.queryByRole('complementary', { name: 'Фильтры' })).not.toBeInTheDocument()
-    screen.getByRole('button', { name: 'Показать фильтры' }).focus()
-    await user.keyboard('{Enter}')
-    expect(sidebar()).toBeInTheDocument()
-    const trigger = screen.getByRole('button', { name: /^Фильтры$/ })
-    trigger.focus()
-    await user.keyboard('{Enter}')
-    expect(await screen.findByRole('dialog', { name: 'Фильтры' })).toBeInTheDocument()
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByLabelText('С')).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: 'Закрыть фильтры' })).toBeInTheDocument()
-    await user.keyboard('{Escape}')
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(trigger).toHaveFocus()
-  })
-
-  it('keeps mobile menu focus inside the Sheet and Escape closes only the selection', async () => {
-    renderDashboard()
-    await waitForInitial()
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /^Фильтры$/ }))
-    const dialog = screen.getByRole('dialog')
-    const selection = within(dialog).getByRole('button', { name: /^Компании:/ })
-    selection.focus()
-    await user.keyboard('{Enter}')
-    const option = await screen.findByRole('menuitemcheckbox', { name: alpha.name })
-    option.focus()
-    expect(option).toHaveFocus()
-    await user.keyboard(' ')
-    expect(option).toHaveAttribute('aria-checked', 'true')
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(selection).toHaveFocus()
-    await user.keyboard('{Escape}')
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Фильтры · 1$/ })).toHaveFocus()
-  })
-
-  it('synchronizes both summary datasets and resets excluded local selections without changing global filters', async () => {
-    renderDashboard()
-    await waitForInitial()
-    const tables = ['План и факт по компаниям', 'Юнит-экономика компаний']
-      .map(name => screen.getByRole('region', { name }))
-    const user = userEvent.setup()
-    const dashboardCalls = dashboardApiMock.get.mock.calls.length
-    const performanceCalls = dashboardApiMock.performance.mock.calls.length
-    for (const section of tables) {
-      expect(within(within(section).getByRole('table')).getAllByRole('row')).toHaveLength(3)
-      await user.click(within(section).getByRole('combobox', { name: 'Компания' }))
-      await user.click(screen.getByRole('option', { name: beta.name }))
-      expect(within(within(section).getByRole('table')).queryByRole('row', { name: `Открыть: ${alpha.name}` })).not.toBeInTheDocument()
-    }
-    await user.click(within(tables[0]).getByRole('button', { name: /^Показатели/ }))
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Выручка' }))
-    await user.keyboard('{Escape}')
-    expect(within(tables[1]).getByRole('button', { name: /^Показатели/ })).toHaveTextContent('3 / 3')
-    expect(dashboardApiMock.get).toHaveBeenCalledTimes(dashboardCalls)
-    expect(dashboardApiMock.performance).toHaveBeenCalledTimes(performanceCalls)
-    expectKpi('Компании в портфеле', '2')
-    await selectOptions('Сфера деятельности', ['Software as a Service'])
-    await screen.findByRole('tab', { name: 'Активные компании (1)' })
-    for (const section of tables) {
-      const table = within(section).getByRole('table')
-      expect(within(table).getByRole('row', { name: `Открыть: ${alpha.name}` })).toBeInTheDocument()
-      expect(within(table).queryByRole('row', { name: `Открыть: ${beta.name}` })).not.toBeInTheDocument()
-      expect(within(section).getByRole('combobox')).toHaveTextContent('Общий портфель')
-    }
-    expect(lastFilters()).toEqual({ industries: ['saas'] })
-    expect(within(tables[0]).getByRole('button', { name: /^Показатели/ })).toHaveTextContent('3 / 4')
-    await user.click(within(sidebar()).getByRole('button', { name: 'Сбросить фильтры' }))
-    await screen.findByRole('tab', { name: 'Активные компании (2)' })
-    for (const section of tables) expect(within(within(section).getByRole('table')).getAllByRole('row')).toHaveLength(3)
-  })
-
-  it('resets an empty summary through the shared E5 reset and opens its company row', async () => {
-    renderDashboard()
-    await waitForInitial()
-    await selectOptions('Сфера деятельности', ['Образование'])
-    await screen.findByRole('tab', { name: 'Активные компании (0)' })
-    for (const name of ['План и факт по компаниям', 'Юнит-экономика компаний']) {
-      const section = screen.getByRole('region', { name })
-      expect(within(section).getByText('По выбранным фильтрам компании не найдены.')).toBeInTheDocument()
-      expect(within(section).queryByRole('table')).not.toBeInTheDocument()
-    }
-    const summary = screen.getByRole('region', { name: 'План и факт по компаниям' })
-    await userEvent.setup().click(within(summary).getByRole('button', { name: 'Сбросить фильтры' }))
-    await screen.findByRole('tab', { name: 'Активные компании (2)' })
-    const row = within(within(summary).getByRole('table')).getByRole('row', { name: `Открыть: ${alpha.name}` })
-    expect(within(row).getAllByRole('cell')[0]).toHaveTextContent('Факт ₽1 200')
-    expect(within(row).getAllByRole('cell')[0]).toHaveTextContent('План ₽1 000')
-    fireEvent.click(within(row).getAllByRole('cell')[0])
-    expectNavigationTo('/companies/alpha')
-  })
-
-  it('synchronizes company charts and E6 with company and date filters', async () => {
-    dashboardApiMock.get.mockImplementation(({ filters }: { filters: DashboardFilters }) => {
-      const response = responseFor(filters)
-      return Promise.resolve(filters.periodTo ? {
-        ...response, portfolioRevenue: 900,
-        companies: [{ ...alpha, fact: { ...alpha.fact!, period: '2026-01-01', revenue: 900 },
-          plan: { ...alpha.plan!, period: '2026-01-01', revenue: 950 } }],
-      } : response)
-    })
-    renderDashboard()
-    await waitForInitial()
-    const bar = screen.getByRole('region', { name: 'План vs Факт по компаниям' })
-    const donut = screen.getByRole('region', { name: 'Доля каждой компании в общей выручке портфеля' })
-    const summary = screen.getByRole('region', { name: 'План и факт по компаниям' })
-    expect(within(bar).getByRole('table')).toHaveTextContent(beta.name)
-    expect(within(donut).getByText('₽1 800 · 60.0%')).toBeInTheDocument()
-    await selectOptions('Компании', [alpha.name])
-    await screen.findByRole('tab', { name: 'Активные компании (1)' })
-    expect(within(bar).getByRole('table')).not.toHaveTextContent(beta.name)
-    expect(within(donut).getByText('₽1 200 · 100.0%')).toBeInTheDocument()
-    fireEvent.change(within(sidebar()).getByLabelText('По'), { target: { value: '2026-01-31' } })
-    await waitFor(() => expect(within(donut).getByText('₽900 · 100.0%')).toBeInTheDocument())
-    expect(within(bar).getByRole('table')).toHaveTextContent('Январь 2026₽900₽950')
-    const cell = within(within(within(summary).getByRole('table')).getByRole('row', { name: `Открыть: ${alpha.name}` })).getAllByRole('cell')[0]
-    expect(cell).toHaveTextContent('Факт ₽900План ₽950')
-    expectKpi('Выручка портфеля', '₽900')
-    expect(dashboardApiMock.performance).toHaveBeenLastCalledWith(6, expect.objectContaining({
-      filters: { companyIds: ['alpha'], periodTo: '2026-01-31' },
-    }))
-  })
-
-  it('uses the shared global reset from an empty E7 chart', async () => {
-    renderDashboard()
-    await waitForInitial()
-    await selectOptions('Сфера деятельности', ['Образование'])
-    await screen.findByRole('tab', { name: 'Активные компании (0)' })
-    const donut = screen.getByRole('region', { name: 'Доля каждой компании в общей выручке портфеля' })
-    expect(within(donut).getByText('Нет данных о выручке для расчёта долей.')).toBeInTheDocument()
-    const bar = screen.getByRole('region', { name: 'План vs Факт по компаниям' })
-    expect(within(bar).getByText('Нет данных о выручке для сравнения плана и факта.')).toBeInTheDocument()
-    await userEvent.setup().click(within(donut).getByRole('button', { name: 'Сбросить фильтры' }))
-    await screen.findByRole('tab', { name: 'Активные компании (2)' })
-    expect(lastFilters()).toEqual({})
-    expect(within(donut).getByText('₽1 800 · 60.0%')).toBeInTheDocument()
-    expect(within(bar).getByRole('table')).toHaveTextContent(beta.name)
-  })
-
-  it('synchronizes industry profitability with global industry and date responses', async () => {
-    dashboardApiMock.get.mockImplementation(({ filters }: { filters: DashboardFilters }) => {
-      const response = responseFor(filters)
-      return Promise.resolve(filters.periodTo ? { ...selected, portfolioRevenue: 900,
-        companies: [{ ...alpha, fact: { ...alpha.fact!, period: '2026-01-01', revenue: 900 } }],
-        profitabilityByIndustry: [{ industry: 'saas', revenue: 900, totalOpex: 990, ebitda: -90,
-          ebitdaMargin: -0.1, companiesTotal: 1, companiesIncluded: 1 }],
-      } : response)
-    })
-    renderDashboard()
-    await waitForInitial()
-    const region = screen.getByRole('region', { name: 'Прибыльность по сферам деятельности' })
-    const table = within(region).getByRole('table')
-    expect(table).toHaveTextContent('Software as a Service20.0%')
-    expect(table).toHaveTextContent('Финтех−11.1%')
-    await selectOptions('Сфера деятельности', ['Software as a Service'])
-    await screen.findByRole('tab', { name: 'Активные компании (1)' })
-    expect(within(table).queryByRole('rowheader', { name: 'Финтех' })).not.toBeInTheDocument()
-    fireEvent.change(within(sidebar()).getByLabelText('По'), { target: { value: '2026-01-31' } })
-    await waitFor(() => expect(table).toHaveTextContent('Software as a Service−10.0%₽-90₽900₽990'))
-    expectKpi('Выручка портфеля', '₽900')
-    expect(within(screen.getByRole('region', { name: 'План и факт по компаниям' })).getByRole('table')).toHaveTextContent('Факт ₽900')
-    expect(lastFilters()).toEqual({ industries: ['saas'], periodTo: '2026-01-31' })
-  })
-
-  it('resets an empty E8 result using the shared dashboard filter handler', async () => {
-    renderDashboard()
-    await waitForInitial()
-    await selectOptions('Сфера деятельности', ['Образование'])
-    await screen.findByRole('tab', { name: 'Активные компании (0)' })
-    const region = screen.getByRole('region', { name: 'Прибыльность по сферам деятельности' })
-    expect(within(region).getByText('Недостаточно фактических данных для расчёта прибыльности.')).toBeInTheDocument()
-    await userEvent.setup().click(within(region).getByRole('button', { name: 'Сбросить фильтры' }))
-    await screen.findByRole('tab', { name: 'Активные компании (2)' })
-    expect(within(region).getByRole('table')).toHaveTextContent('Финтех−11.1%')
-    expect(lastFilters()).toEqual({})
-  })
-
 })

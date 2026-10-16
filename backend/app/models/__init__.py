@@ -17,5 +17,29 @@ from app.models.cohort import Cohort
 from app.models.budget import Budget
 from app.models.task import Task
 from app.models.analytics_event import AnalyticsEvent
+from app.models.comment import Comment
+from app.models.correction import Correction
 
-__all__ = ["Base", "User", "Subscription", "AICache", "AuditLog", "Organization", "Invite", "Company", "Metric", "HiringPlan", "HiringPlanRow", "HiringTeam", "HiringSettings", "Financing", "Valuation", "Cohort", "Budget", "Task", "AnalyticsEvent"]
+__all__ = [
+    "Base",
+    "User",
+    "Subscription",
+    "AICache",
+    "AuditLog",
+    "Organization",
+    "Invite",
+    "Company",
+    "Metric",
+    "HiringPlan",
+    "HiringPlanRow",
+    "HiringTeam",
+    "HiringSettings",
+    "Financing",
+    "Valuation",
+    "Cohort",
+    "Budget",
+    "Task",
+    "AnalyticsEvent",
+    "Comment",
+    "Correction",
+]

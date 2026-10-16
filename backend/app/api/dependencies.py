@@ -1,17 +1,29 @@
-from fastapi import Depends, HTTPException, status, Cookie, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional
 import uuid
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
-from app.core.security import decode_access_token
-from app.core.tenant_context import set_current_org, reset_current_org
-from app.models.user import User
-from app.models.company import Company
-from app.core.roles import ROLE_ADMIN, ROLE_COMPANY, ROLE_OBSERVER
-from app.services.subscription_service import SubscriptionService
-from app.services.audit_service import get_audit_action, write_audit_log
+from typing import Optional
+
 from app.core.config import settings
+from app.core.database import get_db
+from app.core.product_roles import resolve_product_role
+from app.core.roles import (
+    ROLE_ADMIN as ROLE_ADMIN,
+)
+from app.core.roles import (
+    ROLE_COMPANY as ROLE_COMPANY,
+)
+from app.core.roles import (
+    ROLE_OBSERVER as ROLE_OBSERVER,
+)
+from app.core.security import decode_access_token
+from app.core.tenant_context import reset_current_org, set_current_org
+from app.models.company import Company
+from app.models.organization import Organization
+from app.models.user import User
+from app.services.audit_service import get_audit_action, write_audit_log
+from app.services.subscription_service import SubscriptionService
+from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 security = HTTPBearer(auto_error=False)
 
@@ -124,16 +136,29 @@ async def get_current_user_full(
     на время обработки запроса и СБРАСЫВАЕТ его (по токену ContextVar) в finally,
     чтобы контекст не протекал на следующий запрос в том же asyncio-таске.
     """
-    user = await db.get(User, current_user["user_id"])
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден"
+    # Authentication identity is selected by signed subject, before tenant context.
+    # Join the binding too: role resolution must not add per-request lookups.
+    identity = (
+        await db.execute(
+            select(User, Organization, Company)
+            .outerjoin(Organization, User.organization_id == Organization.id)
+            .outerjoin(Company, User.company_id == Company.id)
+            .where(User.id == current_user["user_id"])
+            .execution_options(skip_tenant_filter=True)
         )
-
+    ).first()
+    user, organization, bound_company = identity if identity else (None, None, None)
+    if not user:
+        raise HTTPException(401, "Пользователь не найден")
+    product_context = {
+        "product_role": resolve_product_role(user, organization, bound_company),
+        "organization_type": organization.organization_type if organization else None,
+    }
     token = set_current_org(user.organization_id)
     try:
         yield {
             **current_user,
+            **product_context,
             "role": user.role,
             "organization_id": user.organization_id,
             "company_id": user.company_id,
@@ -173,38 +198,77 @@ def require_role(*allowed: str):
     return _require_role
 
 
-def require_company_access():
-    """Фабрика зависимостей: проверяет доступ пользователя к указанной компании."""
+def require_product_role(*allowed: str):
+    async def policy(current_user: dict = Depends(get_current_user_full)) -> dict:
+        if current_user.get("product_role") not in allowed:
+            raise HTTPException(403, "Недостаточно прав")
+        return current_user
 
-    async def _require_company_access(
+    return policy
+
+
+require_portfolio_read = require_product_role("fund", "investor")
+require_company_list_read = require_product_role("fund", "investor")
+require_fund_invite = require_product_role("fund")
+require_portfolio_ai = require_product_role("fund")
+
+
+async def require_initial_company(
+    user: dict = Depends(require_product_role("startup")),
+) -> dict:
+    if (
+        user["role"] != "admin"
+        or user["organization_type"] != "startup"
+        or user["company_id"] is not None
+    ):
+        raise HTTPException(403, "Компания уже привязана или создание недоступно")
+    return user
+
+
+def require_company_access():
+    """Company-detail/module read: tenant fund or the startup's exact binding."""
+
+    async def policy(
         company_id: uuid.UUID,
         current_user: dict = Depends(get_current_user_full),
         db: AsyncSession = Depends(get_db),
     ) -> dict:
-        # skip_tenant_filter: guard-запрос читает Company напрямую по id, чтобы
-        # вернуть 403 (а не 404) при кросс-org доступе — явная org-проверка ниже
-        # остаётся enforcement'ом.
+        product_role = current_user.get("product_role")
+        if product_role not in ("fund", "startup"):
+            raise HTTPException(403, "Недостаточно прав")
+        if product_role == "startup" and current_user["company_id"] != company_id:
+            raise HTTPException(403, "Недостаточно прав")
         company = await db.get(
             Company, company_id, execution_options={"skip_tenant_filter": True}
         )
         if not company:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Компания не найдена"
-            )
-
-        if current_user["role"] == ROLE_ADMIN:
-            if (
-                current_user["organization_id"] is None
-                or company.organization_id != current_user["organization_id"]
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав"
-                )
-        elif current_user["company_id"] != company_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав"
-            )
-
+            raise HTTPException(404, "Компания не найдена")
+        if (
+            current_user["organization_id"] is None
+            or company.organization_id != current_user["organization_id"]
+        ):
+            raise HTTPException(403, "Недостаточно прав")
         return current_user
 
-    return _require_company_access
+    return policy
+
+
+async def require_company_source_write(
+    user: dict = Depends(require_company_access()),
+) -> dict:
+    if user["product_role"] != "startup":
+        raise HTTPException(403, "Недостаточно прав")
+    return user
+
+
+async def require_company_ai(user: dict = Depends(require_company_access())) -> dict:
+    return user
+
+
+async def require_company_lifecycle(
+    user: dict = Depends(require_company_access()),
+) -> dict:
+    # Preserve existing Fund lifecycle; startup/investor get no global lifecycle.
+    if user["product_role"] != "fund":
+        raise HTTPException(403, "Недостаточно прав")
+    return user

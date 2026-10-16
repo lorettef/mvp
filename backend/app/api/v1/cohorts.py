@@ -2,13 +2,12 @@ import uuid
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.api.dependencies import require_company_access, require_company_source_write
 from app.core.database import get_db
-from app.api.dependencies import require_company_access, ROLE_ADMIN, ROLE_COMPANY
-from app.schemas.cohort import CohortUpsert, CohortResponse
+from app.schemas.cohort import CohortResponse, CohortUpsert
 from app.services.cohort_service import CohortService
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -17,14 +16,9 @@ router = APIRouter()
 async def upsert_cohort(
     company_id: uuid.UUID,
     data: CohortUpsert,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
 
     service = CohortService(db)
     cohort = await service.upsert_cohort(company_id, data)
@@ -47,14 +41,9 @@ async def list_cohorts(
 async def delete_cohort(
     company_id: uuid.UUID,
     cohort_id: uuid.UUID,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
 
     service = CohortService(db)
     await service.delete_cohort(company_id, cohort_id)

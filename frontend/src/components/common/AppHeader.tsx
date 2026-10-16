@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LogOut, Menu, Moon, Sun, Languages } from 'lucide-react'
+import { LogOut, Menu, Moon, Sun, Languages, Link2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { logout } from '@/auth/authSession'
 import { switchLanguage } from '@/i18n'
 import { useTheme } from '@/components/theme-provider'
-import { canViewPortfolio, globalNav, isGlobalNavActive, type GlobalNavItem } from '@/lib/navigation'
+import { globalNav, isGlobalNavActive, type GlobalNavItem } from '@/lib/navigation'
+import { getDefaultRoute } from '@/lib/defaultRoute'
+import { usePermissions } from '@/hooks/usePermissions'
+import { StartupInvite } from '@/components/common/StartupInvite'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -21,10 +24,11 @@ export function AppHeader() {
   const { theme, setTheme } = useTheme()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
-  const isFund = canViewPortfolio(user)
-  const navItems = globalNav.filter((item) => !item.fundOnly || isFund)
-  const label = (item: GlobalNavItem) => t(isFund && item.portfolioLabelKey ? item.portfolioLabelKey : item.labelKey)
+  const permissions = usePermissions()
+  const navItems = permissions.canViewPortfolio ? globalNav : []
+  const label = (item: GlobalNavItem) => t(item.labelKey)
   const isActive = (item: GlobalNavItem) => isGlobalNavActive(item, location.pathname)
 
   const linkClass = (active: boolean) =>
@@ -36,7 +40,7 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur sm:px-6">
       <div className="flex min-w-0 items-center gap-6">
-        <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
+        <Link to={getDefaultRoute(user) ?? '/'} className="flex shrink-0 items-center gap-2.5">
           <BrandMark className="h-7 w-7 rounded-md" />
           <span className="truncate text-sm font-semibold">Startup Investment Bridge</span>
         </Link>
@@ -52,6 +56,10 @@ export function AppHeader() {
               {label(item)}
             </Link>
           ))}
+          {permissions.canInvite && <Button type="button" size="sm" variant="outline" className="ml-1 hover:border-primary hover:bg-primary hover:text-primary-foreground" onClick={() => setInviteOpen(true)}>
+            <Link2 className="h-4 w-4" aria-hidden="true" />
+            {t('dashboard.invite.title')}
+          </Button>}
         </nav>
       </div>
 
@@ -91,6 +99,10 @@ export function AppHeader() {
                     {label(item)}
                   </Link>
                 ))}
+                {permissions.canInvite && <Button type="button" variant="ghost" className="w-full justify-start" onClick={() => { setMobileOpen(false); setInviteOpen(true) }}>
+                  <Link2 className="h-4 w-4" aria-hidden="true" />
+                  {t('dashboard.invite.title')}
+                </Button>}
               </nav>
 
               <div className="space-y-1 border-t p-3">
@@ -122,6 +134,7 @@ export function AppHeader() {
             </div>
           </SheetContent>
         </Sheet>
+        {permissions.canInvite && <StartupInvite open={inviteOpen} onOpenChange={setInviteOpen} />}
       </div>
     </header>
   )

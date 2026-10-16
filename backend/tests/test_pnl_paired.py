@@ -3,13 +3,13 @@
 from datetime import date
 
 import pytest
-from sqlalchemy import event
-
 from app.models.budget import Budget
 from app.models.financing import Financing
 from app.models.hiring_settings import HiringSettings
 from app.models.metric import Metric
 from app.services.pnl_service import PnLService
+from sqlalchemy import event
+
 from .conftest import auth_headers
 
 
@@ -56,14 +56,17 @@ def budget(cid, period, kind):
         (None, None),
     ],
 )
-async def test_scenarios(client, db_session, seeded_company, seeded_admin, mt, bt):
+async def test_scenarios(
+    client, db_session, seeded_company, seeded_company_user, mt, bt
+):
     p = date(2026, 2, 1)
     m = metric(seeded_company.id, p, mt) if mt else None
     b = budget(seeded_company.id, p, bt) if bt else None
     db_session.add_all([x for x in (m, b) if x is not None])
     await db_session.flush()
     res = await client.get(
-        f"/api/v1/companies/{seeded_company.id}/pnl", headers=auth_headers(seeded_admin)
+        f"/api/v1/companies/{seeded_company.id}/pnl",
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200, res.text
     pairs = res.json()["periods"]
@@ -223,7 +226,7 @@ async def test_union_future_horizon_order(db_session, seeded_company, monkeypatc
     assert [m.period for m in short.months] == [date(2026, m, 1) for m in (10, 9, 8)]
 
 
-async def test_bounded_selects(client, db_session, seeded_company, seeded_admin):
+async def test_bounded_selects(client, db_session, seeded_company, seeded_company_user):
     for month in range(1, 13):
         for kind in ("plan", "fact"):
             db_session.add_all(
@@ -247,7 +250,7 @@ async def test_bounded_selects(client, db_session, seeded_company, seeded_admin)
             statements.clear()
             res = await client.get(
                 f"/api/v1/companies/{seeded_company.id}/pnl?months={months}",
-                headers=auth_headers(seeded_admin),
+                headers=auth_headers(seeded_company_user),
             )
             assert res.status_code == 200
             counts.append(len(statements))
@@ -262,10 +265,11 @@ async def test_mutations_and_tenancy(
     client,
     db_session,
     seeded_company,
-    seeded_admin,
+    seeded_company_user,
     seeded_observer,
     other_company,
     other_admin,
+    other_company_user,
 ):
     p = date(2026, 2, 1)
     db_session.add_all(
@@ -273,7 +277,7 @@ async def test_mutations_and_tenancy(
     )
     await db_session.flush()
     base = f"/api/v1/companies/{seeded_company.id}"
-    headers = auth_headers(seeded_admin)
+    headers = auth_headers(seeded_company_user)
 
     async def load():
         res = await client.get(f"{base}/pnl", headers=headers)
@@ -320,7 +324,7 @@ async def test_mutations_and_tenancy(
         assert (
             await client.delete(
                 f"/api/v1/companies/{other_company.id}/{path}/{sid}",
-                headers=auth_headers(other_admin),
+                headers=auth_headers(other_company_user),
             )
         ).status_code == 404
         assert (

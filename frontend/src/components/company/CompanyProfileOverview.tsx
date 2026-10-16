@@ -11,8 +11,9 @@ interface Source<T> {data?:T;isLoading:boolean;isError:boolean;error:unknown;ref
 interface Props {
   metrics:Source<Metric[]>;cohorts:Source<Cohort[]>;pnl:Source<PnLResponse>;cashflow:Source<CashFlowResponse>
   health:Source<BusinessHealthResponse>;unit:Source<UnitEconomicsResponse>
+  actions?:ReactNode
 }
-export function CompanyProfileOverview({ metrics,cohorts,pnl,cashflow,health,unit }:Props) {
+export function CompanyProfileOverview({ metrics,cohorts,pnl,cashflow,health,unit,actions }:Props) {
   const { t } = useTranslation()
   const available = <T,>(source:Source<T>) => source.isError||source.isLoading?undefined:source.data
   const sources = [{name:'metrics',query:metrics},{name:'pnl',query:pnl},{name:'unit',query:unit},{name:'health',query:health}]
@@ -20,7 +21,10 @@ export function CompanyProfileOverview({ metrics,cohorts,pnl,cashflow,health,uni
     <QueryState isLoading={query.isLoading} isError={query.isError} error={query.error} onRetry={()=>{void query.refetch()}}>{body}</QueryState>
   </Section>
   return <section aria-label={t('company.profile.title')} className="min-w-0 space-y-4">
-    <h2 className="text-lg font-semibold">{t('company.profile.title')}</h2>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <h2 className="text-lg font-semibold">{t('company.profile.title')}</h2>
+      {actions}
+    </div>
     <CompanyKpiStrip metrics={available(metrics)} health={available(health)} unit={available(unit)} periods={available(pnl)?.periods??[]} />
     {sources.filter(s=>s.query.isError).map(s=><div key={s.name} role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive">
       <span>{t('company.profile.sourceError',{source:t(`company.profile.sources.${s.name}`)})}</span>

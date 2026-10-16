@@ -30,6 +30,39 @@ function makeData(over: Partial<UnitEconomicsResponse> = {}): UnitEconomicsRespo
 
 describe('UnitEconomicsTab', () => {
   beforeEach(async () => { await i18n.changeLanguage('ru') })
+  it('keeps derived LTV/CAC canonical while Fund adds a separate correction for its source snapshot', async () => {
+    const onCreateCorrection = vi.fn().mockResolvedValue(undefined)
+    render(<UnitEconomicsTab data={makeData()} canCreateCorrection onCreateCorrection={onCreateCorrection}
+      corrections={[]} />)
+    expect(screen.getByText('5.00')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Скорректировать: Соотношение LTV/CAC' }))
+    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent === 'Исходное значение: 5.00')).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Скорректированное значение' }), { target: { value: '4.5' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Причина' }), { target: { value: 'Review' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить корректировку' }))
+    await waitFor(() => expect(onCreateCorrection).toHaveBeenCalledWith({
+      target_type: 'unit_economics', indicator_key: 'ltv_cac', target_period: '2026-02-01',
+      target_scenario: 'fact', corrected_value: '4.5', reason: 'Review',
+    }))
+    expect(screen.getAllByText('5.00').length).toBeGreaterThan(0)
+  })
+  it('targets the displayed UE source snapshot and keeps other periods separate', async () => {
+    const onCreateComment = vi.fn().mockResolvedValue(undefined)
+    render(<UnitEconomicsTab data={makeData()} canCreateComment onCreateComment={onCreateComment} comments={[{
+      id: 'review', companyId: 'comp1', authorId: 'fund', authorName: 'Fund',
+      targetType: 'unit_economics', metricId: null, field: null, indicatorKey: 'ltv_cac',
+      targetPeriod: '2026-01-01', targetScenario: 'fact', text: 'Older snapshot', createdAt: '2026-01-01',
+    }]} />)
+    fireEvent.click(screen.getByRole('button', { name: /Комментарии: Соотношение LTV\/CAC, 0/ }))
+    expect(screen.queryByText('Older snapshot')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Комментарий' }), { target: { value: 'Snapshot review' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить комментарий' }))
+    await waitFor(() => expect(onCreateComment).toHaveBeenCalledWith({
+      target_type: 'unit_economics', indicator_key: 'ltv_cac',
+      target_period: '2026-02-01', target_scenario: 'fact', text: 'Snapshot review',
+    }))
+    expect(screen.getByText('5.00')).toBeInTheDocument()
+  })
   it('renders LTV/CAC, Magic Number, Runway values', () => {
     render(<UnitEconomicsTab data={makeData()} />)
     expect(screen.getByText('Соотношение LTV/CAC')).toBeInTheDocument()

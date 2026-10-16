@@ -95,6 +95,7 @@ describe('authSession', () => {
       fullName: 'Admin B',
       companyName: 'Org 2',
       role: 'admin',
+      productRole: null,
       organizationId: 'org-2',
       companyId: null,
       subscriptionPlan: 'pro',
@@ -197,6 +198,7 @@ describe('authSession', () => {
       fullName: 'Fresh Admin C',
       companyName: 'Org 3',
       role: 'member',
+      productRole: null,
       organizationId: 'org-3',
       companyId: 'company-c',
       subscriptionPlan: 'business',
@@ -228,4 +230,30 @@ describe('authSession', () => {
 
     expect(authApi.me).toHaveBeenCalledTimes(1)
   })
+  it('clears same-tenant caches on product-role downgrade before publishing the new actor', async () => {
+    const fund = { ...userA, productRole: 'fund' as const }
+    useAuthStore.getState().setUser(fund)
+    queryClient.setQueryData(['tenant', 'org-1', 'company', 'secret'], { source: 'private' })
+    vi.mocked(authApi.me).mockResolvedValue({ ...fund, productRole: 'investor', createdAt: '' })
+    const seen: unknown[] = []
+    const stop = useAuthStore.subscribe(state => {
+      if (state.user?.productRole === 'investor') seen.push(queryClient.getQueryData(['tenant', 'org-1', 'company', 'secret']))
+    })
+    await bootstrap()
+    stop()
+    expect(seen).toEqual([undefined])
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
+    expect(useAuthStore.getState().sessionReady).toBe(true)
+  })
+
+  it('retains caches on ordinary same-scope revalidation', async () => {
+    const fund = { ...userA, productRole: 'fund' as const }
+    useAuthStore.getState().setUser(fund)
+    queryClient.setQueryData(['retained'], { value: 42 })
+    vi.mocked(authApi.me).mockResolvedValue({ ...fund, fullName: 'Updated name', createdAt: '' })
+    await bootstrap()
+    expect(queryClient.getQueryData(['retained'])).toEqual({ value: 42 })
+    expect(useAuthStore.getState().user?.fullName).toBe('Updated name')
+  })
+
 })

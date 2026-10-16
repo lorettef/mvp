@@ -1,18 +1,15 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.limiter import limiter
-from app.core.database import get_db
 from app.api.dependencies import (
     consume_subscription_limit,
-    require_company_access,
-    ROLE_ADMIN,
-    ROLE_COMPANY,
+    require_company_source_write,
 )
+from app.core.database import get_db
+from app.core.limiter import limiter
 from app.schemas.plan import PlanGenerateResponse
 from app.services.plan_generation_service import PlanGenerationService
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -23,15 +20,10 @@ async def generate_plan(
     request: Request,
     company_id: uuid.UUID,
     months: int = Query(6, ge=1, le=24),
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
     """Генерация плана метрик на основе фактической истории (TZ v5.0, раздел 7.1)."""
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
 
     if not await consume_subscription_limit(user["user_id"], db):
         raise HTTPException(
@@ -39,6 +31,4 @@ async def generate_plan(
             detail="Превышен дневной лимит AI-запросов",
         )
 
-    return await PlanGenerationService(db).generate(
-        company_id, user["user_id"], months
-    )
+    return await PlanGenerationService(db).generate(company_id, user["user_id"], months)

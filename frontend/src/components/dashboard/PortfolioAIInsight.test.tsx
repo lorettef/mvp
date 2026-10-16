@@ -7,7 +7,7 @@ import { PortfolioAIInsight } from './PortfolioAIInsight'
 
 const http = vi.hoisted(() => ({ post: vi.fn() }))
 vi.mock('@/api/client', () => ({ api: http }))
-const admin: User = { id: 'admin', organizationId: 'tenant-a', organizationType: 'fund', role: 'admin', companyId: null, email: '', fullName: '', companyName: '', subscriptionPlan: 'business', dailyLimit: null, usedToday: 0 }
+const admin: User = { id: 'admin', organizationId: 'tenant-a', organizationType: 'fund', role: 'admin', productRole: 'fund', companyId: null, email: '', fullName: '', companyName: '', subscriptionPlan: 'business', dailyLimit: null, usedToday: 0 }
 const text = 'Проблема\nНет плана у одной компании.\n\nПричина\nПо доступным данным достоверно определить причину нельзя.\n\nДействие\nСверьте план компании.\nДедлайн: сегодня'
 const isResult = (_: string, element: Element | null) => element?.tagName === 'P' && element.textContent === text
 const response = { scope: 'portfolio', provider: 'demo', text }
@@ -113,7 +113,7 @@ describe('Portfolio AI', () => {
     expect(generate()).toBeEnabled()
   })
 
-  it.each([{ role: 'company' }, { role: 'observer' }, { organizationType: 'startup' }])('hides generation for prohibited context %j', async (override) => {
+  it.each([{ role: 'company', productRole: 'startup' }, { role: 'observer', productRole: 'investor' }, { organizationType: 'startup', productRole: 'startup' }] as const)('hides generation for prohibited context %j', async (override) => {
     useAuthStore.getState().setUser({ ...admin, ...override })
     render(<PortfolioAIInsight />)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()

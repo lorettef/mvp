@@ -1,17 +1,16 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.api.dependencies import require_company_access, require_company_source_write
 from app.core.database import get_db
-from app.api.dependencies import require_company_access, ROLE_ADMIN, ROLE_COMPANY
 from app.schemas.task import (
-    TaskCreate,
-    TaskUpdate,
-    TaskResponse,
     ReadinessResponse,
+    TaskCreate,
+    TaskResponse,
+    TaskUpdate,
 )
 from app.services.task_service import TaskService
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -36,15 +35,10 @@ async def list_tasks(
 async def create_task(
     company_id: uuid.UUID,
     data: TaskCreate,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
     """Создание задачи (admin или company)."""
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
     service = TaskService(db)
     task = await service.create_task(company_id, data)
     return TaskResponse.model_validate(task)
@@ -55,15 +49,10 @@ async def update_task(
     company_id: uuid.UUID,
     task_id: uuid.UUID,
     data: TaskUpdate,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
     """Обновление задачи (admin или company)."""
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
     service = TaskService(db)
     task = await service.get_task(task_id)
     if task.company_id != company_id:
@@ -79,15 +68,10 @@ async def update_task(
 async def delete_task(
     company_id: uuid.UUID,
     task_id: uuid.UUID,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
     """Удаление задачи (admin или company)."""
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
     service = TaskService(db)
     task = await service.get_task(task_id)
     if task.company_id != company_id:

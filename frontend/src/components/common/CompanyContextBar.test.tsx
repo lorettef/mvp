@@ -24,7 +24,7 @@ vi.mock('@/api/catalog', () => ({ catalogApi: catalogApiMock }))
 vi.mock('@/auth/authSession', () => ({ getTenantKey: () => 'org-1' }))
 
 const authStoreMock = vi.hoisted(() => ({
-  user: null as { role: string; organizationType?: string; companyId?: string | null; companyName?: string } | null,
+  user: null as { role: string; productRole?: string; organizationId?: string; organizationType?: string; companyId?: string | null; companyName?: string } | null,
 }))
 
 vi.mock('@/store/authStore', () => ({
@@ -72,7 +72,7 @@ describe('CompanyContextBar', () => {
   })
 
   it('renders grouped navigation for a fund admin inside a company', async () => {
-    authStoreMock.user = { role: 'admin', organizationType: 'fund', companyId: null }
+    authStoreMock.user = { role: 'admin', productRole: 'fund', organizationId: 'org1', organizationType: 'fund', companyId: null }
     renderBar('/companies/comp1')
 
     expect(await screen.findByText('Рост')).toBeInTheDocument()
@@ -81,12 +81,13 @@ describe('CompanyContextBar', () => {
     expect(screen.getByText('Планирование')).toBeInTheDocument()
     expect(screen.getByText('Задачи')).toBeInTheDocument()
     expect(screen.getByText('Отчёты')).toBeInTheDocument()
-    expect(screen.queryByText('Обзор')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Обзор компании' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Метрики' })).toHaveAttribute('href', '/companies/comp1?tab=metrics')
   })
 
   it('opens the Finance dropdown with the six finance tabs', async () => {
     const user = userEvent.setup()
-    authStoreMock.user = { role: 'admin', organizationType: 'fund', companyId: null }
+    authStoreMock.user = { role: 'admin', productRole: 'fund', organizationId: 'org1', organizationType: 'fund', companyId: null }
     renderBar('/companies/comp1')
 
     await user.click(await screen.findByRole('button', { name: /Финансы/ }))
@@ -98,33 +99,39 @@ describe('CompanyContextBar', () => {
     expect(screen.getByText('Чувствительность')).toBeInTheDocument()
   })
 
-  it('shows Overview (active on /dashboard) for a startup without a switcher', async () => {
-    authStoreMock.user = { role: 'admin', organizationType: 'startup', companyId: 'comp1' }
-    renderBar('/dashboard')
+  it('shows company modules for a startup profile without a portfolio switcher', async () => {
+    authStoreMock.user = { role: 'admin', productRole: 'startup', organizationId: 'org1', organizationType: 'startup', companyId: 'comp1' }
+    renderBar('/companies/comp1')
 
-    const overview = await screen.findByText('Обзор')
+    await screen.findByText('Рост')
     const nav = screen.getByRole('navigation', { name: 'Навигация компании' })
     const items = Array.from(nav.querySelectorAll('a, button'))
-    expect(items).toHaveLength(8) // seven groups plus the mobile "More" trigger
+    expect(items).toHaveLength(9) // eight sections/groups plus the mobile "More" trigger
     for (const item of items) {
       expect(item).toHaveClass('hover:bg-primary', 'hover:text-primary-foreground')
-      expect(item).toHaveClass(item === overview ? 'bg-accent' : 'bg-muted/70')
     }
-    expect(overview).toHaveClass('font-semibold', 'ring-1')
+    expect(screen.getByRole('link', { name: 'Обзор компании' })).toHaveAttribute('href', '/companies/comp1')
     expect(await screen.findByText('Acme')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Сменить компанию/ })).not.toBeInTheDocument()
   })
 
   it('renders nothing outside company context for a fund admin', async () => {
-    authStoreMock.user = { role: 'admin', organizationType: 'fund', companyId: null }
+    authStoreMock.user = { role: 'admin', productRole: 'fund', organizationId: 'org1', organizationType: 'fund', companyId: null }
     const { container } = renderBar('/dashboard')
 
     await new Promise((r) => setTimeout(r, 0))
     expect(container.querySelector('nav[aria-label="Навигация компании"]')).not.toBeInTheDocument()
   })
 
+  it('does not fetch or flash a company bar on the startup redirect or provisioning route', async () => {
+    authStoreMock.user = { role: 'admin', productRole: 'startup', organizationId: 'org1', organizationType: 'startup', companyId: 'comp1' }
+    const { container } = renderBar('/dashboard')
+    expect(container.querySelector('nav[aria-label="Навигация компании"]')).not.toBeInTheDocument()
+    expect(companiesApiMock.get).not.toHaveBeenCalled()
+  })
+
   it('returns a fund profile to Companies through the context switcher', async () => {
-    authStoreMock.user = { role: 'admin', organizationType: 'fund', companyId: null }
+    authStoreMock.user = { role: 'admin', productRole: 'fund', organizationId: 'org1', organizationType: 'fund', companyId: null }
     renderBar('/companies/comp1?tab=pnl')
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Сменить компанию' }))
@@ -132,13 +139,10 @@ describe('CompanyContextBar', () => {
     expect(await screen.findByRole('heading', { name: 'Companies list' })).toBeVisible()
   })
 
-  it('retains startup Overview and finance tab deep links', async () => {
-    authStoreMock.user = { role: 'company', organizationType: 'startup', companyId: 'comp1' }
+  it('retains startup finance deep links alongside its company Overview', async () => {
+    authStoreMock.user = { role: 'company', productRole: 'startup', organizationId: 'org1', organizationType: 'startup', companyId: 'comp1' }
     renderBar('/companies/comp1?tab=pnl')
-    const overview = await screen.findByRole('link', { name: 'Обзор' })
-    expect(overview).toHaveAttribute('href', '/dashboard')
-    await userEvent.setup().click(overview)
-    expect(screen.getByRole('link', { name: 'Обзор' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Обзор компании' })).toBeVisible()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Финансы' }))
     expect(screen.getByRole('menuitem', { name: 'P&L' })).toBeVisible()
   })

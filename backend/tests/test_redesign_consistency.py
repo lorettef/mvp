@@ -36,10 +36,10 @@ def budget(kind="fact", **changes):
 
 
 async def test_fact_source_updates_agree_across_all_views(
-    client, seeded_company, seeded_admin
+    client, seeded_company, seeded_company_user, seeded_admin
 ):
     base = f"/api/v1/companies/{seeded_company.id}"
-    headers = auth_headers(seeded_admin)
+    headers = auth_headers(seeded_company_user)
 
     async def put(path, body):
         response = await client.put(f"{base}/{path}", headers=headers, json=body)
@@ -47,7 +47,12 @@ async def test_fact_source_updates_agree_across_all_views(
         return response.json()
 
     async def get(path):
-        response = await client.get(path, headers=headers)
+        response = await client.get(
+            path,
+            headers=(
+                auth_headers(seeded_admin) if path == "/api/v1/dashboard" else headers
+            ),
+        )
         assert response.status_code == 200, response.text
         return response.json()
 
@@ -112,10 +117,10 @@ async def test_fact_source_updates_agree_across_all_views(
 
 @pytest.mark.parametrize("deleted_kind", ["plan", "fact"])
 async def test_metric_delete_preserves_same_month_other_scenario(
-    client, seeded_company, seeded_admin, deleted_kind
+    client, seeded_company, seeded_company_user, deleted_kind
 ):
     base = f"/api/v1/companies/{seeded_company.id}/metrics"
-    headers = auth_headers(seeded_admin)
+    headers = auth_headers(seeded_company_user)
     sources = {}
     for kind in ("plan", "fact"):
         response = await client.put(base, headers=headers, json=metric(kind))

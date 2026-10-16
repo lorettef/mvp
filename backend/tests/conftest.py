@@ -1,19 +1,16 @@
 import os
 
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-
-from app.main import app
 from app.core.database import Base, get_db
 from app.core.security import create_access_token
-from app.models.organization import Organization
+from app.main import app
 from app.models.company import Company
+from app.models.organization import Organization
 from app.models.user import User
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL", "sqlite+aiosqlite:///./test.db"
-)
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -24,7 +21,9 @@ async def db_session():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async_session = async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
 
     async with async_session() as session:
         yield session
@@ -107,7 +106,11 @@ async def seeded_company_user(
     db_session: AsyncSession, seeded_organization: Organization, seeded_company: Company
 ) -> User:
     return await make_user(
-        db_session, "company@test.ru", "company", seeded_organization.id, seeded_company.id
+        db_session,
+        "company@test.ru",
+        "company",
+        seeded_organization.id,
+        seeded_company.id,
     )
 
 
@@ -116,7 +119,11 @@ async def seeded_observer(
     db_session: AsyncSession, seeded_organization: Organization, seeded_company: Company
 ) -> User:
     return await make_user(
-        db_session, "observer@test.ru", "observer", seeded_organization.id, seeded_company.id
+        db_session,
+        "observer@test.ru",
+        "observer",
+        seeded_organization.id,
+        seeded_company.id,
     )
 
 
@@ -153,7 +160,11 @@ async def other_admin(
     db_session: AsyncSession, other_organization: Organization, other_company: Company
 ) -> User:
     return await make_user(
-        db_session, "other-admin@test.ru", "admin", other_organization.id, other_company.id
+        db_session,
+        "other-admin@test.ru",
+        "admin",
+        other_organization.id,
+        other_company.id,
     )
 
 
@@ -162,13 +173,32 @@ async def second_org_admins(
     db_session: AsyncSession, other_organization: Organization, other_company: Company
 ) -> list[User]:
     u1 = await make_user(
-        db_session, "other-admin-2@test.ru", "admin", other_organization.id, other_company.id
+        db_session,
+        "other-admin-2@test.ru",
+        "admin",
+        other_organization.id,
+        other_company.id,
     )
     u2 = await make_user(
-        db_session, "other-admin-3@test.ru", "admin", other_organization.id, other_company.id
+        db_session,
+        "other-admin-3@test.ru",
+        "admin",
+        other_organization.id,
+        other_company.id,
     )
     return [u1, u2]
 
 
 def auth_cookie(user: User) -> dict:
     return {"access_token": create_access_token({"sub": str(user.id)})}
+
+
+@pytest_asyncio.fixture
+async def other_company_user(db_session, other_organization, other_company):
+    return await make_user(
+        db_session,
+        "other-startup@test.ru",
+        "company",
+        other_organization.id,
+        other_company.id,
+    )

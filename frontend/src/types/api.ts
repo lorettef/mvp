@@ -1,3 +1,60 @@
+import type { ProductRole } from '@/store/authStore'
+
+export type CommentTargetType = 'overview' | 'metric_value' | 'unit_economics'
+export interface ReviewComment {
+  id: string
+  companyId: string
+  authorId: string
+  authorName: string
+  targetType: CommentTargetType
+  metricId: string | null
+  field: string | null
+  indicatorKey: string | null
+  targetPeriod: string | null
+  targetScenario: 'plan' | 'fact' | null
+  text: string
+  createdAt: string
+}
+export interface ReviewCommentCreate {
+  target_type: CommentTargetType
+  metric_id?: string
+  field?: string
+  indicator_key?: string
+  target_period?: string
+  target_scenario?: 'plan' | 'fact'
+  text: string
+}
+export type CorrectionTargetType = 'metric_value' | 'unit_economics'
+export interface ReviewCorrection {
+  id: string
+  companyId: string
+  authorId: string
+  authorName: string
+  targetType: CorrectionTargetType
+  metricId: string | null
+  field: string | null
+  indicatorKey: string | null
+  targetPeriod: string | null
+  targetScenario: 'plan' | 'fact' | null
+  sourceMetricId: string | null
+  sourceUpdatedAt: string | null
+  originalValue: string
+  correctedValue: string
+  currentSourceValue: string | null
+  isStale: boolean
+  reason: string
+  createdAt: string
+}
+export interface ReviewCorrectionCreate {
+  target_type: CorrectionTargetType
+  metric_id?: string
+  field?: string
+  indicator_key?: string
+  target_period?: string
+  target_scenario?: 'plan' | 'fact'
+  corrected_value: string
+  reason: string
+}
 // Wire-contract convention (see src/api/client.ts):
 // REQUEST DTOs are snake_case and sent as-is (the client does NOT transform request bodies;
 // the backend is Pydantic with snake_case fields). RESPONSE types are camelCase — the
@@ -31,6 +88,7 @@ export interface UserResponse {
   fullName: string | null
   companyName: string | null
   role: string
+  productRole?: ProductRole | null
   organizationId: string | null
   companyId: string | null
   createdAt: string

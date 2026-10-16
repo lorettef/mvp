@@ -9,11 +9,13 @@ import { Sparkles, Loader2 } from 'lucide-react'
 interface AIInsightProps {
   companyId: string
   scenario: InsightScenario
+  initialResult?: InsightResponse | null
+  onResult?: (result: InsightResponse) => void
 }
 
-export function AIInsight({ companyId, scenario }: AIInsightProps) {
+export function AIInsight({ companyId, scenario, initialResult, onResult }: AIInsightProps) {
   const { t } = useTranslation()
-  const [result, setResult] = useState<InsightResponse | null>(null)
+  const [result, setResult] = useState<InsightResponse | null>(initialResult ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   // Stale-response guard: a response from a previous company/scenario must never populate state.
@@ -25,12 +27,12 @@ export function AIInsight({ companyId, scenario }: AIInsightProps) {
 
   useEffect(() => {
     requestSeq.current += 1
-    setResult(null)
+    setResult(initialResult ?? null)
     setError('')
     setLoading(false)
     inFlight.current = false
     return () => { requestSeq.current += 1 }
-  }, [companyId, scenario])
+  }, [companyId, scenario, initialResult])
 
   const handleAnalyze = async () => {
     if (inFlight.current) return
@@ -42,6 +44,7 @@ export function AIInsight({ companyId, scenario }: AIInsightProps) {
       const insight = await companiesApi.insight(companyId, scenario)
       if (seq !== requestSeq.current) return
       setResult(insight)
+      onResult?.(insight)
     } catch (err: unknown) {
       if (seq !== requestSeq.current) return
       const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail

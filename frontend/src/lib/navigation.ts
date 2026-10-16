@@ -1,17 +1,16 @@
 import type { User } from '@/store/authStore'
+import { getPermissions } from '@/lib/permissions'
 
 export interface GlobalNavItem {
   key: string
   labelKey: string
   href: string
-  portfolioLabelKey?: string
-  fundOnly?: boolean
   matchChildren?: boolean
 }
 
-/** Preserve the existing portfolio role dispatch, including legacy admins. */
-export function canViewPortfolio(user: Pick<User, 'role' | 'organizationType'> | null | undefined): boolean {
-  return user?.role === 'admin' && user.organizationType !== 'startup'
+/** Compatibility entry for shared navigation; the permission model owns policy. */
+export function canViewPortfolio(user: Pick<User, 'productRole' | 'organizationId' | 'companyId'> | null | undefined): boolean {
+  return getPermissions(user).canViewPortfolio
 }
 
 export function isGlobalNavActive(item: GlobalNavItem, pathname: string): boolean {
@@ -29,8 +28,6 @@ export interface CompanyNavGroup {
   labelKey: string
   /** Прямой tab для групп без children (unit/tasks/reports). */
   tab?: string
-  /** Пункт «Overview» показывается только для startup-роли. */
-  startupOnly?: boolean
   children?: CompanyNavLeaf[]
 }
 
@@ -40,8 +37,8 @@ export interface CompanyNavGroup {
  * their tab deep links. Settings remain available through UserMenu.
  */
 export const globalNav: GlobalNavItem[] = [
-  { key: 'dashboard', labelKey: 'nav.dashboard', portfolioLabelKey: 'nav.home', href: '/dashboard' },
-  { key: 'companies', labelKey: 'nav.companies', href: '/companies', fundOnly: true, matchChildren: true },
+  { key: 'dashboard', labelKey: 'nav.home', href: '/dashboard' },
+  { key: 'companies', labelKey: 'nav.companies', href: '/companies', matchChildren: true },
 ]
 
 /**
@@ -49,23 +46,23 @@ export const globalNav: GlobalNavItem[] = [
  * Desktop и mobile рендерят ОДНУ эту модель — разница только в presentation.
  */
 export const companyGroups: CompanyNavGroup[] = [
-  { key: 'overview', labelKey: 'nav.overview', startupOnly: true },
+  { key: 'overview', labelKey: 'company.profile.title', tab: 'overview' },
+  { key: 'metrics', labelKey: 'company.tabs.metrics', tab: 'metrics' },
+  { key: 'unit', labelKey: 'company.tabs.unit', tab: 'unit' },
   {
     key: 'growth',
     labelKey: 'nav.growth',
     children: [
-      { key: 'metrics', labelKey: 'company.tabs.metrics', tab: 'metrics' },
       { key: 'cohorts', labelKey: 'company.tabs.cohorts', tab: 'cohorts' },
     ],
   },
-  { key: 'unit', labelKey: 'company.tabs.unit', tab: 'unit' },
   {
     key: 'finance',
     labelKey: 'nav.finance',
     children: [
-      { key: 'budget', labelKey: 'company.tabs.budget', tab: 'budget' },
       { key: 'pnl', labelKey: 'company.tabs.pnl', tab: 'pnl' },
       { key: 'cashflow', labelKey: 'company.tabs.cashflow', tab: 'cashflow' },
+      { key: 'budget', labelKey: 'company.tabs.budget', tab: 'budget' },
       { key: 'financing', labelKey: 'company.tabs.financing', tab: 'financing' },
       { key: 'credit', labelKey: 'company.tabs.credit', tab: 'credit' },
       { key: 'valuation', labelKey: 'company.tabs.valuation', tab: 'valuation' },
@@ -86,12 +83,13 @@ export const companyGroups: CompanyNavGroup[] = [
 
 /** Все «листовые» tab-значения компании (для «More» на mobile). */
 export const companyTabKeys: string[] = [
+  'overview',
   'metrics',
-  'cohorts',
   'unit',
-  'budget',
   'pnl',
   'cashflow',
+  'budget',
+  'cohorts',
   'financing',
   'credit',
   'valuation',
@@ -101,3 +99,8 @@ export const companyTabKeys: string[] = [
   'tasks',
   'reports',
 ]
+
+/** Unknown and missing company tabs resolve before any module is rendered. */
+export function resolveCompanyTab(tab: string | null): string {
+  return tab && companyTabKeys.includes(tab) ? tab : 'overview'
+}

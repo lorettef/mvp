@@ -1,18 +1,15 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.limiter import limiter
-from app.core.database import get_db
 from app.api.dependencies import (
     consume_subscription_limit,
-    require_company_access,
-    ROLE_ADMIN,
-    ROLE_COMPANY,
+    require_company_source_write,
 )
+from app.core.database import get_db
+from app.core.limiter import limiter
 from app.schemas.recommendation_tasks import RecommendationTasksResponse
 from app.services.recommendation_task_service import RecommendationTaskService
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -25,15 +22,10 @@ router = APIRouter()
 async def generate_company_recommendations(
     request: Request,
     company_id: uuid.UUID,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
     """AI-рекомендации по компании с авто-конвертацией в задачи (дедупликация)."""
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
 
     if not await consume_subscription_limit(user["user_id"], db):
         raise HTTPException(

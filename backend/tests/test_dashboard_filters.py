@@ -4,15 +4,15 @@ from datetime import date, datetime, timezone
 from uuid import uuid4
 
 import pytest
-from pydantic import ValidationError
-from sqlalchemy import event
-
 from app.models.budget import Budget
 from app.models.company import Company
 from app.models.financing import Financing
 from app.models.metric import Metric
 from app.schemas.dashboard import DashboardFilters
 from app.services.dashboard_service import DashboardService
+from pydantic import ValidationError
+from sqlalchemy import event
+
 from .conftest import auth_headers, make_user
 
 
@@ -552,9 +552,9 @@ async def test_tenant_isolation_unknown_and_foreign_ids(
 
 
 @pytest.mark.parametrize("path", ["/api/v1/dashboard", "/api/v1/dashboard/performance"])
-async def test_admin_only_access_preserved(
+async def test_product_portfolio_access(
     client, seeded_company_user, seeded_observer, path
 ):
-    for user in (seeded_company_user, seeded_observer):
+    for user, expected in ((seeded_company_user, 403), (seeded_observer, 200)):
         response = await client.get(path, headers=auth_headers(user))
-        assert response.status_code == 403
+        assert response.status_code == expected

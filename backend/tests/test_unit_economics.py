@@ -1,12 +1,12 @@
 from datetime import date
 
 import pytest
+from app.models.budget import Budget
+from app.models.cohort import Cohort
+from app.models.financing import Financing
+from app.models.metric import Metric
 
 from .conftest import auth_headers
-from app.models.metric import Metric
-from app.models.cohort import Cohort
-from app.models.budget import Budget
-from app.models.financing import Financing
 
 
 async def _seed_unit_economics(db, company_id):
@@ -253,7 +253,7 @@ async def test_unit_economics_observer_read(client, seeded_company, seeded_obser
         f"/api/v1/companies/{seeded_company.id}/unit-economics",
         headers=auth_headers(seeded_observer),
     )
-    assert res.status_code == 200
+    assert res.status_code == 403
 
 
 async def test_unit_economics_unauthenticated(client, seeded_company):

@@ -34,6 +34,8 @@ export const qk = {
   ],
 
   company: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id],
+  companyComments: (tenant: string, id: string, targetType: string): readonly string[] => ['tenant', tenant, 'company', id, 'comments', targetType],
+  companyCorrections: (tenant: string, id: string, targetType: string): readonly string[] => ['tenant', tenant, 'company', id, 'corrections', targetType],
   companyHealth: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'health'],
   companyMetrics: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'metrics'],
   companyCohorts: (tenant: string, id: string): readonly string[] => ['tenant', tenant, 'company', id, 'cohorts'],

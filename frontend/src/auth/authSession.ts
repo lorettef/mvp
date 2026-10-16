@@ -38,6 +38,7 @@ function mapUser(userData: UserResponse): User {
     fullName: userData.fullName ?? '',
     companyName: userData.companyName ?? '',
     role: userData.role,
+    productRole: ['fund', 'startup', 'investor'].includes(userData.productRole ?? '') ? userData.productRole : null,
     organizationId: userData.organizationId,
     companyId: userData.companyId,
     subscriptionPlan: userData.subscriptionPlan,
@@ -88,11 +89,16 @@ export async function bootstrap(): Promise<void> {
 
   if (bootstrapped) return
   bootstrapped = true
+  useAuthStore.getState().setSessionPending()
 
   try {
     // Сверяем stale persisted user с сервером до рендера защищённых роутов.
     const userData = await authApi.me()
-    useAuthStore.getState().setUser(mapUser(userData))
+    const next = mapUser(userData)
+    const previous = useAuthStore.getState().user
+    const scope = (user: User | null) => JSON.stringify(user && [user.id, user.organizationId, user.companyId, user.productRole ?? null, user.role, user.organizationType ?? null])
+    if (scope(previous) !== scope(next)) queryClientRef?.clear()
+    useAuthStore.getState().setUser(next)
   } catch {
     // 401 или сеть: сессия невалидна — полный локальный logout
     // (store + query cache + persisted storage).

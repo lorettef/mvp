@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Sparkles } from 'lucide-react'
 import { portfolioInsightsApi } from '@/api/portfolioInsights'
 import { useAuthStore } from '@/store/authStore'
-import { canViewPortfolio } from '@/lib/navigation'
+import { usePermissions } from '@/hooks/usePermissions'
 import { dashboardFilterKey, normalizeDashboardFilters } from '@/lib/dashboardFilters'
 import type { DashboardFilters, PortfolioInsightResponse } from '@/types/api'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,8 @@ import { Section } from '@/components/shared/section'
 
 export function PortfolioAIInsight({ filters }: { filters?: DashboardFilters }) {
   const { user } = useAuthStore()
-  if (!canViewPortfolio(user)) return null
+  const { canUsePortfolioAI } = usePermissions()
+  if (!canUsePortfolioAI) return null
   // A keyed session clears both visible output and pending requests synchronously
   // on scope/tenant changes. Reordered equivalent selections retain the result.
   const identity = [user?.organizationId ?? user?.id, ...dashboardFilterKey(filters)]

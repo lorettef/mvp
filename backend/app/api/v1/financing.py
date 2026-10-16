@@ -1,26 +1,17 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.api.dependencies import require_company_access, require_company_source_write
 from app.core.database import get_db
-from app.api.dependencies import require_company_access, ROLE_ADMIN, ROLE_COMPANY
 from app.schemas.financing import (
     FinancingCreate,
     FinancingResponse,
     FinancingUpdate,
 )
 from app.services.financing_service import FinancingService
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
-
-
-def _require_write_role(user: dict) -> None:
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
 
 
 @router.get("/{company_id}/financing", response_model=list[FinancingResponse])
@@ -42,10 +33,9 @@ async def list_financing(
 async def create_financing(
     company_id: uuid.UUID,
     data: FinancingCreate,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_write_role(user)
     service = FinancingService(db)
     row = await service.create_financing(company_id, data)
     return FinancingResponse.model_validate(row)
@@ -59,10 +49,9 @@ async def update_financing(
     company_id: uuid.UUID,
     financing_id: uuid.UUID,
     data: FinancingUpdate,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_write_role(user)
     service = FinancingService(db)
     row = await service.update_financing(company_id, financing_id, data)
     return FinancingResponse.model_validate(row)
@@ -72,10 +61,9 @@ async def update_financing(
 async def delete_financing(
     company_id: uuid.UUID,
     financing_id: uuid.UUID,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_write_role(user)
     service = FinancingService(db)
     await service.delete_financing(company_id, financing_id)
     return {"detail": "ok"}

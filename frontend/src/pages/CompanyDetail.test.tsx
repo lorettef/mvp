@@ -6,8 +6,7 @@ import { CompanyDetail } from './CompanyDetail'
 import { qk } from '@/lib/queryKeys'
 import type { Metric, MetricBulkUpsert, BudgetUpsert, CohortUpsert } from '@/types/api'
 
-// Profile charts now mount on every tab. Keep real ResponsiveContainer and
-// supply observable geometry rather than disabling its resize behaviour.
+// Keep real ResponsiveContainer and supply observable geometry for Overview.
 beforeEach(() => {
   const original=Element.prototype.getBoundingClientRect
   vi.spyOn(Element.prototype,'getBoundingClientRect').mockImplementation(function(this:Element){
@@ -24,6 +23,7 @@ afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals()})
 
 const mocks = vi.hoisted(() => ({
   role: 'admin' as string,
+  productRole: null as 'fund' | 'startup' | 'investor' | null,
   companiesApi: {
     get: vi.fn(),
     metrics: vi.fn(),
@@ -45,12 +45,16 @@ const mocks = vi.hoisted(() => ({
     deleteTask: vi.fn(),
     readiness: vi.fn(),
     recalculate: vi.fn(),
-    generatePlan: vi.fn(),
     insight: vi.fn(),
   },
 }))
 
 vi.mock('@/api/companies', () => ({ companiesApi: mocks.companiesApi }))
+
+const commentsApiMock = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn() }))
+vi.mock('@/api/comments', () => ({ commentsApi: commentsApiMock }))
+const correctionsApiMock = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn() }))
+vi.mock('@/api/corrections', () => ({ correctionsApi: correctionsApiMock }))
 
 const catalogApiMock = vi.hoisted(() => ({
   get: vi.fn(),
@@ -110,6 +114,7 @@ vi.mock('@/store/authStore', () => {
       fullName: 'Admin',
       companyName: 'C',
       role: mocks.role,
+      productRole: mocks.productRole ?? (mocks.role === 'observer' ? 'investor' : 'startup'),
       organizationId: 'org1',
       companyId: 'comp1',
       subscriptionPlan: 'pro',
@@ -423,31 +428,7 @@ const sensitivityData = {
   summary: 'Консервативный сценарий снижает оценку.',
 }
 
-const planGenerateData = {
-  companyId: 'comp1',
-  provider: 'demo',
-  summary: 'Демо-план: рост выручки 5% в месяц.',
-  metrics: [
-    {
-      period: '2026-03-01',
-      newUnits: 50,
-      arpu: 950,
-      revenue: 126000,
-      marketingSpend: 15750,
-      retentionRate: 0.96,
-    },
-    {
-      period: '2026-04-01',
-      newUnits: 52,
-      arpu: 960,
-      revenue: 132300,
-      marketingSpend: 16200,
-      retentionRate: 0.96,
-    },
-  ],
-}
-
-function renderCompanyDetail(tab?: string, providedClient?: QueryClient) {
+function renderCompanyDetail(tab: string | null = 'metrics', providedClient?: QueryClient) {
   const queryClient = providedClient ?? new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -456,10 +437,14 @@ function renderCompanyDetail(tab?: string, providedClient?: QueryClient) {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[entry]}>
+        <Link to="/companies/comp1">Open Overview</Link>
+        <Link to="/companies/comp1?tab=metrics">Open Metrics</Link>
         <Link to="/companies/comp1?tab=pnl">Open P&amp;L</Link>
         <Link to="/companies/comp2">Open another company</Link>
         <Routes>
           <Route path="/companies/:companyId" element={<CompanyDetail />} />
+          <Route path="/companies" element={<h1>Portfolio companies</h1>} />
+          <Route path="/dashboard" element={<h1>Own dashboard</h1>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -477,6 +462,7 @@ describe('CompanyDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.role = 'admin'
+    mocks.productRole = null
     mocks.companiesApi.get.mockResolvedValue(company)
     mocks.companiesApi.metrics.mockResolvedValue([metric])
     mocks.companiesApi.cohorts.mockResolvedValue([cohort])
@@ -493,43 +479,141 @@ describe('CompanyDetail', () => {
     creditApiMock.forecast.mockResolvedValue(creditData)
     valuationApiMock.get.mockResolvedValue(valuationData)
     sensitivityApiMock.get.mockResolvedValue(sensitivityData)
-    mocks.companiesApi.generatePlan.mockResolvedValue(planGenerateData)
     mocks.companiesApi.insight.mockResolvedValue({ companyId:'comp1',scenario:'overview',provider:'demo',text:'Проблема\nНедостаточно данных.\n\nПричина\nПо доступным данным достоверно определить причину нельзя.\n\nДействие\nСверьте исходные документы.\nДедлайн: в течение 7 дней' })
     mocks.companiesApi.deleteMetric.mockResolvedValue(undefined)
     mocks.companiesApi.deleteCohort.mockResolvedValue(undefined)
     mocks.companiesApi.deleteBudget.mockResolvedValue(undefined)
     catalogApiMock.get.mockResolvedValue(catalogData)
+    commentsApiMock.list.mockResolvedValue([])
+    commentsApiMock.create.mockResolvedValue({})
+    correctionsApiMock.list.mockResolvedValue([])
+    correctionsApiMock.create.mockResolvedValue({})
   })
 
-  it.each(['admin','company'])('places one user-triggered overview AI after active content for %s, retaining it across tabs', async role => {
+  it('loads Overview comments once and lets Fund create without touching source APIs', async () => {
+    mocks.productRole = 'fund'
+    const review = { id: 'review', companyId: 'comp1', authorId: 'fund', authorName: 'Fund',
+      targetType: 'overview', metricId: null, field: null, indicatorKey: null,
+      targetPeriod: null, targetScenario: null, text: 'Fund review', createdAt: '2026-01-01' }
+    commentsApiMock.list.mockResolvedValue([])
+    commentsApiMock.create.mockImplementation(async () => { commentsApiMock.list.mockResolvedValue([review]); return review })
+    renderCompanyDetail(null)
+    expect(await screen.findByText('Комментарии фонда')).toBeInTheDocument()
+    await waitFor(() => expect(commentsApiMock.list).toHaveBeenCalledWith('comp1', 'overview', expect.any(AbortSignal)))
+    expect(commentsApiMock.list).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: /Комментарии: Обзор компании/ }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Комментарий' }), { target: { value: 'Fund review' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить комментарий' }))
+    await screen.findByText('Fund review')
+    expect(commentsApiMock.create).toHaveBeenCalledOnce()
+    expect(commentsApiMock.create).toHaveBeenCalledWith('comp1', { target_type: 'overview', text: 'Fund review' })
+    expect(mocks.companiesApi.upsertMetric).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.insight).not.toHaveBeenCalled()
+  })
+
+  it('shows Startup Fund comments read-only and separates Plan/Fact Metrics targets', async () => {
+    mocks.productRole = 'startup'
+    const plan = { ...metric, id: 'plan-id', type: 'plan' as const }
+    const fact = { ...metric, id: 'fact-id', type: 'fact' as const }
+    mocks.companiesApi.metrics.mockResolvedValue([plan, fact])
+    commentsApiMock.list.mockImplementation(async (_id: string, type: string) => type === 'metric_value'
+      ? [{ id: 'review', companyId: 'comp1', authorId: 'fund', authorName: 'Fund', targetType: 'metric_value',
+        metricId: fact.id, field: 'revenue', indicatorKey: null, targetPeriod: null, targetScenario: null,
+        text: 'Fact review', createdAt: '2026-01-01' }] : [])
+    renderCompanyDetail('metrics')
+    const table = await screen.findByRole('table')
+    await waitFor(() => expect(commentsApiMock.list).toHaveBeenCalledWith('comp1', 'metric_value', expect.any(AbortSignal)))
+    expect(commentsApiMock.list).toHaveBeenCalledTimes(1)
+    expect(within(table).getByRole('button', { name: /Комментарии: Выручка.*Факт.* 1/ })).toBeInTheDocument()
+    expect(within(table).queryByRole('button', { name: /Комментарии: Выручка.*План/ })).not.toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: /^Выручка.*План — редактировать$/ })).toBeInTheDocument()
+    fireEvent.click(within(table).getByRole('button', { name: /Комментарии: Выручка.*Факт.* 1/ }))
+    expect(screen.getByText('Fact review')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Комментарий' })).not.toBeInTheDocument()
+    expect(commentsApiMock.create).not.toHaveBeenCalled()
+  })
+
+  it('lets Fund correct a Metric alongside its comment without exposing source editing', async () => {
+    mocks.productRole = 'fund'
+    let saved = [] as Array<Record<string, unknown>>
+    correctionsApiMock.list.mockImplementation(async (_id: string, type: string) => type === 'metric_value' ? saved : [])
+    correctionsApiMock.create.mockImplementation(async () => {
+      const correction = { id: 'correction-1', companyId: 'comp1', authorId: 'fund', authorName: 'Fund',
+        targetType: 'metric_value', metricId: metric.id, field: 'revenue', indicatorKey: null,
+        targetPeriod: null, targetScenario: null, sourceMetricId: null, sourceUpdatedAt: metric.updatedAt,
+        originalValue: '100000', correctedValue: '95000', currentSourceValue: '100000', isStale: false,
+        reason: 'Reviewed', createdAt: '2026-01-01' }
+      saved = [correction]
+      return correction
+    })
+    commentsApiMock.list.mockImplementation(async (_id: string, type: string) => type === 'metric_value'
+      ? [{ id: 'review', companyId: 'comp1', authorId: 'fund', authorName: 'Fund', targetType: 'metric_value',
+        metricId: metric.id, field: 'revenue', indicatorKey: null, targetPeriod: null, targetScenario: null,
+        text: 'Separate comment', createdAt: '2026-01-01' }] : [])
+    renderCompanyDetail('metrics')
+    const table = await screen.findByRole('table')
+    await waitFor(() => expect(correctionsApiMock.list).toHaveBeenCalledWith('comp1', 'metric_value', expect.any(AbortSignal)))
+    expect(correctionsApiMock.list).toHaveBeenCalledTimes(1)
+    expect(within(table).getByRole('button', { name: /Комментарии:.*Выручка.*План/ })).toBeInTheDocument()
+    expect(within(table).queryByRole('button', { name: /^Выручка.*План — редактировать$/ })).not.toBeInTheDocument()
+    fireEvent.click(within(table).getByRole('button', { name: /Скорректировать:.*Выручка.*План/ }))
+    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent?.includes('Исходное значение: ₽100') === true)).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Скорректированное значение' }), { target: { value: '95000' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Причина' }), { target: { value: 'Reviewed' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить корректировку' }))
+    await waitFor(() => expect(correctionsApiMock.create).toHaveBeenCalledWith('comp1', {
+      target_type: 'metric_value', metric_id: metric.id, field: 'revenue', corrected_value: '95000', reason: 'Reviewed',
+    }))
+    await waitFor(() => expect(within(table).getByText(/Корректировка фонда: ₽95/)).toBeInTheDocument())
+    expect(mocks.companiesApi.upsertMetric).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.metrics).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows Startup stale correction history while source editing remains available', async () => {
+    mocks.productRole = 'startup'
+    correctionsApiMock.list.mockResolvedValue([{ id: 'old', companyId: 'comp1', authorId: 'fund', authorName: 'Fund',
+      targetType: 'metric_value', metricId: metric.id, field: 'revenue', indicatorKey: null,
+      targetPeriod: null, targetScenario: null, sourceMetricId: null, sourceUpdatedAt: metric.updatedAt,
+      originalValue: '90000', correctedValue: '85000', currentSourceValue: '100000', isStale: true,
+      reason: 'Old review', createdAt: '2026-01-01' }])
+    renderCompanyDetail('metrics')
+    const table = await screen.findByRole('table')
+    await waitFor(() => expect(correctionsApiMock.list).toHaveBeenCalledOnce())
+    expect(within(table).getByRole('button', { name: /^Выручка.*План — редактировать$/ })).toBeInTheDocument()
+    expect(within(table).queryByText(/Корректировка фонда: ₽85/)).not.toBeInTheDocument()
+    fireEvent.click(within(table).getByRole('button', { name: /История корректировок:.*Выручка.*План/ }))
+    expect(screen.getByText(/Причина: Old review/)).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Причина' })).not.toBeInTheDocument()
+    expect(correctionsApiMock.create).not.toHaveBeenCalled()
+  })
+
+  it.each(['admin','company'])('shows Company AI only on Overview for %s and restores its result without another POST', async role => {
     mocks.role = role
-    renderCompanyDetail()
+    renderCompanyDetail(null)
     const region = await screen.findByRole('region',{name:'ИИ-анализ компании'})
-    const metrics = screen.getByRole('tabpanel')
-    expect(metrics.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('region',{name:'Обзор компании'}).compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(mocks.companiesApi.insight).not.toHaveBeenCalled()
     fireEvent.click(within(region).getByRole('button',{name:'Сформировать анализ'}))
     await within(region).findByText(/Сверьте исходные документы/)
     expect(mocks.companiesApi.insight).toHaveBeenCalledWith('comp1','overview')
+    fireEvent.click(screen.getByRole('link',{name:'Open Metrics'}))
+    await screen.findByText('Метрики — План vs Факт')
+    expect(screen.queryByRole('region',{name:'ИИ-анализ компании'})).not.toBeInTheDocument()
+    expect(screen.queryByRole('region',{name:'Обзор компании'})).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('link',{name:'Open P&L'}))
     await screen.findByRole('table',{name:'P&L: месяцы, план и факт'})
-    expect(screen.getAllByRole('region',{name:'ИИ-анализ компании'})).toHaveLength(1)
-    expect(within(region).getByText(/Сверьте исходные документы/)).toBeInTheDocument()
+    expect(screen.queryByRole('region',{name:'ИИ-анализ компании'})).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link',{name:'Open Overview'}))
+    const restored = await screen.findByRole('region',{name:'ИИ-анализ компании'})
+    expect(within(restored).getByText(/Сверьте исходные документы/)).toBeInTheDocument()
     expect(mocks.companiesApi.insight).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('tabpanel').compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('does not offer or request company AI for observer', async () => {
-    mocks.role = 'observer'
-    renderCompanyDetail('pnl')
-    await screen.findByRole('table',{name:'P&L: месяцы, план и факт'})
-    expect(screen.queryByRole('region',{name:'ИИ-анализ компании'})).not.toBeInTheDocument()
-    expect(screen.queryByRole('button',{name:'Сформировать анализ'})).not.toBeInTheDocument()
-    expect(mocks.companiesApi.insight).not.toHaveBeenCalled()
-  })
+
 
   it('remounts company AI identity when the profile company changes', async () => {
-    renderCompanyDetail()
+    mocks.productRole = 'fund'
+    renderCompanyDetail(null)
     const region = await screen.findByRole('region',{name:'ИИ-анализ компании'})
     fireEvent.click(within(region).getByRole('button',{name:'Сформировать анализ'}))
     await within(region).findByText(/Сверьте исходные документы/)
@@ -564,7 +648,7 @@ describe('CompanyDetail', () => {
       marketing_spend: 10000, retention_rate: 0.82, comment: 'Keep comment',
     })
     expect(await screen.findByText('20.00')).toBeInTheDocument()
-    expect(mocks.companiesApi.metrics).toHaveBeenCalledTimes(2)
+    expect(mocks.companiesApi.metrics).not.toHaveBeenCalled() // Unit Economics owns its active source query.
     expectInvalidated(queryClient, metricsKey)
     expectInvalidated(queryClient, dashboardKey)
     expect(queryClient.getQueryState(otherCompanyKey)?.isInvalidated).toBe(false)
@@ -575,7 +659,7 @@ describe('CompanyDetail', () => {
     mocks.role=role
     mocks.companiesApi.metrics.mockImplementation(()=>new Promise(()=>{}))
     catalogApiMock.get.mockImplementation(()=>new Promise(()=>{}))
-    renderCompanyDetail('metrics')
+    renderCompanyDetail(null)
     fireEvent.click(await screen.findByRole('button',{name:'Начало ввода данных'}))
     const wizard=within(screen.getByRole('dialog',{name:'Начало ввода данных'}))
     expect(wizard.getAllByRole('group',{name:/^Метрика — месяц/})).toHaveLength(1)
@@ -586,12 +670,7 @@ describe('CompanyDetail', () => {
     expect(screen.getAllByRole('group',{name:'Графики компании'})).toHaveLength(1)
   })
 
-  it('keeps the data-entry wizard unavailable to observers',async()=>{
-    mocks.role='observer'
-    renderCompanyDetail('metrics')
-    await screen.findByText('Метрики — План vs Факт')
-    expect(screen.queryByRole('button',{name:'Начало ввода данных'})).not.toBeInTheDocument()
-  })
+
 
   it('wizard writes through existing company APIs, refreshes server tables and preserves previous Plan records and tenant caches',async()=>{
     const qc=new QueryClient({defaultOptions:{queries:{retry:false}}})
@@ -608,8 +687,8 @@ describe('CompanyDetail', () => {
     })
     mocks.companiesApi.upsertCohort.mockImplementationOnce(async(companyId:string,data:CohortUpsert)=>{expect(companyId).toBe('comp1');return {...cohort,period:data.period,type:data.type}})
     mocks.companiesApi.upsertBudget.mockReset().mockImplementationOnce(async(companyId:string,data:BudgetUpsert)=>{expect(companyId).toBe('comp1');return {...budget,...data}})
-    renderCompanyDetail('metrics',qc)
-    await screen.findByRole('button',{name:/^Выручка \(Revenue\) · .* · План —/})
+    renderCompanyDetail(null,qc)
+    await screen.findByRole('region',{name:'Обзор компании'})
     fireEvent.click(screen.getByRole('button',{name:'Начало ввода данных'}))
     const wizard=()=>within(screen.getByRole('dialog',{name:'Начало ввода данных'}))
     const row=wizard().getByRole('group',{name:'Метрика — месяц 1'})
@@ -630,8 +709,8 @@ describe('CompanyDetail', () => {
     expect(mocks.companiesApi.upsertBudget).toHaveBeenCalledOnce()
     const body=mocks.companiesApi.upsertMetricBulk.mock.calls[0][1] as MetricBulkUpsert
     expect(body.items[0]).toMatchObject({type:'fact',new_units:10,arpu:100,revenue:200005,marketing_spend:0,retention_rate:0.85,comment:null})
-    expect(screen.getByRole('button',{name:/^Выручка \(Revenue\) · .* · Факт —/})).toHaveTextContent('₽200 006')
-    expect(screen.getByRole('button',{name:/^Выручка \(Revenue\) · .* · План —/})).toHaveTextContent('₽100 000')
+    expect(screen.getByRole('region',{name:'Обзор компании'})).toBeVisible()
+    await waitFor(() => expect(within(screen.getByRole('group',{name:'Ключевые показатели компании'})).getByText(/200.006/)).toBeInTheDocument())
     expect(qc.getQueryState(portfolio)?.isInvalidated).toBe(true)
     expect(qc.getQueryState(foreign)?.isInvalidated).toBe(false)
   })
@@ -704,15 +783,7 @@ describe('CompanyDetail', () => {
     expect(mocks.companiesApi.upsertMetric).not.toHaveBeenCalled()
   })
 
-  it('Metrics observer cannot start inline edits or full editors', async () => {
-    mocks.role='observer'
-    renderCompanyDetail('metrics')
-    await within(await screen.findByRole('tabpanel')).findByRole('table')
-    const table=within(screen.getByRole('tabpanel')).getByRole('table')
-    expect(within(table).queryByRole('button')).not.toBeInTheDocument()
-    within(table).getAllByRole('cell').forEach((cell)=>{fireEvent.doubleClick(cell);fireEvent.keyDown(cell,{key:'Enter'})})
-    expect(within(within(screen.getByRole('tabpanel')).getByRole('table')).queryByRole('spinbutton')).not.toBeInTheDocument()
-  })
+
 
   it.each([['Новые платящие клиенты','1.5'],['Удержание подписчиков','101']] as const)('Metrics rejects out-of-contract Fact %s', async (label,value) => {
     mocks.companiesApi.metrics.mockResolvedValue([{...metric,type:'fact'}])
@@ -797,12 +868,7 @@ describe('CompanyDetail', () => {
     expect(screen.queryByText('5.00')).not.toBeInTheDocument()
   })
 
-  it('does not expose source editing for an observer in the actual container', async () => {
-    mocks.role = 'observer'
-    renderCompanyDetail('unit')
-    await screen.findByText('Источник: Факт · Февраль 2026')
-    expect(screen.queryByRole('button', { name: /редактировать исходные данные/i })).not.toBeInTheDocument()
-  })
+
 
   it('keeps source editor open when the metrics API rejects save', async () => {
     mocks.companiesApi.upsertMetric.mockRejectedValue({ response: { data: { detail: 'Access denied' } } })
@@ -850,24 +916,54 @@ describe('CompanyDetail', () => {
     else if (isMetric) expect(mocks.companiesApi.upsertMetric).toHaveBeenCalledWith('comp1', { period: '2026-02-01', type: 'fact', new_units: 10, arpu: 150, revenue: 200000, marketing_spend: 10000, retention_rate: 0.97, comment: 'Keep comment' })
     else expect(mocks.companiesApi.upsertBudget).toHaveBeenCalledWith('comp1', { period: '2026-02-01', type: 'fact', cogs: null, fot: 40000, marketing: 10000, development: 20000, gna: 5000 })
     expect(pnlApiMock.get).toHaveBeenCalledTimes(2)
-    expect(mocks.companiesApi.metrics).toHaveBeenCalledTimes(2)
+    expect(mocks.companiesApi.metrics).not.toHaveBeenCalled() // Hidden Overview no longer preloads Metrics.
     expect(mocks.companiesApi.budgets).not.toHaveBeenCalled()
     for (const key of keys) expectInvalidated(qc, key)
     for (const key of otherKeys) expect(qc.getQueryState(key)?.isInvalidated).toBe(false)
     if (!deleting) expect(within(table).getByText('₽112 920')).toBeInTheDocument()
   })
 
-  it('P&L is read-only for observer in the actual page', async () => {
-    mocks.role = 'observer'
-    renderCompanyDetail('pnl')
-    await screen.findByRole('table', { name: 'P&L: месяцы, план и факт' })
-    expect(screen.queryByRole('button', { name: /редактировать исходную запись/ })).not.toBeInTheDocument()
+
+
+  it('shows six KPI, six charts and Company AI on default Overview without Data Entry for Fund', async () => {
+    mocks.productRole = 'fund'
+    renderCompanyDetail(null)
+    const overview = await screen.findByRole('region', { name: 'Обзор компании' })
+    expect(within(overview).getByRole('group', { name: 'Ключевые показатели компании' }).children).toHaveLength(6)
+    expect(within(overview).getByRole('group', { name: 'Графики компании' }).children).toHaveLength(6)
+    expect(screen.getByRole('region', { name: 'ИИ-анализ компании' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Начало ввода данных' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Метрики — План vs Факт')).not.toBeInTheDocument()
   })
 
-  it('shows metrics tab by default', async () => {
-    renderCompanyDetail()
-    expect(await screen.findByText('Метрики — План vs Факт')).toBeInTheDocument()
-    expect(screen.queryByText('Когортный анализ — План vs Факт')).not.toBeInTheDocument()
+  it('shows Data Entry and Company AI on a startup Overview, but not on Metrics', async () => {
+    renderCompanyDetail(null)
+    const overview = await screen.findByRole('region', { name: 'Обзор компании' })
+    expect(within(overview).getByRole('button', { name: 'Начало ввода данных' })).toBeVisible()
+    expect(screen.getByRole('region', { name: 'ИИ-анализ компании' })).toBeVisible()
+    fireEvent.click(screen.getByRole('link', { name: 'Open Metrics' }))
+    expect(await screen.findByText('Метрики — План vs Факт')).toBeVisible()
+    expect(screen.queryByRole('region', { name: 'Обзор компании' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Начало ввода данных' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'ИИ-анализ компании' })).not.toBeInTheDocument()
+  })
+
+  it.each([null, 'overview', 'unknown'])('uses Overview for missing, explicit or invalid tab %s', async tab => {
+    renderCompanyDetail(tab)
+    expect(await screen.findByRole('region', { name: 'Обзор компании' })).toBeVisible()
+    expect(screen.queryByText('Метрики — План vs Факт')).not.toBeInTheDocument()
+  })
+
+  it('loads direct P&L without requesting hidden Overview-only sources', async () => {
+    renderCompanyDetail('pnl')
+    await screen.findByRole('table', { name: 'P&L: месяцы, план и факт' })
+    expect(pnlApiMock.get).toHaveBeenCalledTimes(1)
+    expect(mocks.companiesApi.metrics).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.cohorts).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.unitEconomics).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.health).not.toHaveBeenCalled()
+    expect(cashflowApiMock.get).not.toHaveBeenCalled()
+    expect(screen.queryByRole('region', { name: 'Обзор компании' })).not.toBeInTheDocument()
   })
 
   it('has no force-recalculation action on the company page', async () => {
@@ -877,7 +973,7 @@ describe('CompanyDetail', () => {
     expect(mocks.companiesApi.recalculate).not.toHaveBeenCalled()
   })
 
-  it.each(['bulk-save', 'delete', 'generate-plan'])('Metrics %s invalidates all financial consumers and only the current tenant', async (action) => {
+  it.each(['bulk-save', 'delete'])('Metrics %s invalidates all financial consumers and only the current tenant', async (action) => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const keys = [qk.companyUnitEconomics, qk.companyPnl, qk.companyCashflow, qk.companyCredit, qk.companyValuation, qk.companySensitivity]
       .map((factory) => factory('org1', 'comp1'))
@@ -892,9 +988,6 @@ describe('CompanyDetail', () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }))
       fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
       await waitFor(() => expect(mocks.companiesApi.deleteMetric).toHaveBeenCalledWith('comp1', 'm1'))
-    } else if (action === 'generate-plan') {
-      fireEvent.click(screen.getByRole('button', { name: 'Сгенерировать план AI' }))
-      await waitFor(() => expect(mocks.companiesApi.generatePlan).toHaveBeenCalledWith('comp1'))
     } else {
       fireEvent.click(screen.getByRole('button', { name: 'Добавить метрику' }))
       for (const index of [1, 2, 3]) for (const [name, value] of [['Выручка', '100000'], ['Новые юниты', '10'], ['ARPU', '100'], ['Retention %', '90']]) {
@@ -922,8 +1015,8 @@ describe('CompanyDetail', () => {
   })
 
   it('shares one request per overview source, while unrelated module queries stay deferred', async () => {
-    renderCompanyDetail()
-    await screen.findByText('Метрики — План vs Факт')
+    renderCompanyDetail(null)
+    await screen.findByRole('region', { name: 'Обзор компании' })
 
     await waitFor(() => expect(mocks.companiesApi.get).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(mocks.companiesApi.metrics).toHaveBeenCalledTimes(1))
@@ -948,8 +1041,8 @@ describe('CompanyDetail', () => {
   })
 
   it('forwards React Query AbortSignal to the api functions', async () => {
-    renderCompanyDetail()
-    await screen.findByText('Метрики — План vs Факт')
+    renderCompanyDetail(null)
+    await screen.findByRole('region', { name: 'Обзор компании' })
 
     await waitFor(() => expect(mocks.companiesApi.get).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(mocks.companiesApi.metrics).toHaveBeenCalledTimes(1))
@@ -964,8 +1057,8 @@ describe('CompanyDetail', () => {
   })
 
   it('keeps Budget source-entry deferred while loading shared overview sources', async () => {
-    renderCompanyDetail()
-    await screen.findByText('Метрики — План vs Факт')
+    renderCompanyDetail(null)
+    await screen.findByRole('region', { name: 'Обзор компании' })
     expect(mocks.companiesApi.cohorts).toHaveBeenCalledTimes(1)
     expect(mocks.companiesApi.budgets).not.toHaveBeenCalled()
     expect(mocks.companiesApi.unitEconomics).toHaveBeenCalledTimes(1)
@@ -1026,18 +1119,10 @@ describe('CompanyDetail', () => {
     const pnl = await screen.findByRole('table', { name: 'P&L: месяцы, план и факт' })
     await waitFor(() => expect(within(pnl).getByRole('button', { name: /^ФОТ · .* · План —/ })).toHaveTextContent(action === 'delete' ? '—' : '₽40 000'))
     expect(within(pnl).getByRole('button', { name: /^ФОТ · .* · Факт —/ })).toHaveTextContent('₽30 000')
-    expect(pnlApiMock.get).toHaveBeenCalledTimes(2)
+    expect(pnlApiMock.get).toHaveBeenCalledTimes(1) // P&L first mounts after leaving Budget.
   })
 
-  it('Budget is read-only for observer in the actual company page', async () => {
-    mocks.role = 'observer'
-    renderCompanyDetail('budget')
-    const table = await screen.findByRole('table', { name: 'Бюджет: месяцы, план и факт' })
-    expect(within(table).queryByRole('button')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Добавить бюджет' })).not.toBeInTheDocument()
-    fireEvent.doubleClick(within(table).getAllByRole('cell')[0])
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
+
 
   it('renders unit economics content for ?tab=unit', async () => {
     renderCompanyDetail('unit')
@@ -1093,19 +1178,42 @@ describe('CompanyDetail', () => {
     expect(await screen.findByText('Отчёты для инвесторов')).toBeInTheDocument()
   })
 
-  it('generates AI plan on click', async () => {
-    renderCompanyDetail()
-    const btn = await screen.findByRole('button', { name: /Сгенерировать план AI/ })
-    fireEvent.click(btn)
-    await waitFor(() => expect(mocks.companiesApi.generatePlan).toHaveBeenCalledWith('comp1'))
+  it.each(['metrics', 'budget', 'pnl', 'unit'])('Fund sees %s values without Overview or source controls', async tab => {
+    mocks.productRole = 'fund'
+    renderCompanyDetail(tab)
+    await screen.findByRole('heading', { name: 'Test Startup' })
+    expect(screen.getByRole('tabpanel')).not.toBeEmptyDOMElement()
+    expect(screen.queryByRole('region', { name: 'Обзор компании' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'ИИ-анализ компании' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Начало ввода данных' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Действия со строкой|Редактировать исходные данные|Добавить метрику|Добавить бюджет/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+    expect(mocks.companiesApi.upsertMetric).not.toHaveBeenCalled()
   })
 
-  it('hides add buttons for observer role', async () => {
+  it.each(['metrics', 'budget', 'pnl', 'unit'])('redirects investor before %s requests', async tab => {
     mocks.role = 'observer'
-    renderCompanyDetail()
-    await screen.findByText('Метрики — План vs Факт')
-    expect(screen.queryByRole('button', { name: /Добавить метрику/ })).not.toBeInTheDocument()
+    renderCompanyDetail(tab)
+    await screen.findByRole('heading', { name: 'Portfolio companies' })
+    expect(mocks.companiesApi.get).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.metrics).not.toHaveBeenCalled()
+    expect(mocks.companiesApi.insight).not.toHaveBeenCalled()
   })
+
+  it('blocks startup foreign-company navigation before requesting its data', async () => {
+    renderCompanyDetail(null)
+    await screen.findByRole('region', { name: 'ИИ-анализ компании' })
+    fireEvent.click(screen.getByRole('link', { name: 'Open another company' }))
+    await screen.findByRole('region', { name: 'ИИ-анализ компании' })
+    expect(mocks.companiesApi.get).not.toHaveBeenCalledWith('comp2', expect.anything())
+  })
+
+  it('removes AI plan while retaining Company AI', async () => {
+    renderCompanyDetail(null)
+    await screen.findByRole('region', { name: 'ИИ-анализ компании' })
+    expect(screen.queryByRole('button', { name: /Сгенерировать план AI/ })).not.toBeInTheDocument()
+  })
+
 
   it('bulk-saves metrics with snake_case payload', async () => {
     mocks.companiesApi.upsertMetricBulk.mockResolvedValue([])

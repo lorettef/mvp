@@ -1,15 +1,15 @@
 from datetime import date
 
 import pytest
-from sqlalchemy import select, func
-
-from .conftest import auth_headers
 from app.models.budget import Budget
 from app.models.financing import Financing
 from app.models.hiring_plan import HiringPlan
 from app.models.metric import Metric
 from app.services.pnl_service import PnLService
 from app.services.valuation_service import ValuationService
+from sqlalchemy import func, select
+
+from .conftest import auth_headers
 
 
 async def _count_hiring_rows(db) -> int:
@@ -41,7 +41,9 @@ async def _seed_valuation(db, company_id, mrr=100000):
         )
     )
     db.add(Financing(company_id=company_id, type="investment", amount=200000))
-    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
+    db.add(
+        Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0)
+    )
     await db.flush()
 
 
@@ -90,7 +92,9 @@ async def test_valuation_financing_sums_match_legacy(
     client, seeded_company, seeded_admin, db_session
 ):
     db_session.add(
-        Financing(company_id=seeded_company.id, type="loan", amount=100, annual_rate=15.0)
+        Financing(
+            company_id=seeded_company.id, type="loan", amount=100, annual_rate=15.0
+        )
     )
     db_session.add(
         Financing(company_id=seeded_company.id, type="investment", amount=200)
@@ -143,7 +147,7 @@ async def test_valuation_observer_read(client, seeded_company, seeded_observer):
         f"/api/v1/companies/{seeded_company.id}/valuation",
         headers=auth_headers(seeded_observer),
     )
-    assert res.status_code == 200
+    assert res.status_code == 403
 
 
 async def test_valuation_unauthenticated(client, seeded_company):

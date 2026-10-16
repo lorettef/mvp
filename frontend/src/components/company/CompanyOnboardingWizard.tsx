@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { catalogApi } from '@/api/catalog'
 import { companiesApi } from '@/api/companies'
-import type { BusinessModelItem, CatalogResponse, CompanyCreate, IndustryItem, MetricProfile } from '@/types/api'
+import type { BusinessModelItem, CatalogResponse, Company, CompanyCreate, IndustryItem, MetricProfile } from '@/types/api'
 import { qk } from '@/lib/queryKeys'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,13 +18,14 @@ interface CompanyOnboardingWizardProps {
   readonly open: boolean
   readonly tenantKey: string
   readonly onClose: () => void
+  readonly onCreated?: (company: Company) => Promise<void> | void
 }
 
 type OnboardingPayload = Pick<CompanyCreate, 'name' | 'industry' | 'business_model' | 'geography' | 'selected_metrics'>
 
 const WIZARD_STEPS = 4
 
-export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnboardingWizardProps) {
+export function CompanyOnboardingWizard({ open, tenantKey, onClose, onCreated }: CompanyOnboardingWizardProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [step, setStep] = useState(1)
@@ -55,7 +56,11 @@ export function CompanyOnboardingWizard({ open, tenantKey, onClose }: CompanyOnb
   }, [industry, businessModel, catalogQuery.data])
 
   const createMutation = useMutation({
-    mutationFn: (payload: OnboardingPayload) => companiesApi.create(payload),
+    mutationFn: async (payload: OnboardingPayload) => {
+      const company = await companiesApi.create(payload)
+      await onCreated?.(company)
+      return company
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: qk.dashboard(tenantKey) })
       onClose()

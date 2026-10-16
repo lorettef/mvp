@@ -21,8 +21,10 @@ def payload(kind="plan", **overrides):
 
 @pytest.mark.parametrize("role", ["admin", "company"])
 async def test_budget_plan_fact_upsert_pnl_isolation(
-    client, seeded_company, seeded_admin, seeded_company_user, role
+    client, seeded_company, seeded_admin, seeded_company_user, seeded_organization, role
 ):
+    if role == "admin":
+        seeded_organization.organization_type = "startup"
     user = seeded_admin if role == "admin" else seeded_company_user
     headers = auth_headers(user)
     base = f"/api/v1/companies/{seeded_company.id}"
@@ -76,10 +78,10 @@ async def test_budget_plan_fact_upsert_pnl_isolation(
 
 @pytest.mark.parametrize("deleted_kind", ["plan", "fact"])
 async def test_delete_exact_scenario_leaves_other(
-    client, seeded_company, seeded_admin, deleted_kind
+    client, seeded_company, seeded_company_user, deleted_kind
 ):
     base = f"/api/v1/companies/{seeded_company.id}"
-    headers = auth_headers(seeded_admin)
+    headers = auth_headers(seeded_company_user)
     saved = {}
     for kind in ("plan", "fact"):
         res = await client.put(f"{base}/budgets", json=payload(kind), headers=headers)
@@ -99,17 +101,23 @@ async def test_delete_exact_scenario_leaves_other(
 
 
 async def test_budget_permissions_and_source_ownership(
-    client, seeded_company, seeded_admin, seeded_observer, other_company, other_admin
+    client,
+    seeded_company,
+    seeded_company_user,
+    seeded_observer,
+    other_company,
+    other_admin,
+    other_company_user,
 ):
     base = f"/api/v1/companies/{seeded_company.id}"
     saved = await client.put(
-        f"{base}/budgets", json=payload(), headers=auth_headers(seeded_admin)
+        f"{base}/budgets", json=payload(), headers=auth_headers(seeded_company_user)
     )
     assert saved.status_code == 200
     source_id = saved.json()["id"]
     assert (
         await client.get(f"{base}/budgets", headers=auth_headers(seeded_observer))
-    ).status_code == 200
+    ).status_code == 403
     for user in (seeded_observer, other_admin):
         assert (
             await client.put(
@@ -127,18 +135,18 @@ async def test_budget_permissions_and_source_ownership(
     assert (
         await client.delete(
             f"/api/v1/companies/{other_company.id}/budgets/{source_id}",
-            headers=auth_headers(other_admin),
+            headers=auth_headers(other_company_user),
         )
     ).status_code == 404
     assert (
-        await client.get(f"{base}/budgets", headers=auth_headers(seeded_admin))
+        await client.get(f"{base}/budgets", headers=auth_headers(seeded_company_user))
     ).json() == [saved.json()]
 
 
 @pytest.mark.parametrize("field", ["marketing", "development", "fot", "gna"])
 @pytest.mark.parametrize("bad_value", [None, -1, "NaN", "not a number"])
 async def test_invalid_budget_article_rejected(
-    client, seeded_company, seeded_admin, field, bad_value
+    client, seeded_company, seeded_company_user, field, bad_value
 ):
     data = payload()
     if bad_value is None:
@@ -148,14 +156,16 @@ async def test_invalid_budget_article_rejected(
     res = await client.put(
         f"/api/v1/companies/{seeded_company.id}/budgets",
         json=data,
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 422
 
 
-async def test_zero_decimal_and_future_plan(client, seeded_company, seeded_admin):
+async def test_zero_decimal_and_future_plan(
+    client, seeded_company, seeded_company_user
+):
     base = f"/api/v1/companies/{seeded_company.id}"
-    headers = auth_headers(seeded_admin)
+    headers = auth_headers(seeded_company_user)
     data = payload(period="2030-11-01", marketing=0, development=0.25, fot=0, gna=12.34)
     res = await client.put(f"{base}/budgets", json=data, headers=headers)
     assert res.status_code == 200

@@ -12,8 +12,8 @@ export const Layout = () => {
   const user = useAuthStore((state) => state.user)
   const compactDashboard = (pathname === '/dashboard' || pathname === '/companies') && canViewPortfolio(user)
   useEffect(() => {
-    analytics.track('session_started')
-  }, [])
+    if (user?.productRole !== 'investor') analytics.track('session_started')
+  }, [user?.id, user?.productRole])
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

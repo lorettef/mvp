@@ -49,7 +49,7 @@ describe('UserMenu', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     localStorage.clear()
-    useAuthStore.setState({ user: profile })
+    useAuthStore.getState().setUser(profile)
     queryClient = new QueryClient()
     registerQueryClient(queryClient)
     await i18n.changeLanguage('ru')

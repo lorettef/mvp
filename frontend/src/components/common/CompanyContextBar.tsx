@@ -1,4 +1,5 @@
-import { useNavigate, useLocation, useSearchParams, useMatch } from 'react-router-dom'
+import { usePermissions } from '@/hooks/usePermissions'
+import { useNavigate, useSearchParams, useMatch } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Building2, Check, ChevronDown } from 'lucide-react'
@@ -7,7 +8,7 @@ import { getTenantKey } from '@/auth/authSession'
 import { companiesApi } from '@/api/companies'
 import { catalogApi } from '@/api/catalog'
 import { qk } from '@/lib/queryKeys'
-import { canViewPortfolio, companyGroups } from '@/lib/navigation'
+import { companyGroups, resolveCompanyTab } from '@/lib/navigation'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,16 +22,16 @@ export function CompanyContextBar() {
   const { t } = useTranslation()
   const { user } = useAuthStore()
   const navigate = useNavigate()
-  const location = useLocation()
   const [searchParams] = useSearchParams()
   const tenantKey = getTenantKey()
   const companyMatch = useMatch('/companies/:companyId')
 
-  const isFund = canViewPortfolio(user)
+  const permissions = usePermissions()
+  const isFund = permissions.canManagePortfolio
   const pathCompanyId = companyMatch?.params.companyId
-  const currentCompanyId = isFund ? pathCompanyId : (user?.companyId ?? undefined)
-  const currentTab = searchParams.get('tab')
-  const effectiveTab = currentTab ?? (companyMatch ? 'metrics' : null)
+  const candidateId = isFund ? pathCompanyId : companyMatch ? user?.companyId : undefined
+  const currentCompanyId = permissions.canOpenCompany(candidateId) ? candidateId ?? undefined : undefined
+  const effectiveTab = companyMatch ? resolveCompanyTab(searchParams.get('tab')) : null
 
   const companyQuery = useQuery({
     queryKey: qk.company(tenantKey, currentCompanyId ?? ''),
@@ -45,7 +46,7 @@ export function CompanyContextBar() {
   const catalogQuery = useQuery({
     queryKey: ['catalog'],
     queryFn: ({ signal }) => catalogApi.get({ signal }),
-    enabled: !isFund,
+    enabled: Boolean(currentCompanyId && !isFund),
   })
 
   if (!currentCompanyId) return null
@@ -53,7 +54,9 @@ export function CompanyContextBar() {
   const company = companyQuery.data
   const activeCompanies = companiesQuery.data ?? []
 
-  const tabHref = (tab: string) => `/companies/${currentCompanyId}?tab=${tab}`
+  const tabHref = (tab: string) => tab === 'overview'
+    ? `/companies/${currentCompanyId}`
+    : `/companies/${currentCompanyId}?tab=${tab}`
 
   const industryLabel = (slug: string | null) =>
     slug ? (catalogQuery.data?.industries.find((i) => i.slug === slug)?.label ?? slug) : null
@@ -61,7 +64,6 @@ export function CompanyContextBar() {
     slug ? (catalogQuery.data?.business_models.find((b) => b.slug === slug)?.label ?? slug) : null
 
   const groupActive = (group: (typeof companyGroups)[number]) => {
-    if (group.startupOnly) return location.pathname === '/dashboard'
     if (group.children) return group.children.some((c) => c.tab === effectiveTab)
     return group.tab === effectiveTab
   }
@@ -72,7 +74,7 @@ export function CompanyContextBar() {
       active && 'bg-accent font-semibold text-foreground ring-1 ring-border',
     )
 
-  const groups = companyGroups.filter((g) => !g.startupOnly || !isFund)
+  const groups = companyGroups
   const allLeaves = companyGroups.flatMap((g) =>
     g.children ? g.children : g.tab ? [{ key: g.key, labelKey: g.labelKey, tab: g.tab }] : [],
   )
@@ -143,22 +145,6 @@ export function CompanyContextBar() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-            )
-          }
-          if (group.startupOnly) {
-            return (
-              <a
-                key={group.key}
-                href="/dashboard"
-                onClick={(e) => {
-                  e.preventDefault()
-                  navigate('/dashboard')
-                }}
-                aria-current={active ? 'page' : undefined}
-                className={itemClass(active)}
-              >
-                {t(group.labelKey)}
-              </a>
             )
           }
           return (

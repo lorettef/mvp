@@ -1,9 +1,10 @@
 from datetime import date
 
-from .conftest import auth_headers
 from app.core.config import settings
 from app.models.metric import Metric
 from app.models.subscription import Subscription
+
+from .conftest import auth_headers
 
 
 async def _seed_metrics(db, company_id):
@@ -35,19 +36,23 @@ def _url(company_id):
 
 
 async def test_recommendations_convert_and_dedup(
-    client, seeded_company, seeded_admin, db_session, monkeypatch
+    client, seeded_company, seeded_company_user, db_session, monkeypatch
 ):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed_metrics(db_session, seeded_company.id)
-    await _seed_subscription(db_session, seeded_admin)
+    await _seed_subscription(db_session, seeded_company_user)
 
-    first = await client.post(_url(seeded_company.id), headers=auth_headers(seeded_admin))
+    first = await client.post(
+        _url(seeded_company.id), headers=auth_headers(seeded_company_user)
+    )
     assert first.status_code == 200
     first_body = first.json()
     assert first_body["created_count"] > 0
     assert first_body["updated_count"] == 0
 
-    second = await client.post(_url(seeded_company.id), headers=auth_headers(seeded_admin))
+    second = await client.post(
+        _url(seeded_company.id), headers=auth_headers(seeded_company_user)
+    )
     assert second.status_code == 200
     second_body = second.json()
     assert second_body["created_count"] == 0
@@ -56,13 +61,15 @@ async def test_recommendations_convert_and_dedup(
 
 
 async def test_recommendation_tasks_fields(
-    client, seeded_company, seeded_admin, db_session, monkeypatch
+    client, seeded_company, seeded_company_user, db_session, monkeypatch
 ):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed_metrics(db_session, seeded_company.id)
-    await _seed_subscription(db_session, seeded_admin)
+    await _seed_subscription(db_session, seeded_company_user)
 
-    res = await client.post(_url(seeded_company.id), headers=auth_headers(seeded_admin))
+    res = await client.post(
+        _url(seeded_company.id), headers=auth_headers(seeded_company_user)
+    )
     assert res.status_code == 200
     body = res.json()
     assert body["provider"] == "demo"
@@ -78,10 +85,12 @@ async def test_recommendation_tasks_fields(
 
 
 async def test_recommendations_no_metrics_422(
-    client, seeded_company, seeded_admin, db_session, monkeypatch
+    client, seeded_company, seeded_company_user, db_session, monkeypatch
 ):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
-    await _seed_subscription(db_session, seeded_admin)
+    await _seed_subscription(db_session, seeded_company_user)
 
-    res = await client.post(_url(seeded_company.id), headers=auth_headers(seeded_admin))
+    res = await client.post(
+        _url(seeded_company.id), headers=auth_headers(seeded_company_user)
+    )
     assert res.status_code == 422

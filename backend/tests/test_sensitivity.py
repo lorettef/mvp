@@ -1,11 +1,11 @@
 from datetime import date
 
 import pytest
-
-from .conftest import auth_headers
-from app.models.metric import Metric
 from app.models.budget import Budget
 from app.models.financing import Financing
+from app.models.metric import Metric
+
+from .conftest import auth_headers
 
 
 async def _seed_sensitivity(db, company_id, mrr=200000):
@@ -32,7 +32,9 @@ async def _seed_sensitivity(db, company_id, mrr=200000):
         )
     )
     db.add(Financing(company_id=company_id, type="investment", amount=200000))
-    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
+    db.add(
+        Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0)
+    )
     await db.flush()
 
 
@@ -154,7 +156,7 @@ async def test_sensitivity_observer_read(client, seeded_company, seeded_observer
         f"/api/v1/companies/{seeded_company.id}/sensitivity",
         headers=auth_headers(seeded_observer),
     )
-    assert res.status_code == 200
+    assert res.status_code == 403
 
 
 async def test_sensitivity_unauthenticated(client, seeded_company):

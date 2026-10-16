@@ -1,4 +1,20 @@
 export const en = {
+  corrections: {
+    title: 'Fund correction', adjust: 'Adjust', original: 'Original value',
+    corrected: 'Corrected value', reason: 'Reason', current: 'Fund correction',
+    currentStatus: 'Correction available', history: 'Correction history',
+    stale: 'Source data changed after this correction', empty: 'No corrections',
+    add: 'Add correction', loadError: 'Failed to load corrections',
+    close: 'Close corrections', openTarget: 'Adjust: {{label}}',
+    viewTarget: 'Correction history: {{label}}',
+    targetTitle: '{{label}} — correction history',
+  },
+  comments: {
+    title: 'Fund comments', comment: 'Comment', add: 'Add comment',
+    empty: 'No comments yet', loadError: 'Failed to load comments',
+    close: 'Close comments', openTarget: 'Comments: {{label}}, {{count}}',
+    targetTitle: '{{label}} — comments', sourceNote: 'Source note',
+  },
   portfolioAi: {
     title: 'Portfolio AI analysis',
     description: 'Based on available company data in the currently selected portfolio scope.',
@@ -62,7 +78,7 @@ export const en = {
   },
   nav: {
     dashboard: 'Dashboard',
-    home: 'Home',
+    home: 'Portfolio Dashboard',
     companies: 'Companies',
     backToCompanies: 'Back to companies',
     settings: 'Settings',
@@ -187,6 +203,7 @@ export const en = {
     },
     filters: {
       title: 'Filters',
+      panel: 'Filter panel',
       show: 'Show filters',
       collapse: 'Collapse filters',
       close: 'Close filters',
@@ -220,6 +237,7 @@ export const en = {
       inactiveNote: 'Analytics filters apply only to the active portfolio.',
     },
     title: 'Company portfolio',
+    portfolioTable: { title: 'Portfolio table', previous: 'Previous', next: 'Next' },
     subtitle: 'Overview of all accelerator startups',
     addCompany: 'Add company',
     companyName: 'Company name',
@@ -419,7 +437,7 @@ export const en = {
   },
   company: {
     profile: {
-      title:'Company overview',kpi:'Company key indicators',grid:'Company profile charts',
+      title:'Company Overview',kpi:'Company key indicators',grid:'Company profile charts',
       revenue:'Revenue',growth:'Revenue growth',performance:'Plan performance',health:'Business health',runway:'Runway',margin:'EBITDA margin',
       statuses:{on_track:'On track',behind:'Behind plan',no_plan:'No plan',no_data:'No data'},
       unavailable:'Unavailable: required data is missing or the source has not loaded.',
@@ -440,10 +458,6 @@ export const en = {
     sphereNotSet: 'Industry not specified',
     locationNotSet: 'Location not specified',
     insufficientRights: 'Insufficient permissions',
-    generatePlanTitle: 'Generate a metrics plan based on facts',
-    generatePlan: 'Generate AI plan',
-    generating: 'Generating...',
-    planGenerated: 'Plan for {{count}} months generated ({{provider}}).',
     delete: {
       title: 'Delete data?',
       description: 'This action cannot be undone.',
@@ -465,7 +479,7 @@ export const en = {
       reports: 'Reports',
     },
     wizard: {
-      start: 'Start data entry',
+      start: 'Start Data Entry',
       description: 'Each step is saved separately. Saved data stays on the server even if you close data entry.',
       steps: 'Data entry steps',
       metric: 'Metric',

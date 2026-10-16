@@ -246,7 +246,7 @@ export function DataEntryWizard({ industry, companyId, tenantKey, metricLabel = 
                       disabled={pending || metricSaved} required integer={field === 'new_units'} min={0} max={field === 'retention_rate' ? 100 : undefined}
                       error={errors[field]} onChange={(value) => update(field, value)} onBlur={() => touch(row.id, field)} />)}
                     <div className="min-w-0 space-y-1">
-                      <label htmlFor={`${id}-comment`} className="block text-sm font-medium">{t('company.pnl.comment')}</label>
+                      <label htmlFor={`${id}-comment`} className="block text-sm font-medium">{t('comments.sourceNote')}</label>
                       <Input id={`${id}-comment`} value={row.comment} onChange={(event) => update('comment', event.target.value)} />
                     </div>
                   </div>

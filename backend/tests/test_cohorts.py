@@ -32,11 +32,11 @@ def _cohort_payload(
     }
 
 
-async def test_upsert_cohort_creates(client, seeded_company, seeded_admin):
+async def test_upsert_cohort_creates(client, seeded_company, seeded_company_user):
     res = await client.put(
         f"/api/v1/companies/{seeded_company.id}/cohorts",
         json=_cohort_payload(),
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200
     body = res.json()
@@ -48,66 +48,76 @@ async def test_upsert_cohort_creates(client, seeded_company, seeded_admin):
     assert body["period"] == "2026-01-01"
 
 
-async def test_upsert_cohort_idempotent(client, seeded_company, seeded_admin):
+async def test_upsert_cohort_idempotent(client, seeded_company, seeded_company_user):
     url = f"/api/v1/companies/{seeded_company.id}/cohorts"
-    await client.put(url, json=_cohort_payload(), headers=auth_headers(seeded_admin))
     await client.put(
-        url, json=_cohort_payload(m1=0.9), headers=auth_headers(seeded_admin)
+        url, json=_cohort_payload(), headers=auth_headers(seeded_company_user)
+    )
+    await client.put(
+        url, json=_cohort_payload(m1=0.9), headers=auth_headers(seeded_company_user)
     )
 
-    res = await client.get(url, headers=auth_headers(seeded_admin))
+    res = await client.get(url, headers=auth_headers(seeded_company_user))
     assert res.status_code == 200
     rows = res.json()
     assert len(rows) == 1
     assert rows[0]["retention_m1"] == 0.9
 
 
-async def test_list_cohorts_ordered(client, seeded_company, seeded_admin):
+async def test_list_cohorts_ordered(client, seeded_company, seeded_company_user):
     url = f"/api/v1/companies/{seeded_company.id}/cohorts"
     await client.put(
-        url, json=_cohort_payload(period="2026-02-01"), headers=auth_headers(seeded_admin)
+        url,
+        json=_cohort_payload(period="2026-02-01"),
+        headers=auth_headers(seeded_company_user),
     )
     await client.put(
-        url, json=_cohort_payload(period="2026-01-01"), headers=auth_headers(seeded_admin)
+        url,
+        json=_cohort_payload(period="2026-01-01"),
+        headers=auth_headers(seeded_company_user),
     )
 
-    res = await client.get(url, headers=auth_headers(seeded_admin))
+    res = await client.get(url, headers=auth_headers(seeded_company_user))
     rows = res.json()
     assert [r["period"] for r in rows] == ["2026-02-01", "2026-01-01"]
 
 
-async def test_upsert_cohort_invalid_type(client, seeded_company, seeded_admin):
+async def test_upsert_cohort_invalid_type(client, seeded_company, seeded_company_user):
     res = await client.put(
         f"/api/v1/companies/{seeded_company.id}/cohorts",
         json=_cohort_payload(type_="bogus"),
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 422
 
 
-async def test_upsert_cohort_invalid_retention(client, seeded_company, seeded_admin):
+async def test_upsert_cohort_invalid_retention(
+    client, seeded_company, seeded_company_user
+):
     url = f"/api/v1/companies/{seeded_company.id}/cohorts"
     res = await client.put(
-        url, json=_cohort_payload(m1=1.5), headers=auth_headers(seeded_admin)
+        url, json=_cohort_payload(m1=1.5), headers=auth_headers(seeded_company_user)
     )
     assert res.status_code == 422
 
     res = await client.put(
-        url, json=_cohort_payload(m1=-0.1), headers=auth_headers(seeded_admin)
+        url, json=_cohort_payload(m1=-0.1), headers=auth_headers(seeded_company_user)
     )
     assert res.status_code == 422
 
 
-async def test_upsert_cohort_invalid_size(client, seeded_company, seeded_admin):
+async def test_upsert_cohort_invalid_size(client, seeded_company, seeded_company_user):
     res = await client.put(
         f"/api/v1/companies/{seeded_company.id}/cohorts",
         json=_cohort_payload(size=0),
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 422
 
 
-async def test_upsert_cohort_forbidden_observer(client, seeded_company, seeded_observer):
+async def test_upsert_cohort_forbidden_observer(
+    client, seeded_company, seeded_observer
+):
     res = await client.put(
         f"/api/v1/companies/{seeded_company.id}/cohorts",
         json=_cohort_payload(),
@@ -117,11 +127,11 @@ async def test_upsert_cohort_forbidden_observer(client, seeded_company, seeded_o
 
 
 async def test_list_cohorts_company_isolation(
-    client, seeded_company, seeded_admin, db_session
+    client, seeded_company, seeded_company_user, db_session, seeded_admin
 ):
     url_a = f"/api/v1/companies/{seeded_company.id}/cohorts"
     await client.put(
-        url_a, json=_cohort_payload(), headers=auth_headers(seeded_admin)
+        url_a, json=_cohort_payload(), headers=auth_headers(seeded_company_user)
     )
 
     other = Company(
@@ -139,33 +149,39 @@ async def test_list_cohorts_company_isolation(
     assert res.json() == []
 
 
-async def test_delete_cohort_removes_only_that(client, seeded_company, seeded_admin):
+async def test_delete_cohort_removes_only_that(
+    client, seeded_company, seeded_company_user
+):
     url = f"/api/v1/companies/{seeded_company.id}/cohorts"
     r1 = await client.put(
-        url, json=_cohort_payload(period="2026-01-01"), headers=auth_headers(seeded_admin)
+        url,
+        json=_cohort_payload(period="2026-01-01"),
+        headers=auth_headers(seeded_company_user),
     )
     r2 = await client.put(
-        url, json=_cohort_payload(period="2026-02-01"), headers=auth_headers(seeded_admin)
+        url,
+        json=_cohort_payload(period="2026-02-01"),
+        headers=auth_headers(seeded_company_user),
     )
     id1 = r1.json()["id"]
     id2 = r2.json()["id"]
 
-    res = await client.delete(f"{url}/{id1}", headers=auth_headers(seeded_admin))
+    res = await client.delete(f"{url}/{id1}", headers=auth_headers(seeded_company_user))
     assert res.status_code == 200
 
-    listing = await client.get(url, headers=auth_headers(seeded_admin))
+    listing = await client.get(url, headers=auth_headers(seeded_company_user))
     ids = [row["id"] for row in listing.json()]
     assert id1 not in ids
     assert id2 in ids
 
 
 async def test_delete_cohort_wrong_company_404(
-    client, seeded_company, seeded_admin, db_session
+    client, seeded_company, seeded_company_user, db_session
 ):
     res = await client.put(
         f"/api/v1/companies/{seeded_company.id}/cohorts",
         json=_cohort_payload(),
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     cohort_id = res.json()["id"]
 
@@ -175,33 +191,39 @@ async def test_delete_cohort_wrong_company_404(
     )
     db_session.add(other)
     await db_session.flush()
+    seeded_company_user.company_id = other.id
+    await db_session.flush()
 
     res = await client.delete(
         f"/api/v1/companies/{other.id}/cohorts/{cohort_id}",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 404
 
 
 async def test_delete_cohort_forbidden_observer(
-    client, seeded_company, seeded_admin, seeded_observer
+    client, seeded_company, seeded_company_user, seeded_observer
 ):
     url = f"/api/v1/companies/{seeded_company.id}/cohorts"
     res = await client.put(
-        url, json=_cohort_payload(), headers=auth_headers(seeded_admin)
+        url, json=_cohort_payload(), headers=auth_headers(seeded_company_user)
     )
     cohort_id = res.json()["id"]
 
-    res = await client.delete(f"{url}/{cohort_id}", headers=auth_headers(seeded_observer))
+    res = await client.delete(
+        f"{url}/{cohort_id}", headers=auth_headers(seeded_observer)
+    )
     assert res.status_code == 403
 
 
-async def test_upsert_cohort_partial_retention(client, seeded_company, seeded_admin):
+async def test_upsert_cohort_partial_retention(
+    client, seeded_company, seeded_company_user
+):
     url = f"/api/v1/companies/{seeded_company.id}/cohorts"
     res = await client.put(
         url,
         json={"period": "2026-03-01", "type": "plan", "size": 30, "retention_m1": 0.5},
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200
     body = res.json()
@@ -213,14 +235,16 @@ async def test_upsert_cohort_partial_retention(client, seeded_company, seeded_ad
 
 
 async def test_upsert_cohort_clears_retention_on_update(
-    client, seeded_company, seeded_admin
+    client, seeded_company, seeded_company_user
 ):
     url = f"/api/v1/companies/{seeded_company.id}/cohorts"
-    await client.put(url, json=_cohort_payload(), headers=auth_headers(seeded_admin))
+    await client.put(
+        url, json=_cohort_payload(), headers=auth_headers(seeded_company_user)
+    )
 
     payload = _cohort_payload()
     payload["retention_m2"] = None
-    res = await client.put(url, json=payload, headers=auth_headers(seeded_admin))
+    res = await client.put(url, json=payload, headers=auth_headers(seeded_company_user))
     assert res.status_code == 200
     body = res.json()
     assert body["retention_m2"] is None

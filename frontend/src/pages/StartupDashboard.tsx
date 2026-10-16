@@ -1,3 +1,4 @@
+import { usePermissions } from '@/hooks/usePermissions'
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -5,7 +6,6 @@ import { useTranslation } from 'react-i18next'
 import { companiesApi } from '@/api/companies'
 import { catalogApi } from '@/api/catalog'
 import { pnlApi } from '@/api/pnl'
-import { useAuthStore } from '@/store/authStore'
 import { getTenantKey } from '@/auth/authSession'
 import { qk } from '@/lib/queryKeys'
 import { PageHeader } from '@/components/shared/page-header'
@@ -50,7 +50,6 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { user } = useAuthStore()
   const tenantKey = getTenantKey()
   const aiRef = useRef<HTMLDivElement>(null)
 
@@ -107,7 +106,8 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
     },
   })
 
-  const canEdit = user?.role === 'admin' || user?.role === 'company'
+  const permissions = usePermissions()
+  const canEdit = permissions.canEditSourceData(companyId)
 
   const deepLink = (target: string) => navigate(`/companies/${companyId}?tab=${target}`)
   const scrollToAi = () => aiRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -189,7 +189,7 @@ export function StartupDashboard({ companyId }: { companyId: string }) {
         }
         actions={
           <>
-            {user?.role === 'admin' && user.organizationType === 'startup' && (
+            {permissions.canProvisionCompany && (
               <Button size="sm" onClick={() => setOnboardingOpen(true)}>
                 <Plus className="h-4 w-4" />
                 {t('dashboard.addCompany')}

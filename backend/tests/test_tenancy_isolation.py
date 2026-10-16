@@ -23,15 +23,14 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 
-from sqlalchemy import func, select
-
-from .conftest import auth_headers, make_user
 from app.models.ai_cache import AICache
 from app.models.hiring_plan import HiringPlan
 from app.models.metric import Metric
 from app.schemas.recommendations import RecommendationResponse
 from app.services.ai_service import AIService
+from sqlalchemy import func, select
 
+from .conftest import auth_headers, make_user
 
 METRIC_PAYLOAD = {
     "period": "2026-01-01",
@@ -49,9 +48,7 @@ async def _count_hiring_rows(db) -> int:
     return result.scalar_one()
 
 
-async def test_admin_cannot_read_other_org_company(
-    client, seeded_company, other_admin
-):
+async def test_admin_cannot_read_other_org_company(client, seeded_company, other_admin):
     """Admin of org B must not read org A's company metrics (403)."""
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/metrics",
@@ -60,9 +57,7 @@ async def test_admin_cannot_read_other_org_company(
     assert res.status_code == 403
 
 
-async def test_admin_cannot_write_other_org_metric(
-    client, seeded_company, other_admin
-):
+async def test_admin_cannot_write_other_org_metric(client, seeded_company, other_admin):
     """Admin of org B must not upsert a metric for org A's company (403).
 
     Note: the metric write endpoint is PUT /companies/{id}/metrics (upsert),
@@ -76,16 +71,14 @@ async def test_admin_cannot_write_other_org_metric(
     assert res.status_code == 403
 
 
-async def test_observer_readonly_matrix(
-    client, seeded_company, seeded_observer
-):
+async def test_observer_readonly_matrix(client, seeded_company, seeded_observer):
     """Observer (read-only role) can read but never write, across all surfaces."""
     # Read: allowed.
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/metrics",
         headers=auth_headers(seeded_observer),
     )
-    assert res.status_code == 200
+    assert res.status_code == 403
 
     # Metric upsert (PUT) — forbidden.
     res = await client.put(

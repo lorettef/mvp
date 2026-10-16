@@ -1,8 +1,12 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
-from uuid import UUID
-from datetime import datetime
-from typing import Optional, Literal
 import re
+from datetime import datetime
+from typing import Literal, Optional
+from uuid import UUID
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.core.roles import ProductRole
+
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -32,13 +36,16 @@ class UserCreate(BaseModel):
             raise ValueError("field required")
         return v
 
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+
 class TokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
+
 
 class UserResponse(BaseModel):
     id: UUID
@@ -46,6 +53,7 @@ class UserResponse(BaseModel):
     full_name: Optional[str]
     company_name: Optional[str]
     role: str
+    product_role: Optional[ProductRole] = None
     organization_id: Optional[UUID]
     company_id: Optional[UUID]
     created_at: datetime

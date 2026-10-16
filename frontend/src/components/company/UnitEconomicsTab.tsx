@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { MetricUpsert, UnitEconomicsMetricSource, UnitEconomicsResponse } from '@/types/api'
+import type { MetricUpsert, UnitEconomicsMetricSource, UnitEconomicsResponse, ReviewComment, ReviewCommentCreate, ReviewCorrection, ReviewCorrectionCreate } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MetricHelp } from '@/components/shared/metric-help'
 import { fmtPct, fmtRub, formatMonthLabel } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { UnitEconomicsSourceEditor } from './UnitEconomicsSourceEditor'
+import { CommentButton } from './CommentButton'
+import { CorrectionButton } from './CorrectionButton'
 
 const fmtNum = (v: number | null | undefined, digits = 2) =>
   v == null ? '—' : v.toFixed(digits)
@@ -20,9 +22,17 @@ interface UnitEconomicsTabProps {
   onDeleteSource?: (id: string) => Promise<unknown>
   isSaving?: boolean
   isDeleting?: boolean
+  comments?: ReviewComment[]
+  canCreateComment?: boolean
+  onCreateComment?: (data: ReviewCommentCreate) => Promise<unknown>
+  commentState?: { loading?: boolean; error?: boolean; onRetry?: () => void }
+  corrections?: ReviewCorrection[]
+  canCreateCorrection?: boolean
+  onCreateCorrection?: (data: ReviewCorrectionCreate) => Promise<unknown>
+  correctionState?: { loading?: boolean; error?: boolean; onRetry?: () => void }
 }
 
-export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel, onSaveSource, onDeleteSource, isSaving, isDeleting }: UnitEconomicsTabProps) {
+export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel, onSaveSource, onDeleteSource, isSaving, isDeleting, comments = [], canCreateComment = false, onCreateComment, commentState, corrections = [], canCreateCorrection = false, onCreateCorrection, correctionState }: UnitEconomicsTabProps) {
   const { t, i18n } = useTranslation()
   const [editingSource, setEditingSource] = useState<UnitEconomicsMetricSource | null>(null)
 
@@ -57,39 +67,39 @@ export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel
     v == null ? '—' : t('company.unit.monthsShort', { value: v.toFixed(1) })
 
   const stats = [
-    { label: t('company.unit.grossMargin'), description: t('company.unit.grossMarginHelp'), value: fmtPct(data.grossMargin), ok: null },
+    { key: 'gross_margin', label: t('company.unit.grossMargin'), description: t('company.unit.grossMarginHelp'), value: fmtPct(data.grossMargin), ok: null },
     {
-      label: t('company.unit.ratio'),
+      key: 'ltv_cac', label: t('company.unit.ratio'),
       description: t('company.unit.ratioHelp'),
       value: fmtNum(data.ltvCac),
       ok: data.ltvCac == null ? null : data.ltvCac >= 3,
     },
     {
-      label: t('company.unit.magicNumber'),
+      key: 'magic_number', label: t('company.unit.magicNumber'),
       description: t('company.unit.magicHelp'),
       value: fmtNum(data.magicNumber),
       ok: data.magicNumber == null ? null : data.magicNumber >= 1,
     },
     {
-      label: t('company.unit.runway'),
+      key: 'runway_months', label: t('company.unit.runway'),
       description: t('company.unit.runwayHelp'),
       value: fmtMonths(data.runwayMonths),
       ok: data.runwayMonths == null ? null : data.runwayMonths >= 6,
     },
     {
-      label: t('company.unit.payback'),
+      key: 'payback_period', label: t('company.unit.payback'),
       description: t('company.unit.paybackHelp'),
       value: fmtMonths(data.paybackPeriod),
       ok: data.paybackPeriod == null ? null : data.paybackPeriod <= 12,
     },
     {
-      label: t('company.unit.romi'),
+      key: 'romi', label: t('company.unit.romi'),
       description: t('company.unit.romiHelp'),
       value: fmtPct(data.romi),
       ok: data.romi == null ? null : data.romi >= 0,
     },
     {
-      label: t('company.unit.churn'),
+      key: 'churn', label: t('company.unit.churn'),
       value: fmtPct(data.churn),
       ok: data.churn == null ? null : data.churn <= 0.05,
       description: t('overview.metricHelp.churn'),
@@ -97,18 +107,47 @@ export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel
   ]
 
   const retention = [
-    { label: 'M1', value: data.retention.m1 },
-    { label: 'M3', value: data.retention.m3 },
-    { label: 'M6', value: data.retention.m6 },
-    { label: 'M12', value: data.retention.m12 },
+    { key: 'retention_m1', label: 'M1', value: data.retention.m1 },
+    { key: 'retention_m3', label: 'M3', value: data.retention.m3 },
+    { key: 'retention_m6', label: 'M6', value: data.retention.m6 },
+    { key: 'retention_m12', label: 'M12', value: data.retention.m12 },
   ]
   const source = data.sourceMetric
+  const indicatorValues: Record<string, number | null | undefined> = {
+    gross_margin: data.grossMargin, ltv_cac: data.ltvCac, magic_number: data.magicNumber,
+    runway_months: data.runwayMonths, payback_period: data.paybackPeriod, romi: data.romi,
+    churn: data.churn, revenue: data.revenue, cac: data.cac, ltv: data.ltv,
+    retention_m1: data.retention.m1, retention_m3: data.retention.m3,
+    retention_m6: data.retention.m6, retention_m12: data.retention.m12,
+  }
+  const indicatorComment = (key: string, label: string) => {
+    if (!onCreateComment) return null
+    const target: Omit<ReviewCommentCreate, 'text'> = {
+      target_type: 'unit_economics', indicator_key: key,
+      ...(source ? { target_period: source.period, target_scenario: source.type } : {}),
+    }
+    const matching = comments.filter(comment => comment.indicatorKey === key &&
+      (comment.targetPeriod ?? null) === (source?.period ?? null) &&
+      (comment.targetScenario ?? null) === (source?.type ?? null))
+    return <CommentButton label={label} target={target} comments={matching} canCreate={canCreateComment}
+      onCreate={onCreateComment} {...commentState} />
+  }
+  const indicatorCorrection = (key: string, label: string) => {
+    if (!onCreateCorrection) return null
+    const target: Omit<ReviewCorrectionCreate, 'corrected_value' | 'reason'> = {
+      target_type: 'unit_economics', indicator_key: key,
+      ...(source ? { target_period: source.period, target_scenario: source.type } : {}),
+    }
+    return <CorrectionButton label={label} valueKey={key} currentValue={indicatorValues[key]}
+      target={target} corrections={corrections.filter(item => item.indicatorKey === key)}
+      canCreate={canCreateCorrection} onCreate={onCreateCorrection} {...correctionState} />
+  }
   const editable = Boolean(canEdit && source && onSaveSource && onDeleteSource)
   const basic = [
-    { label: t('company.unit.revenue'), value: fmtRub(data.revenue), sourceValue: true },
-    { label: t('company.unit.cac'), value: fmtRub(data.cac) },
-    { label: t('company.unit.ltv'), value: fmtRub(data.ltv) },
-    { label: t('company.unit.churn'), value: fmtPct(data.churn) },
+    { key: 'revenue', label: t('company.unit.revenue'), value: fmtRub(data.revenue), sourceValue: true },
+    { key: 'cac', label: t('company.unit.cac'), value: fmtRub(data.cac) },
+    { key: 'ltv', label: t('company.unit.ltv'), value: fmtRub(data.ltv) },
+    { key: 'churn', label: t('company.unit.churn'), value: fmtPct(data.churn) },
   ]
   const openEditor = () => { if (editable && source) setEditingSource(source) }
 
@@ -121,11 +160,11 @@ export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.map((s) => (
               <div key={s.label} className="rounded-lg border border-border p-4">
-                {s.description ? (
+                <div className="flex items-start justify-between gap-1">{s.description ? (
                   <MetricHelp label={s.label} description={s.description} side="right" className="text-xs font-medium text-muted-foreground" />
                 ) : (
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{s.label}</p>
-                )}
+                )}<span className="flex items-center">{indicatorComment(s.key, s.label)}{indicatorCorrection(s.key, s.label)}</span></div>
                 <p
                   className={`text-2xl font-bold mt-1 ${
                     s.ok === null
@@ -151,10 +190,10 @@ export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel
               type: t(`common.${source.type}`), period: formatMonthLabel(source.period.slice(0, 7), i18n.language),
             })}</p>}
             <dl className="space-y-2 text-sm">
-              {basic.map(({ label, value, sourceValue }) => (
+              {basic.map(({ key, label, value, sourceValue }) => (
                 <div key={label} className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">{label}</dt>
-                  <dd className="shrink-0 text-foreground">
+                  <dd className="flex shrink-0 items-center gap-1 text-foreground">
                     {editable && sourceValue ? (
                       <button type="button" aria-label={t('company.unit.editValue', { metric: label })}
                         className="cursor-pointer rounded px-1.5 py-1 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -163,7 +202,7 @@ export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel
                         onKeyDown={(event) => {
                           if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openEditor() }
                         }}>{value}</button>
-                    ) : value}
+                    ) : value}{indicatorComment(key, label)}{indicatorCorrection(key, label)}
                   </dd>
                 </div>
               ))}
@@ -181,7 +220,7 @@ export function UnitEconomicsTab({ data, isLoading, canEdit = false, metricLabel
             <div className="grid grid-cols-4 gap-2 text-center">
               {retention.map((r) => (
                 <div key={r.label} className="rounded-lg border border-border p-3">
-                  <p className="text-xs text-muted-foreground">{r.label}</p>
+                  <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">{r.label}{indicatorComment(r.key, r.label)}{indicatorCorrection(r.key, r.label)}</div>
                   <p className="text-lg font-semibold text-foreground mt-1">
                     {fmtPct(r.value)}
                   </p>

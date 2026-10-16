@@ -14,11 +14,11 @@ def _url(company_id):
     return f"/api/v1/companies/{company_id}/tasks"
 
 
-async def test_create_task(client, seeded_company, seeded_admin):
+async def test_create_task(client, seeded_company, seeded_company_user):
     res = await client.post(
         _url(seeded_company.id),
         json=_task_payload(title="Подготовить метрики"),
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 201
     body = res.json()
@@ -28,53 +28,85 @@ async def test_create_task(client, seeded_company, seeded_admin):
     assert body["effective_status"] == "pending"
 
 
-async def test_list_tasks(client, seeded_company, seeded_admin):
+async def test_list_tasks(client, seeded_company, seeded_company_user):
     url = _url(seeded_company.id)
-    await client.post(url, json=_task_payload(title="A"), headers=auth_headers(seeded_admin))
-    await client.post(url, json=_task_payload(title="B"), headers=auth_headers(seeded_admin))
-    res = await client.get(url, headers=auth_headers(seeded_admin))
+    await client.post(
+        url, json=_task_payload(title="A"), headers=auth_headers(seeded_company_user)
+    )
+    await client.post(
+        url, json=_task_payload(title="B"), headers=auth_headers(seeded_company_user)
+    )
+    res = await client.get(url, headers=auth_headers(seeded_company_user))
     assert res.status_code == 200
     assert len(res.json()) == 2
 
 
-async def test_update_task_status(client, seeded_company, seeded_admin):
+async def test_update_task_status(client, seeded_company, seeded_company_user):
     url = _url(seeded_company.id)
-    created = await client.post(url, json=_task_payload(title="X"), headers=auth_headers(seeded_admin))
+    created = await client.post(
+        url, json=_task_payload(title="X"), headers=auth_headers(seeded_company_user)
+    )
     task_id = created.json()["id"]
     res = await client.patch(
-        f"{url}/{task_id}", json={"status": "done"}, headers=auth_headers(seeded_admin)
+        f"{url}/{task_id}",
+        json={"status": "done"},
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200
     assert res.json()["status"] == "done"
 
 
-async def test_delete_task(client, seeded_company, seeded_admin):
+async def test_delete_task(client, seeded_company, seeded_company_user):
     url = _url(seeded_company.id)
-    created = await client.post(url, json=_task_payload(title="Del"), headers=auth_headers(seeded_admin))
+    created = await client.post(
+        url, json=_task_payload(title="Del"), headers=auth_headers(seeded_company_user)
+    )
     task_id = created.json()["id"]
-    res = await client.delete(f"{url}/{task_id}", headers=auth_headers(seeded_admin))
+    res = await client.delete(
+        f"{url}/{task_id}", headers=auth_headers(seeded_company_user)
+    )
     assert res.status_code == 200
-    res = await client.get(url, headers=auth_headers(seeded_admin))
+    res = await client.get(url, headers=auth_headers(seeded_company_user))
     assert res.json() == []
 
 
-async def test_invalid_stage_and_status(client, seeded_company, seeded_admin):
+async def test_invalid_stage_and_status(client, seeded_company, seeded_company_user):
     url = _url(seeded_company.id)
-    res = await client.post(url, json=_task_payload(stage="bogus"), headers=auth_headers(seeded_admin))
+    res = await client.post(
+        url,
+        json=_task_payload(stage="bogus"),
+        headers=auth_headers(seeded_company_user),
+    )
     assert res.status_code == 422
-    res = await client.post(url, json=_task_payload(status="bogus"), headers=auth_headers(seeded_admin))
+    res = await client.post(
+        url,
+        json=_task_payload(status="bogus"),
+        headers=auth_headers(seeded_company_user),
+    )
     assert res.status_code == 422
 
 
-async def test_readiness_mixed(client, seeded_company, seeded_admin):
+async def test_readiness_mixed(client, seeded_company, seeded_company_user):
     url = _url(seeded_company.id)
-    await client.post(url, json=_task_payload(title="1", stage="metrics", status="done"), headers=auth_headers(seeded_admin))
-    await client.post(url, json=_task_payload(title="2", stage="documents", status="done"), headers=auth_headers(seeded_admin))
-    await client.post(url, json=_task_payload(title="3", stage="negotiations", status="pending"), headers=auth_headers(seeded_admin))
+    await client.post(
+        url,
+        json=_task_payload(title="1", stage="metrics", status="done"),
+        headers=auth_headers(seeded_company_user),
+    )
+    await client.post(
+        url,
+        json=_task_payload(title="2", stage="documents", status="done"),
+        headers=auth_headers(seeded_company_user),
+    )
+    await client.post(
+        url,
+        json=_task_payload(title="3", stage="negotiations", status="pending"),
+        headers=auth_headers(seeded_company_user),
+    )
 
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/readiness",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200
     body = res.json()
@@ -89,10 +121,10 @@ async def test_readiness_mixed(client, seeded_company, seeded_admin):
     assert neg["done"] == 0
 
 
-async def test_readiness_empty(client, seeded_company, seeded_admin):
+async def test_readiness_empty(client, seeded_company, seeded_company_user):
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/readiness",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200
     body = res.json()
@@ -101,14 +133,22 @@ async def test_readiness_empty(client, seeded_company, seeded_admin):
     assert "Задачи ещё не добавлены" in body["summary"]
 
 
-async def test_readiness_full(client, seeded_company, seeded_admin):
+async def test_readiness_full(client, seeded_company, seeded_company_user):
     url = _url(seeded_company.id)
-    await client.post(url, json=_task_payload(title="1", stage="metrics", status="done"), headers=auth_headers(seeded_admin))
-    await client.post(url, json=_task_payload(title="2", stage="presentation", status="done"), headers=auth_headers(seeded_admin))
+    await client.post(
+        url,
+        json=_task_payload(title="1", stage="metrics", status="done"),
+        headers=auth_headers(seeded_company_user),
+    )
+    await client.post(
+        url,
+        json=_task_payload(title="2", stage="presentation", status="done"),
+        headers=auth_headers(seeded_company_user),
+    )
 
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/readiness",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200
     body = res.json()
@@ -117,39 +157,55 @@ async def test_readiness_full(client, seeded_company, seeded_admin):
     assert "Готовность 100%" in body["summary"]
 
 
-async def test_overdue_effective_status(client, seeded_company, seeded_admin):
+async def test_overdue_effective_status(client, seeded_company, seeded_company_user):
     past = (date.today() - timedelta(days=1)).isoformat()
     res = await client.post(
         _url(seeded_company.id),
         json=_task_payload(title="Overdue", due_date=past),
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 201
     assert res.json()["effective_status"] == "overdue"
 
 
-async def test_observer_read_only(client, seeded_company, seeded_admin, seeded_observer):
+async def test_observer_read_only(
+    client, seeded_company, seeded_company_user, seeded_observer
+):
     url = _url(seeded_company.id)
-    await client.post(url, json=_task_payload(title="X"), headers=auth_headers(seeded_admin))
+    await client.post(
+        url, json=_task_payload(title="X"), headers=auth_headers(seeded_company_user)
+    )
 
     # observer может читать
     res = await client.get(url, headers=auth_headers(seeded_observer))
-    assert res.status_code == 200
+    assert res.status_code == 403
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/readiness",
         headers=auth_headers(seeded_observer),
     )
-    assert res.status_code == 200
+    assert res.status_code == 403
 
     # observer не может создавать
-    res = await client.post(url, json=_task_payload(title="Y"), headers=auth_headers(seeded_observer))
+    res = await client.post(
+        url, json=_task_payload(title="Y"), headers=auth_headers(seeded_observer)
+    )
     assert res.status_code == 403
 
 
-async def test_dashboard_task_progress(client, seeded_company, seeded_admin):
+async def test_dashboard_task_progress(
+    client, seeded_company, seeded_company_user, seeded_admin
+):
     url = _url(seeded_company.id)
-    await client.post(url, json=_task_payload(title="1", status="done"), headers=auth_headers(seeded_admin))
-    await client.post(url, json=_task_payload(title="2", status="pending"), headers=auth_headers(seeded_admin))
+    await client.post(
+        url,
+        json=_task_payload(title="1", status="done"),
+        headers=auth_headers(seeded_company_user),
+    )
+    await client.post(
+        url,
+        json=_task_payload(title="2", status="pending"),
+        headers=auth_headers(seeded_company_user),
+    )
 
     res = await client.get("/api/v1/dashboard", headers=auth_headers(seeded_admin))
     assert res.status_code == 200

@@ -1,13 +1,12 @@
 from uuid import UUID
 
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.company import Company
 from app.schemas.company import CompanyCreate, CompanyUpdate
-from app.core.roles import ROLE_ADMIN
-from app.core.time import utcnow
 
 
 class CompanyService:
@@ -58,7 +57,7 @@ class CompanyService:
             else Company.archived_at.is_(None)
         )
 
-        if user["role"] == ROLE_ADMIN:
+        if user.get("product_role") in ("fund", "investor"):
             result = await self.db.execute(
                 select(Company)
                 .where(
@@ -69,7 +68,7 @@ class CompanyService:
             )
             return list(result.scalars().all())
 
-        if user["company_id"]:
+        if user.get("product_role") == "startup" and user["company_id"]:
             result = await self.db.execute(
                 select(Company).where(
                     Company.id == user["company_id"],

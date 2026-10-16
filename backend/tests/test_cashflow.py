@@ -1,11 +1,11 @@
 from datetime import date
 
 import pytest
-
-from .conftest import auth_headers
-from app.models.metric import Metric
 from app.models.budget import Budget
 from app.models.financing import Financing
+from app.models.metric import Metric
+
+from .conftest import auth_headers
 
 
 async def _seed_cashflow(db, company_id):
@@ -32,7 +32,9 @@ async def _seed_cashflow(db, company_id):
         )
     )
     db.add(Financing(company_id=company_id, type="investment", amount=200000))
-    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
+    db.add(
+        Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0)
+    )
     await db.flush()
 
 
@@ -73,7 +75,9 @@ async def test_cashflow_empty(client, seeded_company, seeded_admin):
     assert body["credits"] == 0
 
 
-async def test_cashflow_investment_only(client, seeded_company, seeded_admin, db_session):
+async def test_cashflow_investment_only(
+    client, seeded_company, seeded_admin, db_session
+):
     db_session.add(
         Financing(company_id=seeded_company.id, type="investment", amount=500000)
     )
@@ -96,7 +100,9 @@ async def test_cashflow_financing_sums_match(
         Financing(company_id=seeded_company.id, type="investment", amount=200)
     )
     db_session.add(
-        Financing(company_id=seeded_company.id, type="loan", amount=100, annual_rate=15.0)
+        Financing(
+            company_id=seeded_company.id, type="loan", amount=100, annual_rate=15.0
+        )
     )
     await db_session.flush()
 
@@ -115,7 +121,7 @@ async def test_cashflow_observer_read(client, seeded_company, seeded_observer):
         f"/api/v1/companies/{seeded_company.id}/cashflow",
         headers=auth_headers(seeded_observer),
     )
-    assert res.status_code == 200
+    assert res.status_code == 403
 
 
 async def test_cashflow_unauthenticated(client, seeded_company):
@@ -123,21 +129,42 @@ async def test_cashflow_unauthenticated(client, seeded_company):
     assert res.status_code == 401
 
 
-async def test_cashflow_financing_in_issued_month(client, seeded_company, seeded_admin, db_session):
+async def test_cashflow_financing_in_issued_month(
+    client, seeded_company, seeded_admin, db_session
+):
     """Финансирование попадает в CF месяца выдачи, а не в t0."""
     for m in (1, 2, 3):
-        db_session.add(Metric(
-            company_id=seeded_company.id, period=date(2026, m, 1), type="fact",
-            revenue=100000, cac=1000, ltv=5000, churn=0.03,
-        ))
-        db_session.add(Budget(
-            company_id=seeded_company.id, period=date(2026, m, 1), type="fact",
-            marketing=0, development=0, fot=0, gna=0,
-        ))
-    db_session.add(Financing(
-        company_id=seeded_company.id, type="investment",
-        investor_type="fund", amount=500000, issued_date=date(2026, 2, 15),
-    ))
+        db_session.add(
+            Metric(
+                company_id=seeded_company.id,
+                period=date(2026, m, 1),
+                type="fact",
+                revenue=100000,
+                cac=1000,
+                ltv=5000,
+                churn=0.03,
+            )
+        )
+        db_session.add(
+            Budget(
+                company_id=seeded_company.id,
+                period=date(2026, m, 1),
+                type="fact",
+                marketing=0,
+                development=0,
+                fot=0,
+                gna=0,
+            )
+        )
+    db_session.add(
+        Financing(
+            company_id=seeded_company.id,
+            type="investment",
+            investor_type="fund",
+            amount=500000,
+            issued_date=date(2026, 2, 15),
+        )
+    )
     await db_session.flush()
 
     res = await client.get(
@@ -153,20 +180,41 @@ async def test_cashflow_financing_in_issued_month(client, seeded_company, seeded
     assert body["financing_cf"] == 500000
 
 
-async def test_cashflow_net_cash_flow_separate(client, seeded_company, seeded_admin, db_session):
+async def test_cashflow_net_cash_flow_separate(
+    client, seeded_company, seeded_admin, db_session
+):
     """net_cash_flow — отдельное поле (чистый поток), а не алиас closing_balance."""
-    db_session.add(Metric(
-        company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
-        revenue=100000, cac=1000, ltv=5000, churn=0.03,
-    ))
-    db_session.add(Budget(
-        company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
-        marketing=10000, development=20000, fot=30000, gna=5000,
-    ))
-    db_session.add(Financing(
-        company_id=seeded_company.id, type="investment",
-        investor_type="founder", amount=200000, issued_date=date(2026, 2, 1),
-    ))
+    db_session.add(
+        Metric(
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="fact",
+            revenue=100000,
+            cac=1000,
+            ltv=5000,
+            churn=0.03,
+        )
+    )
+    db_session.add(
+        Budget(
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="fact",
+            marketing=10000,
+            development=20000,
+            fot=30000,
+            gna=5000,
+        )
+    )
+    db_session.add(
+        Financing(
+            company_id=seeded_company.id,
+            type="investment",
+            investor_type="founder",
+            amount=200000,
+            issued_date=date(2026, 2, 1),
+        )
+    )
     await db_session.flush()
 
     res = await client.get(
@@ -180,7 +228,9 @@ async def test_cashflow_net_cash_flow_separate(client, seeded_company, seeded_ad
     assert body["closing_balance"] == pytest.approx(225940)
 
 
-async def test_cashflow_multi_month_chronological_accumulation(client, seeded_company, seeded_admin, db_session):
+async def test_cashflow_multi_month_chronological_accumulation(
+    client, seeded_company, seeded_admin, db_session
+):
     """Closing balance накапливается хронологически (старый → новый), не в обратном порядке."""
     for i, (m, rev) in enumerate(((1, 100000), (2, 200000), (3, 300000))):
         db_session.add(
@@ -216,7 +266,9 @@ async def test_cashflow_multi_month_chronological_accumulation(client, seeded_co
 
     # months DESC: 2026-03, 2026-02, 2026-01
     assert [m["period"] for m in body["months"]] == [
-        "2026-03-01", "2026-02-01", "2026-01-01",
+        "2026-03-01",
+        "2026-02-01",
+        "2026-01-01",
     ]
     by_period = {m["period"]: m for m in body["months"]}
 

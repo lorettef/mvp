@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '../store/authStore'
 import { PortfolioHome } from './PortfolioHome'
-import { StartupDashboard } from './StartupDashboard'
+import { StartupProvisioning } from './StartupProvisioning'
 import { canViewPortfolio } from '@/lib/navigation'
 
 export const Dashboard = () => {
@@ -18,9 +18,8 @@ export const Dashboard = () => {
     return <PortfolioHome />
   }
 
-  if (user.companyId) {
-    return <StartupDashboard companyId={user.companyId} />
-  }
+  if (user.productRole === 'startup' && user.organizationId && user.companyId) return <Navigate to={`/companies/${user.companyId}`} replace />
+  if (user.productRole === 'startup' && user.organizationId && !user.companyId) return <StartupProvisioning />
 
   // Аутентифицированный пользователь без companyId (наблюдатель без
   // привязки к компании): редирект на /login создал бы цикл с bootstrap,

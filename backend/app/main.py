@@ -39,6 +39,8 @@ from app.api.v1 import (
     catalog,
     company_recommendations,
     health,
+    comments,
+    corrections,
 )
 
 # Настройка логирования
@@ -107,6 +109,8 @@ app.include_router(
 )
 app.include_router(forecast.router, prefix="/api/v1/forecast", tags=["forecast"])
 app.include_router(companies.router, prefix="/api/v1/companies", tags=["companies"])
+app.include_router(comments.router, prefix="/api/v1/companies", tags=["comments"])
+app.include_router(corrections.router, prefix="/api/v1/companies", tags=["corrections"])
 app.include_router(cohorts.router, prefix="/api/v1/companies", tags=["cohorts"])
 app.include_router(budgets.router, prefix="/api/v1/companies", tags=["budgets"])
 app.include_router(

@@ -34,6 +34,8 @@ EXPECTED_TABLES = {
     "hiring_settings",
     "analytics_events",
     "invites",
+    "comments",
+    "corrections",
 }
 
 
@@ -69,7 +71,7 @@ def test_alembic_upgrade_head_on_sqlite(tmp_path, monkeypatch):
 
     command.upgrade(_make_config(), "head")
 
-    assert _alembic_version(db_path) == "017_budget_cogs"
+    assert _alembic_version(db_path) == "019_corrections"
     assert EXPECTED_TABLES <= _table_names(db_path)
 
 
@@ -120,7 +122,7 @@ def test_cogs_upgrade_keeps_legacy_unknown_and_downgrade_preserves_row(
             None,
             4,
         )
-    assert _alembic_version(path) == "017_budget_cogs"
+    assert _alembic_version(path) == "019_corrections"
 
 
 def test_cogs_migration_postgres_sql(monkeypatch):
@@ -135,3 +137,51 @@ def test_cogs_migration_postgres_sql(monkeypatch):
     sql = cfg.output_buffer.getvalue()
     assert "ADD COLUMN cogs NUMERIC(14, 2)" in sql
     assert "DEFAULT" not in sql and "UPDATE budgets" not in sql
+
+
+def test_comments_upgrade_preserves_legacy_metric_note(tmp_path, monkeypatch):
+    path = tmp_path / "legacy-comments.db"
+    monkeypatch.setattr(settings, "DATABASE_URL", f"sqlite+aiosqlite:///{path}")
+    cfg = _make_config()
+    command.upgrade(cfg, "017_budget_cogs")
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "INSERT INTO metrics (id, company_id, period, type, revenue, cac, ltv, churn, arpu, comment) "
+            "VALUES ('m', 'c', '2026-01-01', 'fact', 100, 10, 1000, 0.1, 10, 'legacy source note')"
+        )
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT comment FROM metrics WHERE id='m'").fetchone() == (
+            "legacy source note",
+        )
+        assert db.execute("SELECT count(*) FROM comments").fetchone() == (0,)
+    command.downgrade(cfg, "017_budget_cogs")
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT comment FROM metrics WHERE id='m'").fetchone() == (
+            "legacy source note",
+        )
+    command.upgrade(cfg, "head")
+    assert _alembic_version(path) == "019_corrections"
+
+
+def test_corrections_upgrade_downgrade_preserves_comments(tmp_path, monkeypatch):
+    path = tmp_path / "legacy-corrections.db"
+    monkeypatch.setattr(settings, "DATABASE_URL", f"sqlite+aiosqlite:///{path}")
+    cfg = _make_config()
+    command.upgrade(cfg, "018_comments")
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "INSERT INTO comments (id, company_id, author_id, target_type, text) "
+            "VALUES ('review', 'company', 'author', 'overview', 'Existing review')"
+        )
+    command.upgrade(cfg, "head")
+    assert _alembic_version(path) == "019_corrections"
+    assert "corrections" in _table_names(path)
+    command.downgrade(cfg, "018_comments")
+    assert "corrections" not in _table_names(path)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT text FROM comments WHERE id='review'").fetchone() == (
+            "Existing review",
+        )
+    command.upgrade(cfg, "head")
+    assert _alembic_version(path) == "019_corrections"

@@ -1,13 +1,15 @@
 from datetime import date
 
 import pytest
-
-from .conftest import auth_headers
-from app.schemas.metric import MetricUpsert, MetricBulkUpsert
+from app.schemas.metric import MetricBulkUpsert, MetricUpsert
 from app.services.metric_service import MetricService
 
+from .conftest import auth_headers
 
-def _fact(period: date, new_units: int, arpu: float, retention: float, marketing: float = 0.0) -> MetricUpsert:
+
+def _fact(
+    period: date, new_units: int, arpu: float, retention: float, marketing: float = 0.0
+) -> MetricUpsert:
     return MetricUpsert(
         period=period,
         type="fact",
@@ -40,7 +42,9 @@ async def test_upsert_derived_fields(db_session, seeded_company):
 
 async def test_upsert_zero_new_units_gives_zero_cac(db_session, seeded_company):
     svc = MetricService(db_session)
-    data = _fact(date(2026, 1, 1), new_units=0, arpu=95.0, retention=0.8, marketing=14400.0)
+    data = _fact(
+        date(2026, 1, 1), new_units=0, arpu=95.0, retention=0.8, marketing=14400.0
+    )
 
     m = await svc.upsert_metric(seeded_company.id, data)
 
@@ -49,7 +53,9 @@ async def test_upsert_zero_new_units_gives_zero_cac(db_session, seeded_company):
 
 async def test_upsert_full_retention(db_session, seeded_company):
     svc = MetricService(db_session)
-    data = _fact(date(2026, 1, 1), new_units=10, arpu=100.0, retention=1.0, marketing=1000.0)
+    data = _fact(
+        date(2026, 1, 1), new_units=10, arpu=100.0, retention=1.0, marketing=1000.0
+    )
 
     m = await svc.upsert_metric(seeded_company.id, data)
 
@@ -57,7 +63,9 @@ async def test_upsert_full_retention(db_session, seeded_company):
     assert m.ltv == pytest.approx(1200.0)  # arpu * 12
 
 
-async def test_bulk_two_consecutive_months_recursive_active_units(db_session, seeded_company):
+async def test_bulk_two_consecutive_months_recursive_active_units(
+    db_session, seeded_company
+):
     svc = MetricService(db_session)
     items = [
         _fact(date(2026, 1, 1), new_units=100, arpu=10.0, retention=0.9),
@@ -118,19 +126,35 @@ def test_bulk_schema_rejects_empty_items():
         MetricBulkUpsert.model_validate({"items": []})
 
 
-async def test_bulk_endpoint_returns_ordered_responses(client, seeded_company, seeded_admin):
+async def test_bulk_endpoint_returns_ordered_responses(
+    client, seeded_company, seeded_company_user
+):
     payload = {
         "items": [
-            {"period": "2026-01-01", "type": "fact", "new_units": 100, "arpu": 10.0,
-             "revenue": 1000.0, "marketing_spend": 500.0, "retention_rate": 0.9},
-            {"period": "2026-02-01", "type": "fact", "new_units": 50, "arpu": 10.0,
-             "revenue": 500.0, "marketing_spend": 250.0, "retention_rate": 0.8},
+            {
+                "period": "2026-01-01",
+                "type": "fact",
+                "new_units": 100,
+                "arpu": 10.0,
+                "revenue": 1000.0,
+                "marketing_spend": 500.0,
+                "retention_rate": 0.9,
+            },
+            {
+                "period": "2026-02-01",
+                "type": "fact",
+                "new_units": 50,
+                "arpu": 10.0,
+                "revenue": 500.0,
+                "marketing_spend": 250.0,
+                "retention_rate": 0.8,
+            },
         ]
     }
     res = await client.put(
         f"/api/v1/companies/{seeded_company.id}/metrics/bulk",
         json=payload,
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200
     body = res.json()
@@ -142,11 +166,20 @@ async def test_bulk_endpoint_returns_ordered_responses(client, seeded_company, s
     assert body[1]["active_units"] == 130
 
 
-async def test_bulk_endpoint_observer_forbidden(client, seeded_company, seeded_observer):
+async def test_bulk_endpoint_observer_forbidden(
+    client, seeded_company, seeded_observer
+):
     payload = {
         "items": [
-            {"period": "2026-01-01", "type": "fact", "new_units": 1, "arpu": 10.0,
-             "revenue": 10.0, "marketing_spend": 0.0, "retention_rate": 0.9},
+            {
+                "period": "2026-01-01",
+                "type": "fact",
+                "new_units": 1,
+                "arpu": 10.0,
+                "revenue": 10.0,
+                "marketing_spend": 0.0,
+                "retention_rate": 0.9,
+            },
         ]
     }
     res = await client.put(

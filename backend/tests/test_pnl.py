@@ -1,12 +1,12 @@
 from datetime import date
 
 import pytest
-
-from .conftest import auth_headers
-from app.models.metric import Metric
 from app.models.budget import Budget
 from app.models.financing import Financing
+from app.models.metric import Metric
 from app.services.pnl_service import PnLService
+
+from .conftest import auth_headers
 
 
 async def _seed_pnl(db, company_id):
@@ -32,7 +32,9 @@ async def _seed_pnl(db, company_id):
             gna=5000,
         )
     )
-    db.add(Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0))
+    db.add(
+        Financing(company_id=company_id, type="loan", amount=100000, annual_rate=15.0)
+    )
     await db.flush()
 
 
@@ -118,7 +120,7 @@ async def test_pnl_observer_read(client, seeded_company, seeded_observer):
         f"/api/v1/companies/{seeded_company.id}/pnl",
         headers=auth_headers(seeded_observer),
     )
-    assert res.status_code == 200
+    assert res.status_code == 403
 
 
 async def test_pnl_unauthenticated(client, seeded_company):
@@ -169,10 +171,12 @@ async def test_pnl_falls_back_to_plan_when_no_fact(db_session, seeded_company):
     assert pnl.period == date(2026, 2, 1)
 
 
-async def test_pnl_multi_month_returns_all_periods(client, seeded_company, seeded_admin, db_session):
+async def test_pnl_multi_month_returns_all_periods(
+    client, seeded_company, seeded_admin, db_session
+):
     """P&L должен возвращать месячную разбивку по всем периодам с данными (не только последний)."""
-    from app.models.metric import Metric
     from app.models.budget import Budget
+    from app.models.metric import Metric
 
     for i, m in enumerate((1, 2, 3)):
         db_session.add(
@@ -217,14 +221,28 @@ async def test_pnl_multi_month_returns_all_periods(client, seeded_company, seede
 
 async def test_pnl_source_metadata(db_session, seeded_company):
     """source: fact/plan/mixed — период раскрывает источник данных."""
-    db_session.add(Metric(
-        company_id=seeded_company.id, period=date(2026, 2, 1), type="fact",
-        revenue=100000, cac=1000, ltv=5000, churn=0.03,
-    ))
-    db_session.add(Budget(
-        company_id=seeded_company.id, period=date(2026, 2, 1), type="plan",
-        marketing=10000, development=20000, fot=30000, gna=5000,
-    ))
+    db_session.add(
+        Metric(
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="fact",
+            revenue=100000,
+            cac=1000,
+            ltv=5000,
+            churn=0.03,
+        )
+    )
+    db_session.add(
+        Budget(
+            company_id=seeded_company.id,
+            period=date(2026, 2, 1),
+            type="plan",
+            marketing=10000,
+            development=20000,
+            fot=30000,
+            gna=5000,
+        )
+    )
     await db_session.flush()
 
     pnl = await PnLService(db_session).get_pnl(seeded_company.id)
@@ -234,18 +252,37 @@ async def test_pnl_source_metadata(db_session, seeded_company):
 async def test_loan_interest_starts_at_issued_date(db_session, seeded_company):
     """Проценты по кредиту не начисляются до issued_date."""
     for m in (1, 2, 3):
-        db_session.add(Metric(
-            company_id=seeded_company.id, period=date(2026, m, 1), type="fact",
-            revenue=100000, cac=1000, ltv=5000, churn=0.03,
-        ))
-        db_session.add(Budget(
-            company_id=seeded_company.id, period=date(2026, m, 1), type="fact",
-            marketing=0, development=0, fot=0, gna=0,
-        ))
-    db_session.add(Financing(
-        company_id=seeded_company.id, type="loan", amount=1200000,
-        annual_rate=15.0, issued_date=date(2026, 2, 1),
-    ))
+        db_session.add(
+            Metric(
+                company_id=seeded_company.id,
+                period=date(2026, m, 1),
+                type="fact",
+                revenue=100000,
+                cac=1000,
+                ltv=5000,
+                churn=0.03,
+            )
+        )
+        db_session.add(
+            Budget(
+                company_id=seeded_company.id,
+                period=date(2026, m, 1),
+                type="fact",
+                marketing=0,
+                development=0,
+                fot=0,
+                gna=0,
+            )
+        )
+    db_session.add(
+        Financing(
+            company_id=seeded_company.id,
+            type="loan",
+            amount=1200000,
+            annual_rate=15.0,
+            issued_date=date(2026, 2, 1),
+        )
+    )
     await db_session.flush()
 
     pnl = await PnLService(db_session).get_pnl(seeded_company.id, months=3)
@@ -259,8 +296,12 @@ async def test_loan_interest_starts_at_issued_date(db_session, seeded_company):
 def test_loan_interest_amortization():
     """Аннуитет: проценты снижаются с погашением principal; после срока — 0."""
     loan = Financing(
-        company_id=None, type="loan", amount=1200000, annual_rate=15.0,
-        term_months=12, issued_date=date(2026, 2, 1),
+        company_id=None,
+        type="loan",
+        amount=1200000,
+        annual_rate=15.0,
+        term_months=12,
+        issued_date=date(2026, 2, 1),
         first_payment_date=date(2026, 3, 1),
     )
     assert PnLService._loan_interest(loan, date(2026, 1, 1)) == 0  # до выдачи
@@ -272,11 +313,14 @@ def test_loan_interest_amortization():
     assert PnLService._loan_interest(loan, date(2027, 3, 1)) == 0  # после срока
 
 
-async def test_pnl_excludes_future_plan_periods(client, seeded_company, seeded_admin, db_session):
+async def test_pnl_excludes_future_plan_periods(
+    client, seeded_company, seeded_admin, db_session
+):
     """Будущие PLAN-периоды не должны вытеснять исторические FACT-месяцы из окна P&L."""
     from datetime import date as _date
-    from app.models.metric import Metric
+
     from app.models.budget import Budget
+    from app.models.metric import Metric
 
     # FACT за июль и будущий PLAN-бюджет на декабрь.
     db_session.add(
@@ -295,7 +339,10 @@ async def test_pnl_excludes_future_plan_periods(client, seeded_company, seeded_a
             company_id=seeded_company.id,
             period=_date(2026, 7, 1),
             type="fact",
-            marketing=0, development=0, fot=0, gna=60000,
+            marketing=0,
+            development=0,
+            fot=0,
+            gna=60000,
         )
     )
     db_session.add(
@@ -303,7 +350,10 @@ async def test_pnl_excludes_future_plan_periods(client, seeded_company, seeded_a
             company_id=seeded_company.id,
             period=_date(2026, 12, 1),  # будущий месяц
             type="plan",
-            marketing=0, development=0, fot=0, gna=999999,
+            marketing=0,
+            development=0,
+            fot=0,
+            gna=999999,
         )
     )
     await db_session.flush()

@@ -12,8 +12,8 @@ vi.mock('../store/authStore', () => ({
 vi.mock('./PortfolioHome', () => ({
   PortfolioHome: () => <div>Portfolio Home view</div>,
 }))
-vi.mock('./StartupDashboard', () => ({
-  StartupDashboard: () => <div>Startup overview</div>,
+vi.mock('./StartupProvisioning', () => ({
+  StartupProvisioning: () => <div>First company provisioning</div>,
 }))
 
 const baseUser: User = {
@@ -21,7 +21,7 @@ const baseUser: User = {
   email: 'admin@example.com',
   fullName: 'Admin',
   companyName: 'Startup Investment Bridge',
-  role: 'admin',
+  role: 'admin', productRole: 'fund',
   organizationId: 'org-1',
   companyId: null,
   subscriptionPlan: 'pro',
@@ -56,32 +56,52 @@ describe('Dashboard routing', () => {
   it('routes a standalone startup admin to its company', () => {
     authStoreMock.user = {
       ...baseUser,
-      organizationType: 'startup',
+      organizationType: 'startup', productRole: 'startup',
       companyId: 'startup-company',
     }
 
     renderDashboard()
 
-    expect(screen.getByText('Startup overview')).toBeInTheDocument()
+    expect(screen.getByText('Company view')).toBeInTheDocument()
   })
 
   it('routes a company user to its company', () => {
     authStoreMock.user = {
       ...baseUser,
-      role: 'company',
+      role: 'company', productRole: 'startup',
       companyId: 'company-user-company',
     }
 
     renderDashboard()
 
-    expect(screen.getByText('Startup overview')).toBeInTheDocument()
+    expect(screen.getByText('Company view')).toBeInTheDocument()
   })
 
-  it('keeps legacy admins without organizationType on the portfolio', () => {
+  it('uses server product role even when legacy organizationType is absent', () => {
     authStoreMock.user = { ...baseUser }
 
     renderDashboard()
 
     expect(screen.getByText('Portfolio Home view')).toBeInTheDocument()
   })
+  it('does not infer fund rights from a legacy admin without product role', () => {
+    authStoreMock.user = { ...baseUser, productRole: undefined }
+    renderDashboard()
+    expect(screen.getByText('Нет доступа', { exact: true })).toBeVisible()
+    expect(screen.queryByText('Portfolio Home view')).not.toBeInTheDocument()
+  })
+
+  it('keeps an inconsistent startup without tenant context on the no-access page', () => {
+    authStoreMock.user = { ...baseUser, productRole: 'startup', organizationId: null, companyId: 'own' }
+    renderDashboard()
+    expect(screen.getByText('Нет доступа', { exact: true })).toBeVisible()
+    expect(screen.queryByText('Company view')).not.toBeInTheDocument()
+  })
+
+  it('routes investor to the portfolio without any company binding', () => {
+    authStoreMock.user = { ...baseUser, role: 'observer', productRole: 'investor' }
+    renderDashboard()
+    expect(screen.getByText('Portfolio Home view')).toBeVisible()
+  })
+
 })

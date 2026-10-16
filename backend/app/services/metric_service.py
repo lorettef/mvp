@@ -2,12 +2,14 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
 from app.core.time import utcnow
 from app.models.metric import Metric
+from app.models.comment import Comment
+from app.models.correction import Correction
 from app.schemas.metric import MetricUpsert
 
 
@@ -173,5 +175,11 @@ class MetricService:
                 detail="Метрика не найдена",
             )
 
+        # SQLite test databases do not enable FK cascades; keep this deletion
+        # explicit while PostgreSQL also has ON DELETE CASCADE.
+        await self.db.execute(delete(Comment).where(Comment.metric_id == metric_id))
+        await self.db.execute(
+            delete(Correction).where(Correction.metric_id == metric_id)
+        )
         await self.db.delete(metric)
         await self.db.flush()

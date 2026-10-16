@@ -17,7 +17,6 @@ import type {
   TaskUpdate,
   ReadinessResponse,
   RecalculateResponse,
-  PlanGenerateResponse,
   InsightScenario,
   InsightResponse,
   RecommendationTasksResponse,
@@ -77,8 +76,6 @@ export const companiesApi = {
     api.get(`/companies/${id}/readiness`, { signal }).then((res) => res.data),
   recalculate: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<RecalculateResponse> =>
     api.post(`/companies/${id}/recalculate`, undefined, { signal }).then((res) => res.data),
-  generatePlan: (id: string, months = 6, { signal }: { signal?: AbortSignal } = {}): Promise<PlanGenerateResponse> =>
-    api.post(`/companies/${id}/generate-plan`, null, { params: { months }, signal }).then((res) => res.data),
   insight: (id: string, scenario: InsightScenario, { signal }: { signal?: AbortSignal } = {}): Promise<InsightResponse> =>
     api.post(`/companies/${id}/insights/${scenario}`, undefined, { signal }).then((res) => res.data),
   health: (id: string, { signal }: { signal?: AbortSignal } = {}): Promise<BusinessHealthResponse> =>

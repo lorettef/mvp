@@ -1,11 +1,11 @@
 from datetime import date
 
 import pytest
-
-from .conftest import auth_headers
 from app.core.config import settings
 from app.models.metric import Metric
 from app.models.subscription import Subscription
+
+from .conftest import auth_headers
 
 
 async def _seed_facts(db, company_id):
@@ -54,14 +54,16 @@ async def _seed_subscription(db, user):
     await db.flush()
 
 
-async def test_generate_plan_demo(client, seeded_company, seeded_admin, db_session, monkeypatch):
+async def test_generate_plan_demo(
+    client, seeded_company, seeded_company_user, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed_facts(db_session, seeded_company.id)
-    await _seed_subscription(db_session, seeded_admin)
+    await _seed_subscription(db_session, seeded_company_user)
 
     res = await client.post(
         f"/api/v1/companies/{seeded_company.id}/generate-plan",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200
     body = res.json()
@@ -74,37 +76,43 @@ async def test_generate_plan_demo(client, seeded_company, seeded_admin, db_sessi
     assert body["metrics"][0]["revenue"] == pytest.approx(126000.0)
 
 
-async def test_generate_plan_persists(client, seeded_company, seeded_admin, db_session, monkeypatch):
+async def test_generate_plan_persists(
+    client, seeded_company, seeded_company_user, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed_facts(db_session, seeded_company.id)
-    await _seed_subscription(db_session, seeded_admin)
+    await _seed_subscription(db_session, seeded_company_user)
 
     await client.post(
         f"/api/v1/companies/{seeded_company.id}/generate-plan",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
 
     res = await client.get(
         f"/api/v1/companies/{seeded_company.id}/metrics",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 200
     plan_metrics = [m for m in res.json() if m["type"] == "plan"]
     assert len(plan_metrics) == 6
 
 
-async def test_generate_plan_requires_facts(client, seeded_company, seeded_admin, db_session, monkeypatch):
+async def test_generate_plan_requires_facts(
+    client, seeded_company, seeded_company_user, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
-    await _seed_subscription(db_session, seeded_admin)
+    await _seed_subscription(db_session, seeded_company_user)
 
     res = await client.post(
         f"/api/v1/companies/{seeded_company.id}/generate-plan",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
     )
     assert res.status_code == 404
 
 
-async def test_generate_plan_observer_forbidden(client, seeded_company, seeded_observer, db_session, monkeypatch):
+async def test_generate_plan_observer_forbidden(
+    client, seeded_company, seeded_observer, db_session, monkeypatch
+):
     monkeypatch.setattr(settings, "AI_PROVIDER", "demo")
     await _seed_facts(db_session, seeded_company.id)
 

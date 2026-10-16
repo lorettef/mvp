@@ -120,7 +120,7 @@ export function UnitEconomicsSourceEditor({ initialDelete = false, source, metri
               </div>
             ))}
             {editComment && <div className="space-y-1">
-              <label htmlFor={`${prefix}-comment`} className="text-sm font-medium">{t('company.pnl.comment')}</label>
+              <label htmlFor={`${prefix}-comment`} className="text-sm font-medium">{t('comments.sourceNote')}</label>
               <Input id={`${prefix}-comment`} disabled={Boolean(busy)} value={comment} onChange={(event) => setComment(event.target.value)} />
             </div>}
             {!confirmDelete && apiError && <p role="alert" className="text-sm text-destructive">{apiError}</p>}

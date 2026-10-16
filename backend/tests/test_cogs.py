@@ -1,8 +1,8 @@
 """COGS source identity and canonical Gross Margin through real ASGI endpoints."""
 
 import pytest
-
 from app.services.gross_profit import gross_profit
+
 from .conftest import auth_headers
 
 
@@ -55,10 +55,10 @@ async def put(client, base, kind, headers, payload):
 
 @pytest.mark.parametrize("cogs", [0, 40, 12.34, None])
 async def test_budget_additive_create_update_legacy_and_delete(
-    client, seeded_company, seeded_admin, cogs
+    client, seeded_company, seeded_company_user, cogs
 ):
     base = f"/api/v1/companies/{seeded_company.id}"
-    headers = auth_headers(seeded_admin)
+    headers = auth_headers(seeded_company_user)
     old = await put(client, base, "budgets", headers, budget(type_="plan"))
     assert old["cogs"] is None
     fact = await put(client, base, "budgets", headers, budget(cogs=cogs))
@@ -78,20 +78,22 @@ async def test_budget_additive_create_update_legacy_and_delete(
 
 @pytest.mark.parametrize("invalid", [-1, "NaN", "Infinity", "abc"])
 async def test_budget_rejects_invalid_cogs(
-    client, seeded_company, seeded_admin, invalid
+    client, seeded_company, seeded_company_user, invalid
 ):
     r = await client.put(
         f"/api/v1/companies/{seeded_company.id}/budgets",
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(seeded_company_user),
         json=budget(cogs=invalid),
     )
     assert r.status_code == 422
 
 
 async def test_asgi_cogs_refreshes_gross_and_payback_but_preserves_ebitda_cashflow(
-    client, seeded_company, seeded_admin
+    client, seeded_company, seeded_company_user
 ):
-    base, h = f"/api/v1/companies/{seeded_company.id}", auth_headers(seeded_admin)
+    base, h = f"/api/v1/companies/{seeded_company.id}", auth_headers(
+        seeded_company_user
+    )
     await put(client, base, "metrics", h, metric())
     await put(client, base, "budgets", h, budget(cogs=40000))
     await put(client, base, "metrics", h, metric(type_="plan", revenue=200000))
@@ -131,9 +133,11 @@ async def test_asgi_cogs_refreshes_gross_and_payback_but_preserves_ebitda_cashfl
 
 @pytest.mark.parametrize("type_", ["fact", "plan"])
 async def test_unit_exact_scenario_period_and_legacy_independence(
-    client, seeded_company, seeded_admin, type_
+    client, seeded_company, seeded_company_user, type_
 ):
-    base, h = f"/api/v1/companies/{seeded_company.id}", auth_headers(seeded_admin)
+    base, h = f"/api/v1/companies/{seeded_company.id}", auth_headers(
+        seeded_company_user
+    )
     await put(client, base, "metrics", h, metric(type_=type_))
     # Wrong scenario and unrelated latest period must not contribute COGS.
     await put(
@@ -172,9 +176,16 @@ async def test_unit_exact_scenario_period_and_legacy_independence(
 
 
 async def test_partial_pnl_and_cogs_tenant_permissions(
-    client, seeded_company, seeded_admin, seeded_observer, other_company, other_admin
+    client,
+    seeded_company,
+    seeded_company_user,
+    seeded_observer,
+    other_company,
+    other_admin,
 ):
-    base, h = f"/api/v1/companies/{seeded_company.id}", auth_headers(seeded_admin)
+    base, h = f"/api/v1/companies/{seeded_company.id}", auth_headers(
+        seeded_company_user
+    )
     await put(client, base, "metrics", h, metric())
     await put(client, base, "budgets", h, budget(type_="plan", cogs=40))
     periods = (await client.get(f"{base}/pnl", headers=h)).json()["periods"]
@@ -194,4 +205,4 @@ async def test_partial_pnl_and_cogs_tenant_permissions(
         await client.get(
             f"{base}/unit-economics", headers=auth_headers(seeded_observer)
         )
-    ).status_code == 200
+    ).status_code == 403

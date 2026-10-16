@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { AxiosError } from 'axios'
 import { useTranslation } from 'react-i18next'
 import { authApi } from '../api/auth'
 import { completeLogin } from '../auth/authSession'
+import { getDefaultRoute } from '@/lib/defaultRoute'
+import { getErrorMessage } from '@/lib/toastError'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -28,10 +29,9 @@ export const Login = () => {
       await authApi.login({ email, password })
       const userData = await authApi.me()
       completeLogin(userData)
-      navigate('/dashboard')
+      navigate(getDefaultRoute(userData) ?? '/dashboard', { replace: true })
     } catch (err: unknown) {
-      const axiosErr = err as AxiosError<{ detail?: string }>
-      setError(axiosErr.response?.data?.detail || t('auth.login.error'))
+      setError(getErrorMessage(err, t('auth.login.error')))
     } finally {
       setLoading(false)
     }

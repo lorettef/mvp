@@ -1,4 +1,4 @@
-from .conftest import auth_headers
+from .conftest import auth_headers, make_user
 
 
 async def test_plans_list(client, seeded_admin):
@@ -27,8 +27,11 @@ async def test_plans_unauthenticated(client):
     assert res.status_code == 401
 
 
-async def test_company_limit_enforced(client, seeded_admin, seeded_company, seeded_organization):
+async def test_company_limit_enforced(
+    client, seeded_admin, seeded_company, seeded_organization, db_session
+):
     seeded_organization.organization_type = "startup"
+    seeded_admin.company_id = None
     # в организации уже 1 компания (seeded_company), starter limit = 2
     res = await client.post(
         "/api/v1/companies",
@@ -36,10 +39,16 @@ async def test_company_limit_enforced(client, seeded_admin, seeded_company, seed
         headers=auth_headers(seeded_admin),
     )
     assert res.status_code == 201
+    assert str(seeded_admin.company_id) == res.json()["id"]
+    another_owner = await make_user(
+        db_session, "another-owner@plans.test", "admin", seeded_organization.id
+    )
 
     res = await client.post(
         "/api/v1/companies",
         json={"name": "Третья компания"},
-        headers=auth_headers(seeded_admin),
+        headers=auth_headers(another_owner),
     )
     assert res.status_code == 403
+
+    assert "Превышен лимит компаний" in res.json()["detail"]

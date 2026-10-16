@@ -1,17 +1,16 @@
 import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Copy, Link2, CircleCheck } from 'lucide-react'
+import { Copy, CircleCheck } from 'lucide-react'
 import { invitesApi } from '../../api/invites'
-import { useAuthStore } from '../../store/authStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 
-export const StartupInvite = () => {
+export const StartupInvite = ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => {
   const { t } = useTranslation()
-  const { user } = useAuthStore()
-  const [open, setOpen] = useState(false)
+  const { canInvite } = usePermissions()
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [copyFailed, setCopyFailed] = useState(false)
@@ -24,7 +23,7 @@ export const StartupInvite = () => {
 
   const handleOpenChange = (nextOpen: boolean) => {
     dialogSessionRef.current += 1
-    setOpen(nextOpen)
+    onOpenChange(nextOpen)
     setInviteLink(null)
     setCopied(false)
     setCopyFailed(false)
@@ -59,15 +58,10 @@ export const StartupInvite = () => {
     }
   }
 
-  if (user?.role !== 'admin') return null
+  if (!canInvite) return null
 
   return (
     <>
-      <Button size="sm" variant="outline" className="hover:border-primary hover:bg-primary hover:text-primary-foreground" onClick={() => handleOpenChange(true)}>
-        <Link2 className="h-4 w-4" />
-        {t('dashboard.invite.title')}
-      </Button>
-
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent closeLabel={t('common.cancel')}>
           <DialogHeader>

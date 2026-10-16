@@ -1,18 +1,19 @@
 import secrets
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status, Response, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.core.config import settings
-from app.core.limiter import limiter
-from app.core.database import get_db
-from app.models.user import User
-from app.models.organization import Organization
-from app.schemas.auth import UserCreate, UserLogin, TokenResponse, UserResponse
-from app.services.auth_service import AuthService
-from app.services.subscription_service import SubscriptionService
-from app.services.seed_service import seed_demo_account
 from app.api.dependencies import get_current_user
+from app.core.config import settings
+from app.core.database import get_db
+from app.core.limiter import limiter
+from app.core.product_roles import load_product_context
+from app.models.organization import Organization
+from app.models.user import User
+from app.schemas.auth import TokenResponse, UserCreate, UserLogin, UserResponse
+from app.services.auth_service import AuthService
+from app.services.seed_service import seed_demo_account
+from app.services.subscription_service import SubscriptionService
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -101,6 +102,9 @@ async def get_me(
         full_name=user.full_name,
         company_name=user.company_name,
         role=user.role,
+        product_role=(await load_product_context(db, user, organization))[
+            "product_role"
+        ],
         organization_id=user.organization_id,
         company_id=user.company_id,
         created_at=user.created_at,

@@ -1,4 +1,20 @@
 export const ru = {
+  corrections: {
+    title: 'Корректировка фонда', adjust: 'Скорректировать', original: 'Исходное значение',
+    corrected: 'Скорректированное значение', reason: 'Причина', current: 'Корректировка фонда',
+    currentStatus: 'Есть корректировка', history: 'История корректировок',
+    stale: 'Исходные данные изменились после корректировки', empty: 'Нет корректировок',
+    add: 'Добавить корректировку', loadError: 'Ошибка загрузки корректировок',
+    close: 'Закрыть корректировки', openTarget: 'Скорректировать: {{label}}',
+    viewTarget: 'История корректировок: {{label}}',
+    targetTitle: '{{label}} — история корректировок',
+  },
+  comments: {
+    title: 'Комментарии фонда', comment: 'Комментарий', add: 'Добавить комментарий',
+    empty: 'Пока комментариев нет', loadError: 'Ошибка загрузки комментариев',
+    close: 'Закрыть комментарии', openTarget: 'Комментарии: {{label}}, {{count}}',
+    targetTitle: '{{label}} — комментарии', sourceNote: 'Примечание к источнику',
+  },
   portfolioAi: {
     title: 'ИИ-анализ портфеля',
     description: 'На основе доступных данных компаний в текущем выбранном наборе.',
@@ -62,7 +78,7 @@ export const ru = {
   },
   nav: {
     dashboard: 'Дашборд',
-    home: 'Главная',
+    home: 'Дашборд портфеля',
     companies: 'Компании',
     backToCompanies: 'К компаниям',
     settings: 'Настройки',
@@ -189,6 +205,7 @@ export const ru = {
     },
     filters: {
       title: 'Фильтры',
+      panel: 'Панель фильтров',
       show: 'Показать фильтры',
       collapse: 'Свернуть фильтры',
       close: 'Закрыть фильтры',
@@ -224,6 +241,7 @@ export const ru = {
       inactiveNote: 'Аналитические фильтры применяются только к активному портфелю.',
     },
     title: 'Портфель компаний',
+    portfolioTable: { title: 'Таблица портфеля', previous: 'Назад', next: 'Далее' },
     subtitle: 'Обзор всех стартапов акселератора',
     addCompany: 'Добавить компанию',
     companyName: 'Название компании',
@@ -444,10 +462,6 @@ export const ru = {
     sphereNotSet: 'Сфера не указана',
       locationNotSet: 'Местонахождение не указано',
     insufficientRights: 'Недостаточно прав',
-    generatePlanTitle: 'Сгенерировать план метрик на основе фактов',
-    generatePlan: 'Сгенерировать план AI',
-    generating: 'Генерация...',
-    planGenerated: 'План на {{count}} мес. сгенерирован ({{provider}}).',
     delete: {
       title: 'Удалить данные?',
       description: 'Это действие нельзя отменить.',

@@ -2,13 +2,12 @@ import uuid
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.api.dependencies import require_company_access, require_company_source_write
 from app.core.database import get_db
-from app.api.dependencies import require_company_access, ROLE_ADMIN, ROLE_COMPANY
-from app.schemas.budget import BudgetUpsert, BudgetResponse
+from app.schemas.budget import BudgetResponse, BudgetUpsert
 from app.services.budget_service import BudgetService
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -17,14 +16,9 @@ router = APIRouter()
 async def upsert_budget(
     company_id: uuid.UUID,
     data: BudgetUpsert,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
 
     service = BudgetService(db)
     budget = await service.upsert_budget(company_id, data)
@@ -47,14 +41,9 @@ async def list_budgets(
 async def delete_budget(
     company_id: uuid.UUID,
     budget_id: uuid.UUID,
-    user: dict = Depends(require_company_access()),
+    user: dict = Depends(require_company_source_write),
     db: AsyncSession = Depends(get_db),
 ):
-    if user["role"] not in (ROLE_ADMIN, ROLE_COMPANY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Недостаточно прав",
-        )
 
     service = BudgetService(db)
     await service.delete_budget(company_id, budget_id)

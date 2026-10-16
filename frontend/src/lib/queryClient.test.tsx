@@ -86,6 +86,14 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(new Error('boom'))).toBe('boom')
   })
 
+  it('turns FastAPI validation arrays into readable text and never renders objects', () => {
+    expect(getErrorMessage({ response: { data: { detail: [
+      { loc: ['body', 'email'], msg: 'Invalid email' },
+      { loc: ['body', 'password'], msg: 'Password required' },
+    ] } } })).toBe('Invalid email; Password required')
+    expect(getErrorMessage({ response: { data: { detail: { code: 'invalid' } } } }, 'Login failed')).toBe('Login failed')
+  })
+
   it('falls back to a generic message otherwise', () => {
     expect(getErrorMessage({})).toBe('Something went wrong. Please try again.')
   })

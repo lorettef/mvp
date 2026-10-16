@@ -2,6 +2,7 @@ import { useAuthStore } from '@/store/authStore'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DashboardResponse } from '@/types/api'
@@ -39,7 +40,7 @@ function renderHome() {
   clients.push(client)
   // A Companies-filtered result must never become the unfiltered Main snapshot.
   client.setQueryData(qk.dashboard('org-home', { companyIds: ['other'] }), { ...response, totalCompanies: 999 })
-  return { client, ...render(<QueryClientProvider client={client}><PortfolioHome /></QueryClientProvider>) }
+  return { client, ...render(<QueryClientProvider client={client}><MemoryRouter><PortfolioHome /></MemoryRouter></QueryClientProvider>) }
 }
 function slot(number: number) { return screen.getByRole('group', { name: `График ${number}` }) }
 async function selectVariant(number: number, title: string) {
@@ -49,18 +50,21 @@ async function selectVariant(number: number, title: string) {
   await userEvent.setup().click(within(menu).getByRole('menuitemradio', { name: title }))
 }
 beforeEach(async () => {
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
   await i18n.changeLanguage('ru')
   http.get.mockReset().mockImplementation((path: string) => {
     if (path === '/dashboard') return Promise.resolve({ data: response })
     if (path === '/dashboard/performance') return Promise.resolve({ data: performance })
+    if (path === '/companies') return Promise.resolve({ data: [{ id: 'c1', name: 'Acme' }] })
+    if (path === '/catalog') return Promise.resolve({ data: { industries: [{ slug: 'saas', label: 'SaaS' }] } })
     throw new Error(`Unexpected endpoint: ${path}`)
   })
 })
-afterEach(() => { act(() => useAuthStore.getState().setUser(null)); clients.splice(0).forEach((client) => client.clear()) })
+afterEach(() => { act(() => useAuthStore.getState().setUser(null)); clients.splice(0).forEach((client) => client.clear()); vi.unstubAllGlobals() })
 
 describe('Portfolio Home', () => {
   it('places one default-scope portfolio AI after the two chart slots, with no automatic generation', async () => {
-    useAuthStore.getState().setUser({ id: 'fund', role: 'admin', organizationId: 'org-home', companyId: null, organizationType: 'fund', email: '', fullName: '', companyName: '', subscriptionPlan: 'pro', dailyLimit: null, usedToday: 0 })
+    useAuthStore.getState().setUser({ id: 'fund', role: 'admin', productRole: 'fund', organizationId: 'org-home', companyId: null, organizationType: 'fund', email: '', fullName: '', companyName: '', subscriptionPlan: 'pro', dailyLimit: null, usedToday: 0 })
     portfolioAI.generate.mockReset().mockResolvedValue({ scope: 'portfolio', provider: 'demo', text: 'Проблема\nДанных мало.\nПричина\nПричина неизвестна.\nДействие\nПроверьте данные.\nДедлайн: сегодня' })
     renderHome()
     await screen.findByText('Компании в портфеле')
@@ -80,7 +84,7 @@ describe('Portfolio Home', () => {
     const grid = label.closest('.grid')!
     expect(grid.children).toHaveLength(6)
     expect(grid).toHaveClass('min-[1366px]:grid-cols-6')
-    expect(screen.getByRole('heading', { name: 'Главная' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Дашборд портфеля' })).toBeVisible()
     expect(screen.getByText('50%')).toBeVisible() // Only the two companies with a comparable plan.
     expect(screen.queryByText('999', { exact: true })).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Сменить вариант графика' })).toHaveLength(2)
@@ -98,13 +102,13 @@ describe('Portfolio Home', () => {
   it('uses only the existing unfiltered dashboard and six-month performance requests', async () => {
     renderHome()
     await screen.findByText('Компании в портфеле')
-    expect(http.get.mock.calls.map(([path]) => path)).toEqual(['/dashboard', '/dashboard/performance'])
-    const dashboardOptions = http.get.mock.calls[0][1]
+    expect(http.get.mock.calls.map(([path]) => path).sort()).toEqual(['/catalog', '/companies', '/dashboard', '/dashboard/performance'])
+    const dashboardOptions = http.get.mock.calls.find(([path]) => path === '/dashboard')![1]
     expect(dashboardOptions.signal).toBeInstanceOf(AbortSignal)
     expect([...dashboardOptions.params.entries()]).toEqual([])
-    expect([...http.get.mock.calls[1][1].params.entries()]).toEqual([['months', '6']])
+    expect([...http.get.mock.calls.find(([path]) => path === '/dashboard/performance')![1].params.entries()]).toEqual([['months', '6']])
     await selectVariant(1, titles[3])
-    expect(http.get).toHaveBeenCalledTimes(2)
+    expect(http.get).toHaveBeenCalledTimes(4)
   })
 
   it('switches all four variants independently and allows identical selections', async () => {
@@ -178,20 +182,121 @@ describe('Portfolio Home', () => {
     expect(within(slot(2)).getByText('Нет данных о выручке для расчёта долей.')).toBeVisible()
   })
 
-  it('reuses cached catalog labels without making a catalog request', async () => {
+  it('reuses catalog labels from the shared query', async () => {
     const { client } = renderHome()
     act(() => client.setQueryData(['catalog'], { industries: [{ slug: 'saas', label: 'SaaS' }] }))
     await screen.findByText('Компании в портфеле')
     await selectVariant(1, titles[3])
     expect(within(slot(1)).getByRole('rowheader', { name: 'SaaS' })).toBeVisible()
-    expect(http.get.mock.calls.every(([path]) => path.startsWith('/dashboard'))).toBe(true)
+    expect(http.get.mock.calls.filter(([path]) => path === '/catalog')).toHaveLength(1)
   })
 
   it('localizes Home, slot titles and switcher in English', async () => {
     await i18n.changeLanguage('en')
     renderHome()
-    expect(await screen.findByRole('heading', { name: 'Home' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Portfolio Dashboard' })).toBeVisible()
     expect(screen.getAllByRole('button', { name: 'Switch chart type' })).toHaveLength(2)
     expect(screen.getByRole('group', { name: 'Chart 1' })).toHaveTextContent('Portfolio revenue')
+  })
+
+  it('toggles the FilterDrawer and restores focus without showing a backdrop', async () => {
+    renderHome()
+    const user = userEvent.setup()
+    const trigger = await screen.findByRole('button', { name: 'Фильтры' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('dialog', { name: 'Панель фильтров' })).toBeVisible()
+    expect(screen.queryByTestId('sheet-overlay')).not.toBeInTheDocument()
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
+    await user.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'Панель фильтров' })).toBeVisible()
+    const panel = screen.getByRole('dialog', { name: 'Панель фильтров' })
+    const focusable = within(panel).getAllByRole('button')
+    expect(focusable[0]).toHaveFocus()
+    focusable[focusable.length - 1].focus()
+    await user.keyboard('{Tab}')
+    expect(focusable[0]).toHaveFocus()
+    await user.keyboard('{Shift>}{Tab}{/Shift}')
+    expect(focusable[focusable.length - 1]).toHaveFocus()
+    expect(panel.className).not.toMatch(/animate-|transition-|duration-|fade-|slide-|zoom-/)
+    await user.keyboard('{Escape}')
+    expect(trigger).toHaveFocus()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('applies one scope to KPI, both chart sources, table and Portfolio AI, then resets it', async () => {
+    useAuthStore.getState().setUser({ id: 'fund', role: 'admin', productRole: 'fund', organizationId: 'org-home', companyId: null, organizationType: 'fund', email: '', fullName: '', companyName: '', subscriptionPlan: 'pro', dailyLimit: null, usedToday: 0 })
+    portfolioAI.generate.mockReset().mockResolvedValue({ scope: 'portfolio', provider: 'demo', text: 'Analyzed scope' })
+    const beta = { ...response.companies[0], id: 'c2', name: 'Beta' }
+    http.get.mockImplementation((path: string, options: { params?: URLSearchParams }) => {
+      if (path === '/companies') return Promise.resolve({ data: [{ id: 'c1', name: 'Acme' }, { id: 'c2', name: 'Beta' }] })
+      if (path === '/catalog') return Promise.resolve({ data: { industries: [{ slug: 'saas', label: 'SaaS' }] } })
+      if (path === '/dashboard/performance') return Promise.resolve({ data: performance })
+      if (path === '/dashboard') return Promise.resolve({ data: options.params?.get('company_id') === 'c1'
+        ? { ...response, totalCompanies: 1, companies: [response.companies[0]] }
+        : { ...response, totalCompanies: 2, companies: [response.companies[0], beta] } })
+      throw new Error(`Unexpected endpoint: ${path}`)
+    })
+    renderHome()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Beta')).toBeVisible()
+    const user = userEvent.setup()
+    const trigger = screen.getByRole('button', { name: 'Фильтры' })
+    await user.click(trigger)
+    await user.click(within(screen.getByRole('dialog', { name: 'Панель фильтров' })).getByRole('button', { name: /^Компании:/ }))
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Acme' }))
+    await waitFor(() => expect(within(table).queryByText('Beta')).not.toBeInTheDocument())
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(trigger).toHaveClass('bg-primary')
+    expect(http.get.mock.calls.filter(([path, options]) => path === '/dashboard' && options.params.get('company_id') === 'c1')).toHaveLength(1)
+    expect(http.get.mock.calls.filter(([path, options]) => path === '/dashboard/performance' && options.params.get('company_id') === 'c1')).toHaveLength(1)
+    const ai = screen.getByRole('heading', { name: 'ИИ-анализ портфеля' }).closest('section')!
+    await user.click(within(ai).getByRole('button', { name: 'Сформировать анализ' }))
+    await waitFor(() => expect(portfolioAI.generate).toHaveBeenCalledWith({ companyIds: ['c1'] }, expect.any(AbortSignal)))
+    await user.click(trigger)
+    await user.click(within(screen.getByRole('dialog', { name: 'Панель фильтров' })).getByRole('button', { name: 'Сбросить фильтры' }))
+    await waitFor(() => expect(within(screen.getByRole('table')).getByText('Beta')).toBeVisible())
+    expect(trigger).toHaveClass('bg-card')
+    expect(screen.getByRole('heading', { name: 'ИИ-анализ портфеля' }).closest('section')).not.toHaveTextContent('Analyzed scope')
+  })
+
+  it('keeps Investor table rows non-interactive while allowing read-only filters', async () => {
+    useAuthStore.getState().setUser({ id: 'investor', role: 'observer', productRole: 'investor', organizationId: 'org-home', companyId: null, organizationType: 'fund', email: '', fullName: '', companyName: '', subscriptionPlan: 'pro', dailyLimit: null, usedToday: 0 })
+    renderHome()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Acme')).toBeVisible()
+    expect(within(table).queryByRole('button', { name: 'Acme' })).not.toBeInTheDocument()
+    expect(within(table).getByRole('row', { name: /Acme/ })).not.toHaveAttribute('tabindex')
+    expect(screen.getByRole('button', { name: 'Фильтры' })).toBeVisible()
+    expect(screen.queryByRole('heading', { name: 'ИИ-анализ портфеля' })).not.toBeInTheDocument()
+  })
+
+  it('sends industry, health, performance and valid dates through the shared Dashboard serializer', async () => {
+    renderHome()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Фильтры' }))
+    const panel = screen.getByRole('dialog', { name: 'Панель фильтров' })
+    for (const [control, option] of [
+      ['Сфера деятельности:', 'SaaS'],
+      ['Состояние:', 'В норме'],
+      ['Выполнение плана:', 'Выполняет план'],
+    ]) {
+      await user.click(within(panel).getByRole('button', { name: new RegExp(`^${control}`) }))
+      await user.click(await screen.findByRole('menuitemcheckbox', { name: option }))
+      await user.keyboard('{Escape}')
+    }
+    fireEvent.change(within(panel).getByLabelText('С'), { target: { value: '2026-01-01' } })
+    fireEvent.change(within(panel).getByLabelText('По'), { target: { value: '2026-03-01' } })
+    await waitFor(() => {
+      const scoped = http.get.mock.calls.filter(([path, options]) => path === '/dashboard' && options.params.get('period_to') === '2026-03-01')
+      expect(scoped.length).toBeGreaterThan(0)
+      expect([...scoped[scoped.length - 1][1].params.entries()]).toEqual([
+        ['industry', 'saas'], ['health', 'healthy'], ['performance_status', 'on_track'],
+        ['period_from', '2026-01-01'], ['period_to', '2026-03-01'],
+      ])
+    })
   })
 })

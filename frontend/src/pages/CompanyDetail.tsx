@@ -1,5 +1,8 @@
+import { usePermissions } from '@/hooks/usePermissions'
+import { useCompanyComments } from '@/hooks/useCompanyComments'
+import { useCompanyCorrections } from '@/hooks/useCompanyCorrections'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -14,9 +17,11 @@ import { creditApi } from '../api/credit'
 import { valuationApi } from '../api/valuation'
 import { sensitivityApi } from '../api/sensitivity'
 import { useAuthStore } from '../store/authStore'
+import { getDefaultRoute } from '@/lib/defaultRoute'
+import { resolveCompanyTab } from '@/lib/navigation'
 import { getTenantKey } from '../auth/authSession'
 import { qk } from '../lib/queryKeys'
-import type { Metric, MetricUpsert, UnitEconomicsMetricSource, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, FinancingCreate, FinancingUpdate } from '@/types/api'
+import type { Metric, MetricUpsert, UnitEconomicsMetricSource, CohortUpsert, BudgetUpsert, TaskCreate, TaskUpdate, MarketAnalysisRequest, HiringSettingsUpsert, FinancingCreate, FinancingUpdate, InsightResponse } from '@/types/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,13 +52,15 @@ import { SensitivityTab } from '@/components/company/SensitivityTab'
 import { ReportsTab } from '@/components/company/ReportsTab'
 import { AIInsight } from '@/components/company/AIInsight'
 import { CompanyProfileOverview } from '@/components/company/CompanyProfileOverview'
+import { CommentButton } from '@/components/company/CommentButton'
+import { CorrectionButton } from '@/components/company/CorrectionButton'
 import { CompanyConfigDialog } from '@/components/company/CompanyConfigDialog'
 import { QueryState } from '@/components/common/QueryState'
 import { normalizeApiError } from '@/lib/apiError'
 import { SKIP_GLOBAL_ERROR } from '@/lib/toastError'
 import { cn } from '@/lib/utils'
 import { fmtPct, fmtPeriod, fmtRub, fmtSignedPct, formatMonthLabel } from '@/lib/format'
-import { Sparkles, Plus, AlertCircle, ArrowUpRight, ArrowDownRight, Settings2 } from 'lucide-react'
+import { Plus, AlertCircle, ArrowUpRight, ArrowDownRight, Settings2 } from 'lucide-react'
 
 interface BulkRow {
   newUnits: string
@@ -106,12 +113,21 @@ const deriveMetric = (r: BulkRow) => {
 }
 
 export const CompanyDetail = () => {
+  const { companyId } = useParams<{ companyId: string }>()
+  const { canOpenCompany, canViewCompanyList } = usePermissions()
+  const { user } = useAuthStore()
+  if (!canOpenCompany(companyId)) return <Navigate to={canViewCompanyList ? '/companies' : getDefaultRoute(user) ?? '/dashboard'} replace />
+  return <CompanyDetailContent />
+}
+
+const CompanyDetailContent = () => {
+  const permissions = usePermissions()
   const { t, i18n } = useTranslation()
   const { companyId } = useParams<{ companyId: string }>()
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState(() => searchParams.get('tab') ?? 'metrics')
+  const tab = resolveCompanyTab(searchParams.get('tab'))
   const [showForm, setShowForm] = useState(false)
   const [bulkType, setBulkType] = useState<'plan' | 'fact'>('fact')
   const [bulkStartMonth, setBulkStartMonth] = useState(() => defaultStartMonth('fact', 3))
@@ -121,12 +137,10 @@ export const CompanyDetail = () => {
   const [deletingMetricSource, setDeletingMetricSource] = useState(false)
   const [editingMetricSource, setEditingMetricSource] = useState<Metric | null>(null)
   const [wizardScope, setWizardScope] = useState<string | null>(null)
+  const [companyAiResult, setCompanyAiResult] = useState<{ scope: string; result: InsightResponse } | null>(null)
   const inFlightSources = useRef(new Set<string>())
   const [pendingSources, setPendingSources] = useState<string[]>([])
   const [configOpen, setConfigOpen] = useState(false)
-
-  const providerLabel = (p: string) =>
-    p === 'deepseek' ? 'DeepSeek' : p === 'gigachat' ? 'GigaChat' : t('company.providerDemo')
 
   const BUSINESS_MODEL_LABELS: Record<string, string> = {
     subscription: 'Подписка (SaaS)',
@@ -165,6 +179,11 @@ export const CompanyDetail = () => {
   const id = companyId ?? ''
   const tenantKey = getTenantKey()
   const entryScope = `${tenantKey}:${id}`
+  const overviewComments = useCompanyComments(id, 'overview', tab === 'overview')
+  const metricComments = useCompanyComments(id, 'metric_value', tab === 'metrics')
+  const unitComments = useCompanyComments(id, 'unit_economics', tab === 'unit')
+  const metricCorrections = useCompanyCorrections(id, 'metric_value', tab === 'metrics')
+  const unitCorrections = useCompanyCorrections(id, 'unit_economics', tab === 'unit')
   useEffect(() => { setWizardScope(null) }, [tenantKey, id, user?.role])
 
   const companyQuery = useQuery({
@@ -188,21 +207,16 @@ export const CompanyDetail = () => {
   const metricLabel = (key: string, fallback: string) => metricLabels.get(key) ?? fallback
 
 
-  useEffect(() => {
-    // URL — источник правды для вкладки; при смене компании ?tab пропадает → дефолт.
-    setTab(searchParams.get('tab') ?? 'metrics')
-  }, [searchParams])
-
   const metricsQuery = useQuery({
     queryKey: qk.companyMetrics(tenantKey, id),
     queryFn: ({ signal }) => companiesApi.metrics(id, undefined, { signal }),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && (tab === 'overview' || tab === 'metrics'),
   })
 
   const cohortsQuery = useQuery({
     queryKey: qk.companyCohorts(tenantKey, id),
     queryFn: ({ signal }) => companiesApi.cohorts(id, undefined, { signal }),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && (tab === 'overview' || tab === 'cohorts'),
   })
 
   const budgetsQuery = useQuery({
@@ -214,13 +228,13 @@ export const CompanyDetail = () => {
   const unitEconomicsQuery = useQuery({
     queryKey: qk.companyUnitEconomics(tenantKey, id),
     queryFn: ({ signal }) => companiesApi.unitEconomics(id, { signal }),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && (tab === 'overview' || tab === 'unit'),
   })
 
   const healthQuery = useQuery({
     queryKey: qk.companyHealth(tenantKey, id),
     queryFn: ({ signal }) => companiesApi.health(id, { signal }),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && tab === 'overview',
   })
 
   const tasksQuery = useQuery({
@@ -286,13 +300,13 @@ export const CompanyDetail = () => {
   const pnlQuery = useQuery({
     queryKey: qk.companyPnl(tenantKey, id),
     queryFn: ({ signal }) => pnlApi.get(id, { signal }),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && (tab === 'overview' || tab === 'pnl'),
   })
 
   const cashflowQuery = useQuery({
     queryKey: qk.companyCashflow(tenantKey, id),
     queryFn: ({ signal }) => cashflowApi.get(id, { signal }),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && (tab === 'overview' || tab === 'cashflow'),
   })
 
   const creditQuery = useQuery({
@@ -314,11 +328,6 @@ export const CompanyDetail = () => {
   })
 
   const invalidateFinancialSource = () => invalidateFinancialSources(queryClient, tenantKey, id)
-
-  const generatePlanMutation = useMutation({
-    mutationFn: () => companiesApi.generatePlan(id),
-    onSuccess: invalidateFinancialSource,
-  })
 
   const bulkMutation = useMutation({
     mutationFn: () => {
@@ -501,14 +510,40 @@ export const CompanyDetail = () => {
   const tasks = tasksQuery.data ?? []
   const readiness = readinessQuery.data ?? null
 
-  const canEdit = user?.role === 'admin' || user?.role === 'company'
+  const canEdit = permissions.canEditSourceData(id)
+  const canUseDataEntry = permissions.canUseDataEntry(id)
+  const canUseCompanyAI = permissions.canUseCompanyAI(id)
+  const canCreateComment = permissions.canComment
+  const canCreateCorrection = permissions.canCorrect
+  const commentState = (kind: typeof metricComments) => ({
+    loading: kind.query.isLoading,
+    error: kind.query.isError,
+    onRetry: () => { void kind.query.refetch() },
+  })
   const metricCellLabel = (source: UnitEconomicsMetricSource, field: MetricInputField) => t('company.pnl.editCell', {
     metric: metricLabel(field, t(field === 'revenue' ? 'company.metrics.revenue' : field === 'new_units' ? 'company.metrics.newUnits' : 'company.metrics.retention')),
     period: formatMonthLabel(source.period.slice(0, 7), i18n.language), type: t(`common.${source.type}`),
   })
-  const metricCell = (source: Metric | undefined, field: MetricInputField, formatted: ReactNode) => canEdit && source
-    ? <MetricInlineCell key={source.id} source={source} field={field} label={metricCellLabel(source, field)} busy={isSourcePending('metric', source)} onSave={saveMetricSourceRecord}>{formatted}</MetricInlineCell>
-    : formatted
+  const metricCommentLabel = (source: Metric, field: MetricInputField) => `${metricLabel(field, t(field === 'revenue' ? 'company.metrics.revenue' : field === 'new_units' ? 'company.metrics.newUnits' : 'company.metrics.retention'))} · ${formatMonthLabel(source.period.slice(0, 7), i18n.language)} · ${t(`common.${source.type}`)}`
+  const metricRawValue = (source: Metric, field: MetricInputField) => ({
+    revenue: source.revenue, new_units: source.newUnits, arpu: source.arpu,
+    marketing_spend: source.marketingSpend, retention_rate: source.retentionRate,
+  })[field]
+  const metricCell = (source: Metric | undefined, field: MetricInputField, formatted: ReactNode) => <span className="inline-flex items-center justify-end gap-1">
+    {canEdit && source
+      ? <MetricInlineCell key={source.id} source={source} field={field} label={metricCellLabel(source, field)} busy={isSourcePending('metric', source)} onSave={saveMetricSourceRecord}>{formatted}</MetricInlineCell>
+      : formatted}
+    {source && <CommentButton label={metricCommentLabel(source, field)}
+      target={{ target_type: 'metric_value', metric_id: source.id, field }}
+      comments={(metricComments.query.data ?? []).filter(comment => comment.metricId === source.id && comment.field === field)}
+      canCreate={canCreateComment} onCreate={data => metricComments.mutation.mutateAsync(data)} {...commentState(metricComments)} />}
+    {source && <CorrectionButton label={metricCommentLabel(source, field)} valueKey={field} currentValue={metricRawValue(source, field)}
+      target={{ target_type: 'metric_value', metric_id: source.id, field }}
+      corrections={(metricCorrections.query.data ?? []).filter(item => item.metricId === source.id && item.field === field)}
+      canCreate={canCreateCorrection} onCreate={data => metricCorrections.mutation.mutateAsync(data)}
+      loading={metricCorrections.query.isLoading} error={metricCorrections.query.isError}
+      onRetry={() => { void metricCorrections.query.refetch() }} />}
+  </span>
 
   const periods = new Map<string, { plan?: Metric; fact?: Metric }>()
   for (const m of metrics) {
@@ -547,35 +582,52 @@ export const CompanyDetail = () => {
               {t('dashboard.config.title')}
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => generatePlanMutation.mutate()}
-            disabled={!canEdit}
-            title={!canEdit ? t('company.insufficientRights') : t('company.generatePlanTitle')}
-            loading={generatePlanMutation.isPending}
-          >
-            <Sparkles className="h-4 w-4" />
-            {generatePlanMutation.isPending ? t('company.generating') : t('company.generatePlan')}
-          </Button>
+
         </div>
       </div>
 
-      {generatePlanMutation.data && (
-        <div className="text-sm text-muted-foreground bg-muted/40 border border-border rounded-lg px-4 py-2">
-          {t('company.planGenerated', {
-            count: generatePlanMutation.data.metrics.length,
-            provider: providerLabel(generatePlanMutation.data.provider),
-          })}
-        </div>
-      )}
-
-      <CompanyProfileOverview key={`overview:${entryScope}`} metrics={metricsQuery} cohorts={cohortsQuery} pnl={pnlQuery} cashflow={cashflowQuery} unit={unitEconomicsQuery} health={healthQuery} />
-
       <Tabs value={tab}>
+        <TabsContent value="overview" className="space-y-6">
+          <CompanyProfileOverview
+            key={`overview:${entryScope}`}
+            metrics={metricsQuery} cohorts={cohortsQuery} pnl={pnlQuery}
+            cashflow={cashflowQuery} unit={unitEconomicsQuery} health={healthQuery}
+            actions={canUseDataEntry ? (
+              <Button type="button" className="w-full sm:w-auto" onClick={() => setWizardScope(entryScope)}>
+                {t('company.wizard.start')}
+              </Button>
+            ) : undefined}
+          />
+          {(canCreateComment || overviewComments.query.isError || (overviewComments.query.data?.length ?? 0) > 0) && <Card className="min-w-0 border bg-card">
+            <CardContent className="flex items-center justify-between gap-3 p-5">
+              <h3 className="text-base font-semibold">{t('comments.title')}</h3>
+              <CommentButton label={t('company.profile.title')} alwaysVisible
+                target={{ target_type: 'overview' }} comments={overviewComments.query.data ?? []}
+                canCreate={canCreateComment} onCreate={data => overviewComments.mutation.mutateAsync(data)} {...commentState(overviewComments)} />
+            </CardContent>
+          </Card>}
+          {canUseCompanyAI && (
+            <Card role="region" aria-labelledby="company-ai-title" className="min-w-0 border bg-card">
+              <CardContent className="space-y-3 p-5">
+                <h3 id="company-ai-title" className="text-base font-semibold">{t('company.ai.title')}</h3>
+                <p className="text-sm text-muted-foreground">{t('company.ai.description')}</p>
+                <AIInsight
+                  key={entryScope}
+                  companyId={id}
+                  scenario="overview"
+                  initialResult={companyAiResult?.scope === entryScope ? companyAiResult.result : null}
+                  onResult={(result) => setCompanyAiResult({ scope: entryScope, result })}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
         <TabsContent value="metrics">
-          {canEdit && <div className="mb-3 flex justify-end">
-            <Button type="button" onClick={() => setWizardScope(entryScope)}>{t('company.wizard.start')}</Button>
+          {metricCorrections.query.isError && <div role="alert" className="mb-3 flex items-center gap-2 text-sm text-destructive">
+            {t('corrections.loadError')} <Button type="button" variant="outline" size="sm" onClick={() => void metricCorrections.query.refetch()}>{t('common.retry')}</Button>
+          </div>}
+          {metricComments.query.isError && <div role="alert" className="mb-3 flex items-center gap-2 text-sm text-destructive">
+            {t('comments.loadError')} <Button type="button" variant="outline" size="sm" onClick={() => void metricComments.query.refetch()}>{t('common.retry')}</Button>
           </div>}
           <QueryState
             isLoading={metricsQuery.isLoading}
@@ -902,6 +954,12 @@ export const CompanyDetail = () => {
         </TabsContent>
 
         <TabsContent value="unit">
+          {unitCorrections.query.isError && <div role="alert" className="mb-3 flex items-center gap-2 text-sm text-destructive">
+            {t('corrections.loadError')} <Button type="button" variant="outline" size="sm" onClick={() => void unitCorrections.query.refetch()}>{t('common.retry')}</Button>
+          </div>}
+          {unitComments.query.isError && <div role="alert" className="mb-3 flex items-center gap-2 text-sm text-destructive">
+            {t('comments.loadError')} <Button type="button" variant="outline" size="sm" onClick={() => void unitComments.query.refetch()}>{t('common.retry')}</Button>
+          </div>}
           <QueryState
             isLoading={unitEconomicsQuery.isLoading}
             isError={unitEconomicsQuery.isError}
@@ -920,6 +978,14 @@ export const CompanyDetail = () => {
             onDeleteSource={(metricId) => deleteUnitSource.mutateAsync(metricId)}
             isSaving={saveUnitSource.isPending}
             isDeleting={deleteUnitSource.isPending}
+            comments={unitComments.query.data ?? []}
+            canCreateComment={canCreateComment}
+            onCreateComment={data => unitComments.mutation.mutateAsync(data)}
+            commentState={commentState(unitComments)}
+            corrections={unitCorrections.query.data ?? []}
+            canCreateCorrection={canCreateCorrection}
+            onCreateCorrection={data => unitCorrections.mutation.mutateAsync(data)}
+            correctionState={{ loading: unitCorrections.query.isLoading, error: unitCorrections.query.isError, onRetry: () => { void unitCorrections.query.refetch() } }}
           />
           </QueryState>
         </TabsContent>
@@ -1086,21 +1152,11 @@ export const CompanyDetail = () => {
         </TabsContent>
       </Tabs>
 
-      {canEdit && (
-        <Card role="region" aria-labelledby="company-ai-title" className="min-w-0 border bg-card">
-          <CardContent className="space-y-3 p-5">
-            <h3 id="company-ai-title" className="text-base font-semibold">{t('company.ai.title')}</h3>
-            <p className="text-sm text-muted-foreground">{t('company.ai.description')}</p>
-            <AIInsight key={entryScope} companyId={id} scenario="overview" />
-          </CardContent>
-        </Card>
-      )}
-
       {canEdit && editingMetricSource?.companyId === id && <UnitEconomicsSourceEditor key={`${id}:${editingMetricSource.id}`} source={editingMetricSource} initialDelete={deletingMetricSource}
         editComment metricLabel={metricLabel} onSave={saveMetricSourceRecord}
         onDelete={(metricId) => deleteUnitSource.mutateAsync(metricId)} onClose={() => setEditingMetricSource(null)} />}
 
-      {canEdit && wizardScope === entryScope && <DataEntryWizard industry={company?.industry} key={entryScope} companyId={id} tenantKey={tenantKey}
+      {canUseDataEntry && wizardScope === entryScope && <DataEntryWizard industry={company?.industry} key={entryScope} companyId={id} tenantKey={tenantKey}
         metricLabel={metricLabel} onClose={() => setWizardScope(null)} />}
 
 

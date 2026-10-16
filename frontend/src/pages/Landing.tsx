@@ -6,6 +6,7 @@ import { logout } from '../auth/authSession'
 import { Button } from '@/components/ui/button'
 import { LanguageToggle } from '@/components/LanguageToggle'
 import { BrandMark } from '@/components/shared/logo'
+import { getDefaultRoute } from '@/lib/defaultRoute'
 
 export const Landing = () => {
   const { t } = useTranslation()
@@ -16,7 +17,7 @@ export const Landing = () => {
 
   const handlePrimary = () => {
     if (isLoggedIn) {
-      navigate('/dashboard')
+      navigate(getDefaultRoute(user) ?? '/dashboard')
     } else {
       navigate('/register')
     }
