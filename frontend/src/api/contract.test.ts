@@ -96,7 +96,7 @@ describe('API wire-contract casing', () => {
 
     await authApi.register({
       email: 'a@b.c',
-      password: 'secret123',
+      password: 'Password123',
       full_name: 'Ada Lovelace',
       company_name: 'ACME',
     })
@@ -105,7 +105,7 @@ describe('API wire-contract casing', () => {
     const body = sentBody(adapter.mock.calls[0][0])
     expect(body).toEqual({
       email: 'a@b.c',
-      password: 'secret123',
+      password: 'Password123',
       full_name: 'Ada Lovelace',
       company_name: 'ACME',
     })

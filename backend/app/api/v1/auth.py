@@ -1,7 +1,9 @@
+import logging
 import secrets
 
 from app.api.dependencies import get_current_user
 from app.core.config import settings
+from app.core.auth_cookie import set_auth_cookie
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.product_roles import load_product_context
@@ -16,23 +18,40 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post(
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
-@limiter.limit("5/minute")
+@limiter.limit("10/minute")
 async def register(
-    data: UserCreate, request: Request, db: AsyncSession = Depends(get_db)
+    data: UserCreate,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
 ):
     """Регистрация нового пользователя."""
     auth_service = AuthService(db)
-    user_data = await auth_service.register(data)
+    try:
+        user_data = await auth_service.register(data)
+    except HTTPException as exc:
+        category = "invalid_invite" if data.invite_token else "duplicate"
+        logger.info(
+            "Registration rejected: category=%s status=%s", category, exc.status_code
+        )
+        raise
+    except Exception:
+        logger.exception("Registration failed: category=internal")
+        raise
 
     # Получение информации о подписке
     sub_service = SubscriptionService(db)
     sub_info = await sub_service.get_user_subscription(user_data["id"])
 
+    from app.core.security import create_access_token
+
+    set_auth_cookie(response, create_access_token({"sub": str(user_data["id"])}))
     return UserResponse(
         id=user_data["id"],
         email=user_data["email"],
@@ -61,15 +80,7 @@ async def login(
     auth_service = AuthService(db)
     result = await auth_service.login(data.email, data.password)
 
-    response.set_cookie(
-        key="access_token",
-        value=result["access_token"],
-        httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite="lax",
-        max_age=result["expires_in"],
-        path="/",
-    )
+    set_auth_cookie(response, result["access_token"], result["expires_in"])
 
     return TokenResponse(
         token_type=result["token_type"], expires_in=result["expires_in"]
@@ -163,15 +174,7 @@ async def seed_demo(
     from app.core.security import create_access_token
 
     token = create_access_token({"sub": result["user_id"]})
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite="lax",
-        max_age=60 * 24 * 7,
-        path="/",
-    )
+    set_auth_cookie(response, token)
     return result
 
 
@@ -184,15 +187,7 @@ async def refresh(
     from app.core.security import create_access_token
 
     token = create_access_token({"sub": str(current_user["user_id"])})
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        path="/",
-    )
+    set_auth_cookie(response, token)
     return TokenResponse(
         token_type="bearer",
         expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,

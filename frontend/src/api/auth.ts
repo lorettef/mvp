@@ -2,7 +2,7 @@ import type { RegisterRequest, TokenResponse, UserResponse, SeedResponse } from 
 import { api } from './client'
 
 export const authApi = {
-  register: (data: RegisterRequest, { signal }: { signal?: AbortSignal } = {}): Promise<TokenResponse> => api.post('/auth/register', data, { signal }).then((res) => res.data),
+  register: (data: RegisterRequest, { signal }: { signal?: AbortSignal } = {}): Promise<UserResponse> => api.post('/auth/register', data, { signal }).then((res) => res.data),
   login: (data: {email: string, password: string}, { signal }: { signal?: AbortSignal } = {}): Promise<TokenResponse> =>
     api.post('/auth/login', data, { signal }).then((res) => res.data),
   me: ({ signal }: { signal?: AbortSignal } = {}): Promise<UserResponse> => api.get('/auth/me', { signal }).then((res) => res.data),

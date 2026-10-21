@@ -36,23 +36,20 @@ class InviteService:
             "email": invite.email,
         }
 
-    async def get_valid_invite(self, token: str) -> Invite:
+    async def get_valid_invite(self, token: str, *, for_update: bool = False) -> Invite:
         """Возвращает действующее приглашение или 404.
 
         Намеренно один общий ответ для всех причин недействительности
         (не найден / использован / истёк), чтобы не раскрывать, какая
         именно проверка провалилась.
         """
-        result = await self.db.execute(
-            select(Invite).where(Invite.token == token)
-        )
+        query = select(Invite).where(Invite.token == token)
+        if for_update:
+            query = query.with_for_update()
+        result = await self.db.execute(query)
         invite = result.scalar_one_or_none()
 
-        if (
-            not invite
-            or invite.used_at is not None
-            or invite.expires_at <= utcnow()
-        ):
+        if not invite or invite.used_at is not None or invite.expires_at <= utcnow():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=INVITE_INVALID_DETAIL,

@@ -39,9 +39,7 @@ async def fund_org(db_session) -> Organization:
 
 @pytest_asyncio.fixture
 async def fund_admin(db_session, fund_org) -> User:
-    return await make_user(
-        db_session, "fund-admin@test.ru", "admin", fund_org.id, None
-    )
+    return await make_user(db_session, "fund-admin@test.ru", "admin", fund_org.id, None)
 
 
 @pytest_asyncio.fixture
@@ -77,9 +75,7 @@ async def test_create_invite_admin_ok(client, db_session, fund_admin, fund_org):
     assert body["email"] == "startup@test.ru"
 
     invite = (
-        await db_session.execute(
-            select(Invite).where(Invite.token == body["token"])
-        )
+        await db_session.execute(select(Invite).where(Invite.token == body["token"]))
     ).scalar_one()
     assert invite.organization_id == fund_org.id
     assert invite.used_at is None
@@ -155,9 +151,7 @@ async def test_get_invite_info_expired_404(client, db_session, fund_org):
 
 async def test_get_invite_info_used_404(client, db_session, fund_org):
     """Использованное приглашение → 404 (то же сообщение)."""
-    await _add_invite(
-        db_session, fund_org, "used-token", used_at=utcnow()
-    )
+    await _add_invite(db_session, fund_org, "used-token", used_at=utcnow())
 
     resp = await client.get("/api/v1/invites/used-token")
     assert resp.status_code == 404, resp.text
@@ -189,17 +183,13 @@ async def test_register_with_invite(client, db_session, fund_org):
     assert body["subscription_plan"] == "starter"
 
     user = (
-        await db_session.execute(
-            select(User).where(User.email == "invited@test.ru")
-        )
+        await db_session.execute(select(User).where(User.email == "invited@test.ru"))
     ).scalar_one()
     assert user.role == "company"
     assert user.organization_id == fund_org.id
     assert user.company_id == uuid.UUID(body["company_id"])
 
-    company = await db_session.get(
-        Company, uuid.UUID(body["company_id"])
-    )
+    company = await db_session.get(Company, uuid.UUID(body["company_id"]))
     assert company is not None
     assert company.organization_id == fund_org.id
     assert company.name == "Invited Startup"
@@ -213,10 +203,41 @@ async def test_register_with_invite(client, db_session, fund_org):
     ).scalar_one()
     assert invite_after.used_at is not None
 
-    org_count = (
-        await db_session.execute(select(func.count(Organization.id)))
-    ).scalar()
+    org_count = (await db_session.execute(select(func.count(Organization.id)))).scalar()
     assert org_count == 1, "инвайт-ветка не должна создавать организацию"
+
+
+async def test_register_with_bound_invite_email_is_normalized_and_enforced(
+    client, db_session, fund_org
+):
+    await _add_invite(
+        db_session, fund_org, "bound-token", email=" Founder@Example.COM "
+    )
+    mismatch = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "other@example.com",
+            "password": "Password123",
+            "full_name": "Other",
+            "company_name": "Other Co",
+            "invite_token": "bound-token",
+        },
+    )
+    assert mismatch.status_code == 409, mismatch.text
+    assert mismatch.json()["detail"] == "Email не соответствует приглашению"
+
+    matched = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": " founder@example.com ",
+            "password": "Password123",
+            "full_name": "Founder",
+            "company_name": "Bound Co",
+            "invite_token": "bound-token",
+        },
+    )
+    assert matched.status_code == 201, matched.text
+    assert matched.json()["email"] == "founder@example.com"
 
 
 async def test_register_with_used_invite_404(client, db_session, fund_org):
@@ -246,9 +267,7 @@ async def test_register_with_used_invite_404(client, db_session, fund_org):
         },
     )
     assert second.status_code == 404, second.text
-    assert (
-        second.json()["detail"] == "Приглашение недействительно или истекло"
-    )
+    assert second.json()["detail"] == "Приглашение недействительно или истекло"
 
 
 async def test_register_with_unknown_invite_404(client, db_session, fund_org):
@@ -266,7 +285,9 @@ async def test_register_with_unknown_invite_404(client, db_session, fund_org):
     assert resp.status_code == 404, resp.text
 
 
-async def test_register_with_invite_without_company_name_422(client, db_session, fund_org):
+async def test_register_with_invite_without_company_name_422(
+    client, db_session, fund_org
+):
     """Инвайт без company_name отклоняется схемой (422)."""
     await _add_invite(db_session, fund_org, "no-co-token")
 
@@ -282,11 +303,11 @@ async def test_register_with_invite_without_company_name_422(client, db_session,
     assert resp.status_code == 422, resp.text
 
 
-async def test_invite_registration_blocked_at_company_limit(client, db_session, fund_org, fund_admin):
+async def test_invite_registration_blocked_at_company_limit(
+    client, db_session, fund_org, fund_admin
+):
     """Лимит компаний (starter=2) применяется и к инвайт-регистрации (SEC-002)."""
-    db_session.add(
-        Subscription(user_id=fund_admin.id, plan="starter", status="active")
-    )
+    db_session.add(Subscription(user_id=fund_admin.id, plan="starter", status="active"))
     db_session.add_all(
         [
             Company(organization_id=fund_org.id, name="Fund Co 1"),
@@ -309,8 +330,22 @@ async def test_invite_registration_blocked_at_company_limit(client, db_session, 
     assert resp.status_code == 403, resp.text
 
     companies = (
-        await db_session.execute(
-            select(Company).where(Company.organization_id == fund_org.id)
+        (
+            await db_session.execute(
+                select(Company).where(Company.organization_id == fund_org.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(companies) == 2
+    invite = (
+        await db_session.execute(select(Invite).where(Invite.token == "limit-token"))
+    ).scalar_one()
+    assert invite.used_at is None
+    user = (
+        await db_session.execute(
+            select(User).where(User.email == "limit-invite@test.ru")
+        )
+    ).scalar_one_or_none()
+    assert user is None

@@ -1,6 +1,8 @@
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -72,7 +74,25 @@ app = FastAPI(
 
 # Rate limiter integration
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    if request.url.path == "/api/v1/auth/register":
+        logger.info("Registration rejected: category=rate_limited")
+    response = _rate_limit_exceeded_handler(request, exc)
+    response.headers.setdefault("Retry-After", "60")
+    return response
+
+
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    if request.url.path == "/api/v1/auth/register":
+        # Log only the category. exc/input may contain the submitted password.
+        logger.info("Registration rejected: category=validation")
+    return await request_validation_exception_handler(request, exc)
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
 
 # CORS (только разрешённые домены)
 app.add_middleware(

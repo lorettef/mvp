@@ -18,6 +18,11 @@ class UserCreate(BaseModel):
     industry: Optional[str] = Field(None, max_length=100)
     geography: Optional[str] = Field(None, max_length=100)
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
+
     @field_validator("password")
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
@@ -32,14 +37,20 @@ class UserCreate(BaseModel):
     @field_validator("full_name", "company_name")
     @classmethod
     def validate_not_blank(cls, v: str) -> str:
-        if not v.strip():
+        value = v.strip()
+        if not value:
             raise ValueError("field required")
-        return v
+        return value
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
 
 
 class TokenResponse(BaseModel):

@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from app.models.user import User
 from app.models.subscription import Subscription
@@ -12,6 +13,7 @@ from app.core.security import (
     create_access_token,
     dummy_password_hash,
 )
+from app.core.config import settings
 from app.core.time import utcnow
 from app.services.invite_service import InviteService
 from app.services.company_service import CompanyService
@@ -34,12 +36,34 @@ class AuthService:
           типа startup, пользователь — admin и владелец своей компании;
         - фонд (по умолчанию): организация типа fund, пользователь — admin.
         """
-        # Проверка на существующего пользователя
-        existing = await self.db.execute(select(User).where(User.email == data.email))
+        invite = None
+        if data.invite_token:
+            # PostgreSQL keeps this row lock until get_db commits the complete
+            # registration transaction, serializing concurrent consumption.
+            invite = await InviteService(self.db).get_valid_invite(
+                data.invite_token, for_update=True
+            )
+            if invite.email and invite.email.strip().lower() != data.email:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email не соответствует приглашению",
+                )
+            # Validate organization capacity before creating any dependent rows.
+            plan_id = await SubscriptionService(self.db).get_org_plan_id(
+                invite.organization_id
+            )
+            await CompanyService(self.db).enforce_company_limit(
+                invite.organization_id, plan_id
+            )
+
+        # Friendly pre-check; the DB unique constraint remains authoritative.
+        existing = await self.db.execute(
+            select(User).where(func.lower(User.email) == data.email)
+        )
         if existing.scalar_one_or_none():
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Пользователь с таким email уже существует",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Аккаунт с таким email уже существует",
             )
 
         # Создание пользователя
@@ -49,27 +73,24 @@ class AuthService:
             full_name=data.full_name,
             company_name=data.company_name,
         )
-        self.db.add(user)
-        await self.db.flush()
+        try:
+            async with self.db.begin_nested():
+                self.db.add(user)
+                await self.db.flush()
+        except IntegrityError as exc:
+            if self._is_duplicate_email(exc):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Аккаунт с таким email уже существует",
+                ) from exc
+            raise
 
         # Создание бесплатной подписки
         subscription = Subscription(user_id=user.id, plan="starter")
         self.db.add(subscription)
         await self.db.flush()
 
-        if data.invite_token:
-            invite_service = InviteService(self.db)
-            invite = await invite_service.get_valid_invite(data.invite_token)
-
-            # Лимит компаний организации применяется и к инвайт-регистрации:
-            # компания добавляется в организацию администратора, поэтому лимит
-            # берётся по тарифу владельца организации (а не нового пользователя).
-            plan_id = await SubscriptionService(self.db).get_org_plan_id(
-                invite.organization_id
-            )
-            await CompanyService(self.db).enforce_company_limit(
-                invite.organization_id, plan_id
-            )
+        if invite is not None:
 
             user.role = "company"
             user.organization_id = invite.organization_id
@@ -141,9 +162,21 @@ class AuthService:
             "created_at": user.created_at.isoformat(),
         }
 
+    @staticmethod
+    def _is_duplicate_email(exc: IntegrityError) -> bool:
+        """Recognize only the users.email constraint, never all integrity errors."""
+        original = exc.orig
+        constraint = getattr(getattr(original, "diag", None), "constraint_name", None)
+        if constraint in {"users_email_key", "ix_users_email"}:
+            return True
+        return "unique constraint failed: users.email" in str(original).lower()
+
     async def login(self, email: str, password: str) -> dict:
         """Авторизация пользователя."""
-        result = await self.db.execute(select(User).where(User.email == email))
+        normalized_email = email.strip().lower()
+        result = await self.db.execute(
+            select(User).where(func.lower(User.email) == normalized_email)
+        )
         user = result.scalar_one_or_none()
 
         if not user:
@@ -170,5 +203,5 @@ class AuthService:
         return {
             "access_token": access_token,
             "token_type": "bearer",
-            "expires_in": 60 * 24 * 7,
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         }

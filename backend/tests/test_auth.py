@@ -7,6 +7,7 @@ company_id), а не только код ответа; сбрасываем rate
 
 import uuid
 
+import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
@@ -191,3 +192,75 @@ async def test_me_returns_organization_type(client, db_session):
     assert body["organization_type"] == "fund"
     assert body["role"] == "admin"
     assert body["organization_id"] is not None
+
+
+@pytest.mark.parametrize(
+    "password", ["password123", "PASSWORD123", "Password", "Pass1"]
+)
+async def test_register_rejects_passwords_outside_canonical_policy(client, password):
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_register_payload(
+            email=f"weak-{len(password)}-{password[:2]}@test.ru", password=password
+        ),
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"][0]["loc"][-1] == "password"
+
+
+async def test_register_normalizes_identity_fields_and_sets_session_cookie(
+    client, db_session
+):
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_register_payload(
+            email=" Founder@Example.COM ",
+            password="Password123",
+            full_name="  Иван  ",
+            company_name="  Canonical Fund  ",
+        ),
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["email"] == "founder@example.com"
+    assert response.json()["full_name"] == "Иван"
+    assert response.json()["company_name"] == "Canonical Fund"
+    cookie = response.headers["set-cookie"]
+    assert "access_token=" in cookie
+    assert "HttpOnly" in cookie
+    assert "SameSite=lax" in cookie
+    assert "Path=/" in cookie
+
+    token = response.cookies.get("access_token")
+    me = await client.get(
+        "/api/v1/auth/me", headers={"Cookie": f"access_token={token}"}
+    )
+    assert me.status_code == 200, me.text
+    assert me.json()["email"] == "founder@example.com"
+
+
+async def test_login_and_duplicate_email_are_case_insensitive(client):
+    created = await client.post(
+        "/api/v1/auth/register",
+        json=_register_payload(email="case@example.com", password="Password123"),
+    )
+    assert created.status_code == 201
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": " CASE@EXAMPLE.COM ", "password": "Password123"},
+    )
+    assert login.status_code == 200, login.text
+    duplicate = await client.post(
+        "/api/v1/auth/register",
+        json=_register_payload(email="Case@Example.com", password="Password123"),
+    )
+    assert duplicate.status_code == 409, duplicate.text
+    assert duplicate.json()["detail"] == "Аккаунт с таким email уже существует"
+
+
+async def test_register_rejects_names_blank_after_trim(client):
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_register_payload(email="blank@test.ru", full_name="   "),
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"][-1] == "full_name"

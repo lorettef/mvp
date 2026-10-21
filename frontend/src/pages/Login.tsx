@@ -63,18 +63,23 @@ export const Login = () => {
                   {error}
                 </div>
               )}
+              <label htmlFor="email" className="sr-only">{t('auth.login.email')}</label>
               <Input
                 id="email"
                 type="email"
+                inputMode="email"
+                autoComplete="email"
                 required
                 placeholder={t('auth.login.email')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-card border-input"
               />
+              <label htmlFor="password" className="sr-only">{t('auth.login.password')}</label>
               <Input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 required
                 placeholder={t('auth.login.password')}
                 value={password}
